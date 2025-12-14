@@ -1,19 +1,38 @@
-import { signInWithGoogle } from './actions'
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/stores';
+import { signInWithGoogle } from './actions';
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { isLoggedIn, toggleLogin } = useAuthStore();
+
+  const handleTestLogin = () => {
+    toggleLogin();
+    if (!isLoggedIn) {
+      router.push('/');
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8 p-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="max-w-md w-full space-y-8">
+        {/* Logo & Title */}
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">AlphaBoard</h1>
-          <p className="text-gray-600">글로벌 투자 정보 플랫폼</p>
+          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-white font-bold text-2xl">A</span>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">AlphaBoard</h1>
+          <p className="text-gray-500">글로벌 투자 정보 플랫폼</p>
         </div>
 
-        <div className="mt-8 space-y-6">
+        {/* Google Login Button */}
+        <div className="space-y-4">
           <form action={signInWithGoogle}>
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-xl shadow-sm bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
@@ -38,10 +57,34 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="mt-8 text-center text-xs text-gray-500">
-          로그인하면 서비스 이용약관 및 개인정보처리방침에 동의하는 것으로 간주됩니다.
+        {/* Test Mode Toggle */}
+        <div className="bg-gray-100 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-700">테스트 모드</p>
+              <p className="text-xs text-gray-500">개발용 로그인 테스트</p>
+            </div>
+            <button
+              onClick={handleTestLogin}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                isLoggedIn ? 'bg-blue-600' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  isLoggedIn ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Terms */}
+        <p className="text-center text-xs text-gray-400">
+          로그인하면 서비스 이용약관 및 개인정보처리방침에<br />
+          동의하는 것으로 간주됩니다.
         </p>
       </div>
     </div>
-  )
+  );
 }
