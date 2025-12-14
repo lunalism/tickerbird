@@ -21,14 +21,12 @@ export function BottomNav({ activeMenu, onMenuChange }: BottomNavProps) {
             href={item.href}
             className="flex flex-col items-center justify-center flex-1 h-full transition-colors"
           >
-            <div className={`transition-colors ${activeMenu === item.id ? "text-blue-600" : "text-gray-400"}`}>
+            <div className={`transition-colors ${activeMenu === item.id ? "text-blue-500" : "text-gray-400"}`}>
               <MenuIcon icon={item.icon} active={activeMenu === item.id} />
             </div>
-            {activeMenu === item.id && (
-              <span className="text-[10px] font-medium text-blue-600 mt-1 animate-fade-in">
-                {item.label}
-              </span>
-            )}
+            <span className={`text-xs mt-1 ${activeMenu === item.id ? "text-blue-500" : "text-gray-500"}`}>
+              {item.label}
+            </span>
           </Link>
         ))}
       </div>
