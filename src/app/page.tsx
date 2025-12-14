@@ -37,22 +37,20 @@ function CompanyLogo({ domain }: { domain: string }) {
 
   return (
     <div className="absolute bottom-3 right-3">
-      <div className="w-12 h-12 rounded-full bg-white shadow-md flex items-center justify-center overflow-hidden">
-        <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-white">
-          <Image
-            src={logoUrl}
-            alt=""
-            width={40}
-            height={40}
-            sizes="40px"
-            className="w-10 h-10 object-cover"
-            unoptimized
-            onError={() => {
-              console.error(`[Logo] ${domain}: Image load error`);
-              setError(true);
-            }}
-          />
-        </div>
+      <div className="w-11 h-11 rounded-full bg-white shadow-md flex items-center justify-center p-1.5">
+        <Image
+          src={logoUrl}
+          alt=""
+          width={28}
+          height={28}
+          sizes="28px"
+          className="w-7 h-7 object-contain"
+          unoptimized
+          onError={() => {
+            console.error(`[Logo] ${domain}: Image load error`);
+            setError(true);
+          }}
+        />
       </div>
     </div>
   );
