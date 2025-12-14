@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { menuItems } from '@/constants';
 import { MenuIcon } from '@/components/common';
+import { useAuthStore } from '@/stores';
 
 interface BottomNavProps {
   activeMenu: string;
@@ -10,7 +11,9 @@ interface BottomNavProps {
 }
 
 export function BottomNav({ activeMenu, onMenuChange }: BottomNavProps) {
-  // 하단 네비: 뉴스, 시세, 캘린더, 커뮤니티 (4개만)
+  const { isLoggedIn } = useAuthStore();
+
+  // 하단 네비: 뉴스, 시세, 캘린더, 커뮤니티 (4개)
   const bottomMenuIds = ['news', 'market', 'calendar', 'community'];
   const bottomMenuItems = bottomMenuIds
     .map(id => menuItems.find(item => item.id === id))
@@ -33,6 +36,19 @@ export function BottomNav({ activeMenu, onMenuChange }: BottomNavProps) {
             </span>
           </Link>
         ))}
+
+        {/* 로그인/프로필 (로그인 상태에 따라 변경) */}
+        <Link
+          href={isLoggedIn ? "/profile" : "/login"}
+          className="flex flex-col items-center justify-center flex-1 h-full transition-colors"
+        >
+          <div className={`transition-colors ${activeMenu === 'profile' ? "text-blue-500" : "text-gray-400"}`}>
+            <MenuIcon icon="profile" active={activeMenu === 'profile'} />
+          </div>
+          <span className={`text-xs mt-1 ${activeMenu === 'profile' ? "text-blue-500" : "text-gray-500"}`}>
+            {isLoggedIn ? "프로필" : "로그인"}
+          </span>
+        </Link>
       </div>
     </nav>
   );

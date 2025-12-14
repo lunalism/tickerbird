@@ -28,6 +28,7 @@ export function Sidebar({ activeMenu, onMenuChange }: SidebarProps) {
       {/* Menu Items */}
       <nav className="flex-1 flex flex-col gap-1 px-3">
         {menuItems
+          .filter((item) => item.id !== 'profile')
           .filter((item) => item.id !== 'notification' || isLoggedIn)
           .map((item) => (
           <Link
