@@ -5,6 +5,11 @@ export interface CommunityTab {
   label: string;
 }
 
+export interface PostStock {
+  name: string;
+  ticker: string;
+}
+
 export interface Post {
   id: number;
   category: CommunityCategory;
@@ -17,6 +22,7 @@ export interface Post {
   likes: number;
   comments: number;
   isHot: boolean;
+  stock?: PostStock;
 }
 
 export interface HotPost {

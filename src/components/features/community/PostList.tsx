@@ -19,16 +19,23 @@ export function PostList({ posts }: PostListProps) {
         >
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${
-                  CATEGORY_BADGE_COLORS[post.categoryLabel] || 'bg-gray-100 text-gray-700'
-                }`}>
-                  {post.categoryLabel}
-                </span>
-                {post.isHot && (
-                  <span className="flex items-center gap-1 text-xs text-orange-500 font-medium">
-                    <span>🔥</span>
-                    <span>인기</span>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${
+                    CATEGORY_BADGE_COLORS[post.categoryLabel] || 'bg-gray-100 text-gray-700'
+                  }`}>
+                    {post.categoryLabel}
+                  </span>
+                  {post.isHot && (
+                    <span className="flex items-center gap-1 text-xs text-orange-500 font-medium">
+                      <span>🔥</span>
+                      <span>인기</span>
+                    </span>
+                  )}
+                </div>
+                {post.stock && (
+                  <span className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-full transition-colors">
+                    {post.stock.name} {post.stock.ticker}
                   </span>
                 )}
               </div>
