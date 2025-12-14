@@ -6,11 +6,12 @@ import { Sidebar, BottomNav } from '@/components/layout';
 import { MarketTabs } from '@/components/features/market';
 import { LoginPrompt, WatchlistTable } from '@/components/features/watchlist';
 import { watchlistData } from '@/constants';
+import { useAuthStore } from '@/stores';
 
 export default function WatchlistPage() {
   const [activeMenu, setActiveMenu] = useState('watchlist');
   const [activeMarket, setActiveMarket] = useState<MarketRegion>('us');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { isLoggedIn, login } = useAuthStore();
   const [items, setItems] = useState(watchlistData);
 
   const handleDelete = (id: string) => {
@@ -18,10 +19,6 @@ export default function WatchlistPage() {
       ...prev,
       [activeMarket]: prev[activeMarket].filter(item => item.id !== id),
     }));
-  };
-
-  const handleLogin = () => {
-    setIsLoggedIn(true);
   };
 
   return (
@@ -36,32 +33,13 @@ export default function WatchlistPage() {
       <main className="md:pl-[72px] lg:pl-60 transition-all duration-300">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-6">
           {/* Page Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-1">관심종목</h1>
-              <p className="text-gray-500 text-sm">나만의 관심종목을 관리하세요</p>
-            </div>
-
-            {/* Login Test Toggle */}
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-500">로그인 테스트</span>
-              <button
-                onClick={() => setIsLoggedIn(!isLoggedIn)}
-                className={`relative w-12 h-6 rounded-full transition-colors ${
-                  isLoggedIn ? 'bg-blue-600' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                    isLoggedIn ? 'left-7' : 'left-1'
-                  }`}
-                />
-              </button>
-            </div>
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">관심종목</h1>
+            <p className="text-gray-500 text-sm">나만의 관심종목을 관리하세요</p>
           </div>
 
           {!isLoggedIn ? (
-            <LoginPrompt onLogin={handleLogin} />
+            <LoginPrompt onLogin={login} />
           ) : (
             <>
               {/* Market Tabs & Add Button */}

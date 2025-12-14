@@ -14,19 +14,12 @@ import {
   dummyActivitySummary,
   defaultUserSettings,
 } from '@/constants';
+import { useAuthStore } from '@/stores';
 
 export default function ProfilePage() {
   const [activeMenu, setActiveMenu] = useState('profile');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { isLoggedIn, toggleLogin, login, logout } = useAuthStore();
   const [settings, setSettings] = useState<UserSettings>(defaultUserSettings);
-
-  const handleLogin = () => {
-    setIsLoggedIn(true);
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-  };
 
   const handleEditProfile = () => {
     alert('프로필 수정 기능은 준비 중입니다.');
@@ -54,7 +47,7 @@ export default function ProfilePage() {
             <div className="flex items-center gap-3">
               <span className="text-xs text-gray-500">로그인 테스트</span>
               <button
-                onClick={() => setIsLoggedIn(!isLoggedIn)}
+                onClick={toggleLogin}
                 className={`relative w-12 h-6 rounded-full transition-colors ${
                   isLoggedIn ? 'bg-blue-600' : 'bg-gray-300'
                 }`}
@@ -69,7 +62,7 @@ export default function ProfilePage() {
           </div>
 
           {!isLoggedIn ? (
-            <ProfileLoginPrompt onLogin={handleLogin} />
+            <ProfileLoginPrompt onLogin={login} />
           ) : (
             <div className="space-y-6">
               {/* Profile Card */}
@@ -82,7 +75,7 @@ export default function ProfilePage() {
               <SettingsSection
                 settings={settings}
                 onSettingsChange={setSettings}
-                onLogout={handleLogout}
+                onLogout={logout}
               />
             </div>
           )}
