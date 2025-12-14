@@ -43,6 +43,7 @@ function CompanyLogo({ domain }: { domain: string }) {
           alt=""
           width={40}
           height={40}
+          sizes="40px"
           className="w-10 h-10 object-contain"
           unoptimized
           onError={() => {
@@ -435,6 +436,7 @@ function NewsCard({ news }: { news: typeof newsData[0] }) {
           src={news.imageUrl}
           alt={news.title}
           fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, (max-width: 1440px) 33vw, 25vw"
           className="object-cover group-hover:scale-105 transition-transform duration-300"
         />
         {/* Category Badge on Image */}
