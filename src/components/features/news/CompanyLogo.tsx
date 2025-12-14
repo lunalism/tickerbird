@@ -5,11 +5,18 @@ import Image from "next/image";
 
 interface CompanyLogoProps {
   domain: string;
+  logoType?: 'logo' | 'symbol' | 'icon';
 }
 
-export function CompanyLogo({ domain }: CompanyLogoProps) {
+export function CompanyLogo({ domain, logoType }: CompanyLogoProps) {
   const [error, setError] = useState(false);
-  const logoUrl = `https://logo.clearbit.com/${domain}`;
+
+  // Brandfetch Logo Link API
+  const clientId = process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID;
+  const typePath = logoType ? `/${logoType}` : '';
+  const logoUrl = clientId
+    ? `https://cdn.brandfetch.io/${domain}${typePath}?c=${clientId}`
+    : `https://cdn.brandfetch.io/${domain}${typePath}`;
 
   if (error) {
     return null;
@@ -17,14 +24,14 @@ export function CompanyLogo({ domain }: CompanyLogoProps) {
 
   return (
     <div className="absolute bottom-3 right-3">
-      <div className="w-12 h-12 rounded-full bg-white shadow-md flex items-center justify-center p-1.5">
+      <div className="w-12 h-12 rounded-full bg-white shadow-md flex items-center justify-center overflow-hidden">
         <Image
           src={logoUrl}
           alt={domain}
-          width={36}
-          height={36}
-          sizes="36px"
-          className="w-9 h-9 object-contain rounded-full"
+          width={48}
+          height={48}
+          sizes="48px"
+          className="w-12 h-12 object-cover"
           unoptimized
           onError={() => setError(true)}
         />

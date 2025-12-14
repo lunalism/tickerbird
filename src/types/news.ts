@@ -1,5 +1,7 @@
 export type NewsType = 'institution' | 'company';
 
+export type LogoType = 'logo' | 'symbol' | 'icon';
+
 export interface NewsItem {
   id: number;
   category: string;
@@ -19,6 +21,7 @@ export interface NewsItem {
   views: number;
   imageUrl: string;
   companyDomain?: string;
+  companyLogoType?: LogoType;
 }
 
 export interface Category {

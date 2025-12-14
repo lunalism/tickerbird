@@ -52,7 +52,7 @@ export function NewsCard({ news }: NewsCardProps) {
             </div>
           </div>
         ) : news.type === 'company' && news.companyDomain ? (
-          <CompanyLogo domain={news.companyDomain} />
+          <CompanyLogo domain={news.companyDomain} logoType={news.companyLogoType} />
         ) : null}
       </div>
 

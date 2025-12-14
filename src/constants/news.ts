@@ -57,6 +57,7 @@ export const newsData: NewsItem[] = [
     views: 8234,
     imageUrl: "https://images.unsplash.com/photo-1639322537228-f710d846310a?w=600&h=338&fit=crop",
     companyDomain: "nvidia.com",
+    companyLogoType: "symbol",
   },
   {
     id: 4,
