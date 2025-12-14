@@ -36,18 +36,17 @@ export async function GET(
 
     const data = await response.json();
 
-    // Find the best logo (prefer icon or logo)
+    // Find the best logo (prefer symbol > icon > logo for small circular display)
     let logoUrl: string | null = null;
 
-    // Try to find icon first (better for small display)
+    const symbols = data.logos?.filter((logo: { type: string }) => logo.type === "symbol") || [];
     const icons = data.logos?.filter((logo: { type: string }) => logo.type === "icon") || [];
     const logos = data.logos?.filter((logo: { type: string }) => logo.type === "logo") || [];
 
-    // Get the first available format from icons or logos
+    // Get the first available format (prefer PNG > SVG > others)
     const findBestFormat = (logoArray: { formats: { src: string; format: string }[] }[]) => {
       for (const logo of logoArray) {
         if (logo.formats && logo.formats.length > 0) {
-          // Prefer PNG or SVG
           const png = logo.formats.find((f: { format: string }) => f.format === "png");
           const svg = logo.formats.find((f: { format: string }) => f.format === "svg");
           return png?.src || svg?.src || logo.formats[0]?.src;
@@ -56,7 +55,8 @@ export async function GET(
       return null;
     };
 
-    logoUrl = findBestFormat(icons) || findBestFormat(logos);
+    // Priority: symbol (best for small circular) > icon > logo
+    logoUrl = findBestFormat(symbols) || findBestFormat(icons) || findBestFormat(logos);
 
     if (!logoUrl) {
       return NextResponse.json(

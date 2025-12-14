@@ -117,7 +117,7 @@ const newsData = [
     downvotes: 67,
     views: 12453,
     imageUrl: "https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=600&h=338&fit=crop",
-    companyDomain: "blackrock.com",
+    companyDomain: "bitcoin.org",
   },
   {
     id: 5,
