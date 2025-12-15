@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { NewsItem } from '@/types';
 import { getCategoryColor } from '@/utils';
 import { CategoryIcon, CompanyLogo, FlagLogo } from '@/components/common';
@@ -20,8 +21,8 @@ export function NewsCard({ news }: NewsCardProps) {
 
   return (
     <article className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col h-full group">
-      {/* Thumbnail Image */}
-      <div className="relative aspect-video overflow-hidden bg-gray-100">
+      {/* Thumbnail Image - 클릭 시 상세 페이지 이동 */}
+      <Link href={`/news/${news.id}`} className="relative aspect-video overflow-hidden bg-gray-100 block">
         <Image
           src={news.imageUrl}
           alt={news.title}
@@ -46,7 +47,7 @@ export function NewsCard({ news }: NewsCardProps) {
             <CompanyLogo domain={news.companyDomain} size="lg" />
           </div>
         ) : null}
-      </div>
+      </Link>
 
       {/* Content */}
       <div className="flex-1 p-4 flex flex-col">
@@ -55,10 +56,12 @@ export function NewsCard({ news }: NewsCardProps) {
           <span className="text-xs text-gray-400">{news.time} · {news.countryFlag} {news.source}</span>
         </div>
 
-        {/* Title - 사용자 설정 크기 적용 */}
-        <h2 className={`${FONT_SIZE_MAP.card.title[titleSize]} font-bold text-gray-900 mb-2 leading-snug line-clamp-2 hover:text-blue-600 cursor-pointer transition-colors`}>
-          {news.title}
-        </h2>
+        {/* Title - 사용자 설정 크기 적용, 클릭 시 상세 페이지 이동 */}
+        <Link href={`/news/${news.id}`}>
+          <h2 className={`${FONT_SIZE_MAP.card.title[titleSize]} font-bold text-gray-900 mb-2 leading-snug line-clamp-2 hover:text-blue-600 cursor-pointer transition-colors`}>
+            {news.title}
+          </h2>
+        </Link>
 
         {/* Tags */}
         <div className="flex items-center gap-2 mb-2">

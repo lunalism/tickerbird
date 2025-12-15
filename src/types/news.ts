@@ -14,6 +14,8 @@ export interface NewsItem {
   title: string;
   tags: string[];
   summary: string;
+  content?: string;      // 기사 본문 (상세 페이지용)
+  sourceUrl?: string;    // 원문 링크
   likes: number;
   comments: number;
   upvotes: number;
