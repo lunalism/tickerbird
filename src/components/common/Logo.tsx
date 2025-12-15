@@ -53,45 +53,6 @@ const radiusMap: Record<LogoSize, string> = {
   xl: 'rounded-2xl',
 };
 
-// 배경색이 있는 로고를 가진 기업 도메인 목록 (꽉 채우기)
-const LOGOS_WITH_BACKGROUND = [
-  'samsung.com',
-  'skhynix.com',
-  'nvidia.com',
-  'microsoft.com',
-  'kakaocorp.com',
-  'navercorp.com',
-  'intel.com',
-  'amd.com',
-  'oracle.com',
-  'ibm.com',
-  'cisco.com',
-  'qualcomm.com',
-  'broadcom.com',
-  'tsmc.com',
-  'asml.com',
-  'sap.com',
-  'salesforce.com',
-  'adobe.com',
-  'netflix.com',
-  'visa.com',
-  'mastercard.com',
-  'paypal.com',
-  'coinbase.com',
-  'binance.com',
-  'uber.com',
-  'lyft.com',
-  'airbnb.com',
-  'booking.com',
-];
-
-/**
- * 로고에 배경색이 있는지 확인
- */
-function hasLogoBackground(domain: string): boolean {
-  return LOGOS_WITH_BACKGROUND.some(d => domain.toLowerCase().includes(d.toLowerCase()));
-}
-
 /**
  * 기업 로고 URL 생성 (Brandfetch CDN)
  */
@@ -162,7 +123,7 @@ export function Logo({ type, src, alt = '', size = 'md', className = '' }: LogoP
     );
   }
 
-  // 국기: 여백 없이 꽉 채움
+  // 국기: 원형 SVG를 확대해서 라운드 사각형으로 클리핑
   if (type === 'flag') {
     return (
       <div
@@ -170,16 +131,23 @@ export function Logo({ type, src, alt = '', size = 'md', className = '' }: LogoP
           ${radius}
           overflow-hidden
           flex-shrink-0
+          bg-gray-100
           ${className}
         `}
         style={{ width: pixelSize, height: pixelSize }}
       >
+        {/* 원형 국기를 140% 확대해서 사각형 컨테이너를 채움 */}
         <Image
           src={imageUrl}
           alt={alt || src}
-          width={pixelSize}
-          height={pixelSize}
-          className="w-full h-full object-cover"
+          width={Math.round(pixelSize * 1.4)}
+          height={Math.round(pixelSize * 1.4)}
+          className="object-cover scale-[1.4]"
+          style={{
+            width: pixelSize,
+            height: pixelSize,
+            objectFit: 'cover'
+          }}
           unoptimized
           onError={() => setError(true)}
         />
@@ -187,9 +155,7 @@ export function Logo({ type, src, alt = '', size = 'md', className = '' }: LogoP
     );
   }
 
-  // 기업 로고: 배경색 유무에 따라 다른 스타일 적용
-  const hasBackground = hasLogoBackground(src);
-
+  // 기업 로고: 여백 없이 꽉 채움
   return (
     <div
       className={`
@@ -203,31 +169,15 @@ export function Logo({ type, src, alt = '', size = 'md', className = '' }: LogoP
       `}
       style={{ width: pixelSize, height: pixelSize }}
     >
-      {hasBackground ? (
-        // 배경색 있는 로고: 여백 없이 꽉 채움
-        <Image
-          src={imageUrl}
-          alt={alt || src}
-          width={pixelSize}
-          height={pixelSize}
-          className="w-full h-full object-cover"
-          unoptimized
-          onError={() => setError(true)}
-        />
-      ) : (
-        // 배경색 없는 로고: 약간의 여백 (5%)으로 85-90% 크기
-        <div className="w-full h-full flex items-center justify-center p-[5%]">
-          <Image
-            src={imageUrl}
-            alt={alt || src}
-            width={pixelSize}
-            height={pixelSize}
-            className="w-full h-full object-contain"
-            unoptimized
-            onError={() => setError(true)}
-          />
-        </div>
-      )}
+      <Image
+        src={imageUrl}
+        alt={alt || src}
+        width={pixelSize}
+        height={pixelSize}
+        className="w-full h-full object-cover"
+        unoptimized
+        onError={() => setError(true)}
+      />
     </div>
   );
 }
