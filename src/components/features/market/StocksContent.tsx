@@ -7,6 +7,7 @@
  */
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { MarketRegion, StockSector, Stock } from '@/types';
 import { stocksBySector, sectorTabs } from '@/constants';
 import { CompanyLogo } from '@/components/common';
@@ -53,6 +54,8 @@ function SectorFilter({
  * 필터링된 주식 목록을 테이블 형태로 표시
  */
 function StockTable({ stocks, market }: { stocks: Stock[]; market: MarketRegion }) {
+  const router = useRouter();
+
   // 가격 포맷팅 (국가별 통화 형식)
   const formatPrice = (price: number) => {
     if (market === 'kr') {
@@ -100,6 +103,7 @@ function StockTable({ stocks, market }: { stocks: Stock[]; market: MarketRegion 
               return (
                 <tr
                   key={stock.ticker}
+                  onClick={() => router.push(`/market/${stock.ticker}`)}
                   className="border-b border-gray-50 dark:border-gray-700 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors cursor-pointer"
                 >
                   {/* 순위 */}
@@ -160,13 +164,13 @@ export function StocksContent({ market }: StocksContentProps) {
   // 현재 선택된 섹터 상태
   const [activeSector, setActiveSector] = useState<StockSector>('all');
 
-  // 전체 주식 데이터
-  const allStocks = stocksBySector[market];
+  // 전체 주식 데이터 (방어적 코딩)
+  const allStocks = stocksBySector[market] || [];
 
   // 섹터별 필터링
   const filteredStocks = activeSector === 'all'
     ? allStocks
-    : allStocks.filter(stock => stock.sector === activeSector);
+    : allStocks.filter(stock => stock.sector && stock.sector === activeSector);
 
   return (
     <section>

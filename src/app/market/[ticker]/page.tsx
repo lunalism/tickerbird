@@ -11,11 +11,9 @@
  * - 관련 뉴스
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -149,26 +147,27 @@ export default function AssetDetailPage({ params }: { params: Promise<{ ticker: 
   const router = useRouter();
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('1M');
 
-  // React 19 use() for params - using useMemo for client component
-  const [ticker, setTicker] = useState<string>('');
-  const [asset, setAsset] = useState<AssetDetail | null>(null);
-  const [news, setNews] = useState<RelatedNews[]>([]);
+  // React 19 use() hook for params
+  const { ticker } = use(params);
 
-  // params 해결
-  useMemo(() => {
-    params.then((p) => {
-      setTicker(p.ticker);
-      const assetData = getAssetDetail(p.ticker);
-      setAsset(assetData);
-      setNews(getRelatedNews(p.ticker));
-    });
-  }, [params]);
+  // 종목 데이터 가져오기
+  const asset = getAssetDetail(ticker);
+  const news = getRelatedNews(ticker);
 
-  // 로딩 상태
+  // 종목 없음 상태
   if (!asset) {
     return (
       <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-gray-500 dark:text-gray-400">로딩 중...</div>
+        <div className="text-center">
+          <p className="text-gray-500 dark:text-gray-400 mb-2">종목을 찾을 수 없습니다</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500">티커: {ticker}</p>
+          <button
+            onClick={() => router.back()}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            뒤로 가기
+          </button>
+        </div>
       </div>
     );
   }
