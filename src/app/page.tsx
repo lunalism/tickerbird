@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { newsData } from '@/constants';
 import { Sidebar, BottomNav } from '@/components/layout';
-import { SearchBar, CategoryTabs } from '@/components/ui';
+import { CategoryTabs } from '@/components/ui';
 import { NewsCard } from '@/components/features/news';
+import { MobileSearchHeader, GlobalSearch } from '@/components/features/search';
 
 export default function Home() {
   const [activeCategory, setActiveCategory] = useState("all");
@@ -12,6 +13,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900">
+      {/* 모바일 헤더 (검색 포함) */}
+      <MobileSearchHeader title="뉴스" />
+
       {/* Sidebar - hidden on mobile */}
       <Sidebar activeMenu={activeMenu} onMenuChange={setActiveMenu} />
 
@@ -19,16 +23,19 @@ export default function Home() {
       <BottomNav activeMenu={activeMenu} onMenuChange={setActiveMenu} />
 
       {/* Main Content */}
-      <main className="md:pl-[72px] lg:pl-60 transition-all duration-300">
+      <main className="md:pl-[72px] lg:pl-60 transition-all duration-300 pt-14 md:pt-0">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-6">
-          {/* Search Bar */}
-          <div className="mb-6 max-w-2xl">
-            <SearchBar />
-          </div>
+          {/* 카테고리 탭 + 검색바 영역 */}
+          <div className="mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            {/* Category Tabs */}
+            <div className="flex-1 min-w-0">
+              <CategoryTabs activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
+            </div>
 
-          {/* Category Tabs */}
-          <div className="mb-6">
-            <CategoryTabs activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
+            {/* 데스크톱 검색바 (lg 이상에서만 표시) */}
+            <div className="hidden lg:block w-72 flex-shrink-0">
+              <GlobalSearch compact />
+            </div>
           </div>
 
           {/* News Feed Grid */}

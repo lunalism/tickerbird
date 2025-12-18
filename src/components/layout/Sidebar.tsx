@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { menuItems } from '@/constants';
 import { MenuIcon } from '@/components/common';
 import { useAuthStore } from '@/stores';
@@ -12,6 +13,7 @@ interface SidebarProps {
 
 export function Sidebar({ activeMenu, onMenuChange }: SidebarProps) {
   const { isLoggedIn, userName } = useAuthStore();
+  const router = useRouter();
 
   return (
     <aside className="fixed left-0 top-0 h-screen bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 hidden md:flex flex-col py-4 z-50 transition-all duration-300 w-[72px] lg:w-60">
@@ -23,6 +25,34 @@ export function Sidebar({ activeMenu, onMenuChange }: SidebarProps) {
           </div>
           <span className="text-xl font-bold text-gray-900 dark:text-white hidden lg:block">AlphaBoard</span>
         </Link>
+      </div>
+
+      {/* 검색 버튼 - 태블릿 (md~lg) 에서만 표시, 데스크톱(lg+)에서는 메인 콘텐츠에 검색바 있음 */}
+      <div className="px-3 mb-4 lg:hidden">
+        <button
+          type="button"
+          onClick={() => router.push('/search')}
+          className="group relative w-full h-10 rounded-xl flex items-center justify-center bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          title="검색"
+        >
+          <svg
+            className="w-5 h-5 text-gray-500 dark:text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+          {/* 툴팁 */}
+          <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50">
+            검색
+          </div>
+        </button>
       </div>
 
       {/* Menu Items */}

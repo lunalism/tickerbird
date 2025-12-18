@@ -23,6 +23,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { MarketRegion, MarketCategory, MarketType } from '@/types';
 import { Sidebar, BottomNav } from '@/components/layout';
+import { MobileSearchHeader, GlobalSearch } from '@/components/features/search';
 import {
   MarketTabs,
   MarketTypeTabs,
@@ -176,6 +177,9 @@ function MarketContent() {
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900">
+      {/* 모바일 헤더 (검색 포함) */}
+      <MobileSearchHeader title="시세" />
+
       {/* Sidebar - 모바일에서 숨김 */}
       <Sidebar activeMenu={activeMenu} onMenuChange={setActiveMenu} />
 
@@ -183,12 +187,18 @@ function MarketContent() {
       <BottomNav activeMenu={activeMenu} onMenuChange={setActiveMenu} />
 
       {/* 메인 콘텐츠 영역 */}
-      <main className="md:pl-[72px] lg:pl-60 transition-all duration-300">
+      <main className="md:pl-[72px] lg:pl-60 transition-all duration-300 pt-14 md:pt-0">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-6">
-          {/* 페이지 헤더 */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">시세</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">실시간 글로벌 시장 정보</p>
+          {/* 페이지 헤더 + 검색바 */}
+          <div className="mb-6 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">시세</h1>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">실시간 글로벌 시장 정보</p>
+            </div>
+            {/* 데스크톱 검색바 (lg 이상에서만 표시) */}
+            <div className="hidden lg:block w-72 flex-shrink-0">
+              <GlobalSearch compact />
+            </div>
           </div>
 
           {/* 1차 탭: 국가별 시장 / 글로벌 시장 */}

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { Sidebar, BottomNav } from '@/components/layout';
+import { MobileSearchHeader, GlobalSearch } from '@/components/features/search';
 import { CompanyLogo, FlagLogo } from '@/components/common';
 import {
   MonthlyCalendar,
@@ -149,6 +150,9 @@ export default function CalendarPage() {
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900">
+      {/* 모바일 헤더 (검색 포함) */}
+      <MobileSearchHeader title="캘린더" />
+
       {/* 사이드바 - 모바일에서 숨김 */}
       <Sidebar activeMenu={activeMenu} onMenuChange={setActiveMenu} />
 
@@ -156,14 +160,20 @@ export default function CalendarPage() {
       <BottomNav activeMenu={activeMenu} onMenuChange={setActiveMenu} />
 
       {/* 메인 콘텐츠 */}
-      <main className="md:pl-[72px] lg:pl-60 transition-all duration-300">
+      <main className="md:pl-[72px] lg:pl-60 transition-all duration-300 pt-14 md:pt-0">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-6">
-          {/* ========== 페이지 헤더 ========== */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">경제 캘린더</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">
-              주요 경제 이벤트 일정을 확인하세요
-            </p>
+          {/* ========== 페이지 헤더 + 검색바 ========== */}
+          <div className="mb-6 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">경제 캘린더</h1>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
+                주요 경제 이벤트 일정을 확인하세요
+              </p>
+            </div>
+            {/* 데스크톱 검색바 (lg 이상에서만 표시) */}
+            <div className="hidden lg:block w-72 flex-shrink-0">
+              <GlobalSearch compact />
+            </div>
           </div>
 
           {/* ========== 카테고리 필터 (공통) ========== */}
