@@ -7,6 +7,7 @@ import { MarketTabs } from '@/components/features/market';
 import { LoginPrompt, WatchlistTable } from '@/components/features/watchlist';
 import { watchlistData } from '@/constants';
 import { useAuthStore } from '@/stores';
+import { showSuccess } from '@/lib/toast';
 
 export default function WatchlistPage() {
   const [activeMenu, setActiveMenu] = useState('watchlist');
@@ -19,6 +20,7 @@ export default function WatchlistPage() {
       ...prev,
       [activeMarket]: prev[activeMarket].filter(item => item.id !== id),
     }));
+    showSuccess('관심종목에서 삭제되었습니다');
   };
 
   return (

@@ -141,3 +141,116 @@ body {
   );
   background-size: 200% 100%;
 }
+
+/* ========================================
+   Toast 알림 스타일 (sonner)
+   ======================================== */
+
+/**
+ * 토스트 타입별 커스텀 스타일
+ *
+ * - success: 초록색 계열
+ * - error: 빨간색 계열
+ * - warning: 노란색 계열
+ * - info: 파란색 계열
+ */
+
+/* 성공 토스트: 초록색 */
+.toast-success {
+  --toast-bg: #ecfdf5 !important;
+  --toast-border: #a7f3d0 !important;
+  --toast-text: #065f46 !important;
+}
+
+.dark .toast-success {
+  --toast-bg: rgba(6, 78, 59, 0.3) !important;
+  --toast-border: #065f46 !important;
+  --toast-text: #a7f3d0 !important;
+}
+
+/* 에러 토스트: 빨간색 */
+.toast-error {
+  --toast-bg: #fef2f2 !important;
+  --toast-border: #fecaca !important;
+  --toast-text: #991b1b !important;
+}
+
+.dark .toast-error {
+  --toast-bg: rgba(127, 29, 29, 0.3) !important;
+  --toast-border: #7f1d1d !important;
+  --toast-text: #fecaca !important;
+}
+
+/* 경고 토스트: 노란색 */
+.toast-warning {
+  --toast-bg: #fffbeb !important;
+  --toast-border: #fde68a !important;
+  --toast-text: #92400e !important;
+}
+
+.dark .toast-warning {
+  --toast-bg: rgba(120, 53, 15, 0.3) !important;
+  --toast-border: #78350f !important;
+  --toast-text: #fde68a !important;
+}
+
+/* 정보 토스트: 파란색 */
+.toast-info {
+  --toast-bg: #eff6ff !important;
+  --toast-border: #bfdbfe !important;
+  --toast-text: #1e40af !important;
+}
+
+.dark .toast-info {
+  --toast-bg: rgba(30, 58, 138, 0.3) !important;
+  --toast-border: #1e3a8a !important;
+  --toast-text: #bfdbfe !important;
+}
+
+/* 토스트 공통 스타일 */
+[data-sonner-toast] {
+  background: var(--toast-bg, var(--card-bg)) !important;
+  border: 1px solid var(--toast-border, var(--border-color)) !important;
+  color: var(--toast-text, var(--foreground)) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+.dark [data-sonner-toast] {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 토스트 설명 텍스트 */
+[data-sonner-toast] [data-description] {
+  color: var(--toast-text, var(--text-secondary)) !important;
+  opacity: 0.8;
+}
+
+/* 토스트 닫기 버튼 */
+[data-sonner-toast] [data-close-button] {
+  background: transparent !important;
+  border: 1px solid var(--toast-border, var(--border-color)) !important;
+  color: var(--toast-text, var(--foreground)) !important;
+}
+
+[data-sonner-toast] [data-close-button]:hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+}
+
+.dark [data-sonner-toast] [data-close-button]:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 모바일 반응형: 하단 중앙 배치 */
+@media (max-width: 768px) {
+  [data-sonner-toaster] {
+    bottom: 80px !important; /* 하단 네비게이션 위 */
+    top: auto !important;
+    right: 16px !important;
+    left: 16px !important;
+    --offset: 16px !important;
+  }
+
+  [data-sonner-toaster] [data-sonner-toast] {
+    width: 100% !important;
+  }
+}

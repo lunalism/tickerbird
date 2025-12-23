@@ -16,6 +16,7 @@ import {
   defaultUserSettings,
 } from '@/constants';
 import { useAuthStore } from '@/stores';
+import { showSuccess, showError, showWarning, showInfo } from '@/lib/toast';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function ProfilePage() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const handleEditProfile = () => {
-    alert('프로필 수정 기능은 준비 중입니다.');
+    showInfo('프로필 수정 기능은 준비 중입니다');
   };
 
   const handleTestToggle = () => {
@@ -46,11 +47,22 @@ export default function ProfilePage() {
   const handleLogoutConfirm = () => {
     logout();
     setShowLogoutModal(false);
+    showSuccess('로그아웃되었습니다');
     router.push('/');
   };
 
   const handleLogoutCancel = () => {
     setShowLogoutModal(false);
+  };
+
+  /**
+   * 설정 변경 핸들러
+   * 설정이 변경되면 토스트로 알림을 표시합니다.
+   */
+  const handleSettingsChange = (newSettings: UserSettings) => {
+    setSettings(newSettings);
+    // 설정 저장 완료 토스트
+    showSuccess('설정이 저장되었습니다');
   };
 
   return (
@@ -99,12 +111,15 @@ export default function ProfilePage() {
               {/* Activity Summary */}
               <ActivitySummaryCard activity={dummyActivitySummary} />
 
-              {/* Settings */}
+              {/* Settings - 설정 변경 시 토스트 표시 */}
               <SettingsSection
                 settings={settings}
-                onSettingsChange={setSettings}
+                onSettingsChange={handleSettingsChange}
                 onLogout={handleLogoutClick}
               />
+
+              {/* ========== 토스트 테스트 섹션 ========== */}
+              <ToastTestSection />
             </div>
           )}
         </div>
@@ -140,6 +155,71 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * 토스트 테스트 섹션 컴포넌트
+ *
+ * 4가지 타입의 토스트를 테스트할 수 있는 버튼을 제공합니다.
+ * - 성공 (success): 초록색
+ * - 에러 (error): 빨간색
+ * - 경고 (warning): 노란색
+ * - 정보 (info): 파란색
+ */
+function ToastTestSection() {
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6">
+      {/* 섹션 헤더 */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+          <span className="text-xl">🔔</span>
+        </div>
+        <div>
+          <h3 className="font-semibold text-gray-900 dark:text-white">토스트 테스트</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">각 타입의 토스트 알림을 테스트해보세요</p>
+        </div>
+      </div>
+
+      {/* 토스트 버튼들 */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* 성공 토스트 버튼 */}
+        <button
+          onClick={() => showSuccess('작업이 성공적으로 완료되었습니다', '변경사항이 저장되었습니다')}
+          className="flex flex-col items-center gap-2 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+        >
+          <span className="text-2xl">✅</span>
+          <span className="text-sm font-medium text-green-700 dark:text-green-400">성공</span>
+        </button>
+
+        {/* 에러 토스트 버튼 */}
+        <button
+          onClick={() => showError('오류가 발생했습니다', '잠시 후 다시 시도해주세요')}
+          className="flex flex-col items-center gap-2 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+        >
+          <span className="text-2xl">❌</span>
+          <span className="text-sm font-medium text-red-700 dark:text-red-400">에러</span>
+        </button>
+
+        {/* 경고 토스트 버튼 */}
+        <button
+          onClick={() => showWarning('주의가 필요합니다', '저장 공간이 부족합니다')}
+          className="flex flex-col items-center gap-2 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors"
+        >
+          <span className="text-2xl">⚠️</span>
+          <span className="text-sm font-medium text-yellow-700 dark:text-yellow-400">경고</span>
+        </button>
+
+        {/* 정보 토스트 버튼 */}
+        <button
+          onClick={() => showInfo('새로운 기능 안내', '다크모드가 추가되었습니다')}
+          className="flex flex-col items-center gap-2 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+        >
+          <span className="text-2xl">ℹ️</span>
+          <span className="text-sm font-medium text-blue-700 dark:text-blue-400">정보</span>
+        </button>
+      </div>
     </div>
   );
 }
