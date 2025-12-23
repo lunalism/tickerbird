@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { Sidebar, BottomNav } from '@/components/layout';
 import { MobileSearchHeader, GlobalSearch } from '@/components/features/search';
+import { GlossaryCardSkeletonGrid } from '@/components/skeleton';
 import { glossaryTerms, glossaryCategoryFilters } from '@/constants';
 import { GlossaryCategory, GlossaryTerm } from '@/types';
 
@@ -23,6 +24,27 @@ export default function GlossaryPage() {
   const [activeCategory, setActiveCategory] = useState<GlossaryCategory | 'all'>('all');
   const [sortBy, setSortBy] = useState<'alphabet' | 'korean'>('alphabet');
   const [expandedTermId, setExpandedTermId] = useState<string | null>(null);
+
+  // ========== 로딩 상태 관리 ==========
+  // isLoading: 데이터 로딩 중 여부
+  const [isLoading, setIsLoading] = useState(true);
+
+  /**
+   * 데이터 로딩 시뮬레이션
+   *
+   * 실제 API 호출 시에는 이 부분을 fetch/axios로 대체합니다.
+   * 테스트용으로 2초 딜레이를 추가했습니다.
+   *
+   * TODO: 실제 API 연동 시 아래 코드를 수정하세요
+   */
+  useEffect(() => {
+    // 테스트용 2초 딜레이 (실제 배포 시 제거)
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // ========== 필터링 및 정렬 ==========
   const filteredAndSortedTerms = useMemo(() => {
@@ -190,26 +212,33 @@ export default function GlossaryPage() {
 
           {/* ========== 검색 결과 수 ========== */}
           <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-            총 <span className="font-semibold text-gray-900 dark:text-white">{filteredAndSortedTerms.length}</span>개의
-            용어
+            총 <span className="font-semibold text-gray-900 dark:text-white">
+              {isLoading ? '-' : filteredAndSortedTerms.length}
+            </span>개의 용어
           </div>
 
-          {/* ========== 용어 카드 그리드 ========== */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredAndSortedTerms.map((term) => (
-              <GlossaryCard
-                key={term.id}
-                term={term}
-                isExpanded={expandedTermId === term.id}
-                onToggle={() => toggleExpand(term.id)}
-                getCategoryEmoji={getCategoryEmoji}
-                getCategoryLabel={getCategoryLabel}
-              />
-            ))}
-          </div>
+          {/* ========== 용어 카드 그리드 - 로딩 중이면 스켈레톤 ========== */}
+          {isLoading ? (
+            // 로딩 스켈레톤 (6개의 용어 카드 플레이스홀더)
+            <GlossaryCardSkeletonGrid count={6} />
+          ) : (
+            // 실제 데이터
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredAndSortedTerms.map((term) => (
+                <GlossaryCard
+                  key={term.id}
+                  term={term}
+                  isExpanded={expandedTermId === term.id}
+                  onToggle={() => toggleExpand(term.id)}
+                  getCategoryEmoji={getCategoryEmoji}
+                  getCategoryLabel={getCategoryLabel}
+                />
+              ))}
+            </div>
+          )}
 
           {/* ========== 빈 상태 ========== */}
-          {filteredAndSortedTerms.length === 0 && (
+          {!isLoading && filteredAndSortedTerms.length === 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-12 text-center">
               <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-3xl">🔍</span>

@@ -39,6 +39,7 @@ import {
   ForexContent,
   GlobalOverviewContent,
 } from '@/components/features/market';
+import { IndexCardSkeletonGrid, StockTableSkeleton } from '@/components/skeleton';
 import { marketIndices, popularStocks, topGainers, topLosers } from '@/constants';
 
 /**
@@ -59,6 +60,28 @@ function MarketContent() {
   const [activeType, setActiveType] = useState<MarketType>(initialType);
   const [activeMarket, setActiveMarket] = useState<MarketRegion>(initialCountry);
   const [activeCategory, setActiveCategory] = useState<MarketCategory>(initialCategory);
+
+  // ========== 로딩 상태 관리 ==========
+  // isLoading: 데이터 로딩 중 여부
+  const [isLoading, setIsLoading] = useState(true);
+
+  /**
+   * 데이터 로딩 시뮬레이션
+   *
+   * 실제 API 호출 시에는 이 부분을 fetch/axios로 대체합니다.
+   * 테스트용으로 2초 딜레이를 추가했습니다.
+   *
+   * TODO: 실제 API 연동 시 아래 코드를 수정하세요
+   */
+  useEffect(() => {
+    setIsLoading(true);
+    // 테스트용 2초 딜레이 (실제 배포 시 제거)
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [activeType, activeMarket, activeCategory]);
 
   /**
    * URL 쿼리 파라미터 업데이트
@@ -106,9 +129,50 @@ function MarketContent() {
   const currentLosers = topLosers[activeMarket];
 
   /**
+   * 로딩 스켈레톤 렌더링 (국가별 시장)
+   */
+  const renderCountrySkeleton = () => (
+    <>
+      {/* 주요 지수 스켈레톤 */}
+      <section className="mb-8">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">주요 지수</h2>
+        <IndexCardSkeletonGrid count={4} />
+      </section>
+
+      {/* 인기 종목 스켈레톤 */}
+      <section className="mb-8">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">인기 종목</h2>
+        <StockTableSkeleton rowCount={10} />
+      </section>
+    </>
+  );
+
+  /**
+   * 로딩 스켈레톤 렌더링 (글로벌 시장)
+   */
+  const renderGlobalSkeleton = () => (
+    <>
+      {/* 지수 카드 스켈레톤 */}
+      <section className="mb-8">
+        <IndexCardSkeletonGrid count={4} />
+      </section>
+
+      {/* 테이블 스켈레톤 */}
+      <section>
+        <StockTableSkeleton rowCount={10} />
+      </section>
+    </>
+  );
+
+  /**
    * 국가별 시장 콘텐츠 렌더링
    */
   const renderCountryContent = () => {
+    // 로딩 중이면 스켈레톤 표시
+    if (isLoading) {
+      return renderCountrySkeleton();
+    }
+
     switch (activeCategory) {
       // 전체: 지수 + 인기 종목 + 등락률
       case 'all':
@@ -156,6 +220,11 @@ function MarketContent() {
    * 글로벌 시장 콘텐츠 렌더링
    */
   const renderGlobalContent = () => {
+    // 로딩 중이면 스켈레톤 표시
+    if (isLoading) {
+      return renderGlobalSkeleton();
+    }
+
     switch (activeCategory) {
       // 전체: 암호화폐 + 원자재 + 환율 요약
       case 'all':
@@ -222,8 +291,37 @@ function MarketContent() {
             />
           </div>
 
-          {/* 콘텐츠 영역 */}
+          {/* 콘텐츠 영역 - 로딩 상태에 따라 스켈레톤 또는 실제 데이터 표시 */}
           {activeType === 'country' ? renderCountryContent() : renderGlobalContent()}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/**
+ * 시세 페이지 로딩 스켈레톤 (Suspense fallback용)
+ */
+function MarketPageSkeleton() {
+  return (
+    <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900">
+      <main className="md:pl-[72px] lg:pl-60 transition-all duration-300 pt-14 md:pt-0">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-6">
+          {/* 헤더 스켈레톤 */}
+          <div className="mb-6">
+            <div className="h-8 w-24 bg-gray-200 dark:bg-gray-700 rounded-lg mb-2 skeleton-shimmer" />
+            <div className="h-4 w-48 bg-gray-200 dark:bg-gray-700 rounded skeleton-shimmer" />
+          </div>
+
+          {/* 지수 카드 스켈레톤 */}
+          <section className="mb-8">
+            <IndexCardSkeletonGrid count={4} />
+          </section>
+
+          {/* 테이블 스켈레톤 */}
+          <section>
+            <StockTableSkeleton rowCount={10} />
+          </section>
         </div>
       </main>
     </div>
@@ -236,11 +334,7 @@ function MarketContent() {
  */
 export default function MarketPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-gray-500 dark:text-gray-400">로딩 중...</div>
-      </div>
-    }>
+    <Suspense fallback={<MarketPageSkeleton />}>
       <MarketContent />
     </Suspense>
   );

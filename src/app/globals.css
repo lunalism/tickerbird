@@ -89,3 +89,55 @@ body {
 .animate-fade-in {
   animation: fade-in 0.2s ease-out forwards;
 }
+
+/* ========================================
+   Skeleton Shimmer 애니메이션
+   ======================================== */
+
+/**
+ * Shimmer 효과 키프레임
+ *
+ * 왼쪽에서 오른쪽으로 빛나는 그라데이션이 이동합니다.
+ * - 시작: 왼쪽 밖 (-100%)
+ * - 끝: 오른쪽 밖 (100%)
+ */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/**
+ * Skeleton Shimmer 클래스
+ *
+ * 라이트 모드: 회색 배경에 밝은 하이라이트
+ * 다크 모드: 어두운 배경에 약간 밝은 하이라이트
+ */
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  /* 그라데이션 배경으로 shimmer 효과 생성 */
+  background: linear-gradient(
+    90deg,
+    /* 라이트 모드 색상 */
+    #e5e7eb 0%,      /* gray-200: 기본 배경 */
+    #f3f4f6 50%,     /* gray-100: 하이라이트 */
+    #e5e7eb 100%     /* gray-200: 기본 배경 */
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* 다크 모드 shimmer */
+.dark .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    #374151 0%,      /* gray-700: 기본 배경 */
+    #4b5563 50%,     /* gray-600: 하이라이트 */
+    #374151 100%     /* gray-700: 기본 배경 */
+  );
+  background-size: 200% 100%;
+}

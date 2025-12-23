@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Sidebar, BottomNav } from '@/components/layout';
 import { MobileSearchHeader, GlobalSearch } from '@/components/features/search';
 import { CompanyLogo, FlagLogo } from '@/components/common';
@@ -11,6 +11,7 @@ import {
   CalendarNavigation,
   MobileEventCard,
 } from '@/components/features/calendar';
+import { EventCardSkeletonList, EventDetailPanelSkeleton, Skeleton } from '@/components/skeleton';
 import { calendarEvents, eventCategoryFilters } from '@/constants';
 import { EventCategory, CalendarEvent } from '@/types';
 
@@ -34,6 +35,27 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(
     new Date().toISOString().split('T')[0]
   );
+
+  // ========== 로딩 상태 관리 ==========
+  // isLoading: 데이터 로딩 중 여부
+  const [isLoading, setIsLoading] = useState(true);
+
+  /**
+   * 데이터 로딩 시뮬레이션
+   *
+   * 실제 API 호출 시에는 이 부분을 fetch/axios로 대체합니다.
+   * 테스트용으로 2초 딜레이를 추가했습니다.
+   *
+   * TODO: 실제 API 연동 시 아래 코드를 수정하세요
+   */
+  useEffect(() => {
+    // 테스트용 2초 딜레이 (실제 배포 시 제거)
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // ========== 필터링된 이벤트 ==========
   const filteredEvents = useMemo(() => {
@@ -148,6 +170,34 @@ export default function CalendarPage() {
     }
   };
 
+  /**
+   * 캘린더 스켈레톤 렌더링
+   */
+  const renderCalendarSkeleton = () => (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
+      {/* 월/주 헤더 스켈레톤 */}
+      <div className="flex justify-between items-center mb-4">
+        <Skeleton width={120} height={24} rounded="md" />
+        <div className="flex gap-2">
+          <Skeleton width={32} height={32} rounded="lg" />
+          <Skeleton width={32} height={32} rounded="lg" />
+        </div>
+      </div>
+      {/* 요일 헤더 */}
+      <div className="grid grid-cols-7 gap-2 mb-2">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <Skeleton key={i} height={20} rounded="md" />
+        ))}
+      </div>
+      {/* 날짜 그리드 */}
+      <div className="grid grid-cols-7 gap-2">
+        {Array.from({ length: 35 }).map((_, i) => (
+          <Skeleton key={i} height={60} rounded="lg" />
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900">
       {/* 모바일 헤더 (검색 포함) */}
@@ -212,18 +262,26 @@ export default function CalendarPage() {
             <div className="grid grid-cols-3 gap-6">
               {/* 왼쪽: 월간 캘린더 (2/3) */}
               <div className="col-span-2">
-                <MonthlyCalendar
-                  currentDate={currentDate}
-                  events={filteredEvents}
-                  selectedDate={selectedDate}
-                  onSelectDate={handleSelectDate}
-                  activeFilter={activeFilter}
-                />
+                {isLoading ? (
+                  renderCalendarSkeleton()
+                ) : (
+                  <MonthlyCalendar
+                    currentDate={currentDate}
+                    events={filteredEvents}
+                    selectedDate={selectedDate}
+                    onSelectDate={handleSelectDate}
+                    activeFilter={activeFilter}
+                  />
+                )}
               </div>
 
               {/* 오른쪽: 이벤트 상세 패널 (1/3) */}
               <div className="col-span-1">
-                <EventDetailPanel selectedDate={selectedDate} events={selectedDateEvents} />
+                {isLoading ? (
+                  <EventDetailPanelSkeleton />
+                ) : (
+                  <EventDetailPanel selectedDate={selectedDate} events={selectedDateEvents} />
+                )}
               </div>
             </div>
           </div>
@@ -243,12 +301,16 @@ export default function CalendarPage() {
             </div>
 
             {/* 주간 캘린더 */}
-            <WeeklyCalendar
-              currentDate={currentDate}
-              events={filteredEvents}
-              selectedDate={selectedDate}
-              onSelectDate={handleSelectDate}
-            />
+            {isLoading ? (
+              <EventCardSkeletonList count={5} />
+            ) : (
+              <WeeklyCalendar
+                currentDate={currentDate}
+                events={filteredEvents}
+                selectedDate={selectedDate}
+                onSelectDate={handleSelectDate}
+              />
+            )}
           </div>
 
           {/* ========== 모바일 뷰 (767px 이하) ========== */}
@@ -269,36 +331,41 @@ export default function CalendarPage() {
               </div>
             </div>
 
-            <div className="space-y-8">
-              {Object.entries(eventsByMonth)
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([month, events]) => (
-                  <section key={month}>
-                    {/* 월 헤더 */}
-                    <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-                      {formatMonth(month)}
-                    </h2>
+            {/* 로딩 중이면 스켈레톤, 완료되면 실제 데이터 */}
+            {isLoading ? (
+              <EventCardSkeletonList count={5} />
+            ) : (
+              <div className="space-y-8">
+                {Object.entries(eventsByMonth)
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .map(([month, events]) => (
+                    <section key={month}>
+                      {/* 월 헤더 */}
+                      <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+                        {formatMonth(month)}
+                      </h2>
 
-                    {/* 이벤트 목록 (아코디언 카드) */}
-                    <div className="space-y-3">
-                      {events.map((event) => {
-                        const { day, weekday } = formatDate(event.date);
-                        return (
-                          <MobileEventCard
-                            key={event.id}
-                            event={event}
-                            day={day}
-                            weekday={weekday}
-                          />
-                        );
-                      })}
-                    </div>
-                  </section>
-                ))}
-            </div>
+                      {/* 이벤트 목록 (아코디언 카드) */}
+                      <div className="space-y-3">
+                        {events.map((event) => {
+                          const { day, weekday } = formatDate(event.date);
+                          return (
+                            <MobileEventCard
+                              key={event.id}
+                              event={event}
+                              day={day}
+                              weekday={weekday}
+                            />
+                          );
+                        })}
+                      </div>
+                    </section>
+                  ))}
+              </div>
+            )}
 
             {/* 빈 상태 */}
-            {filteredEvents.length === 0 && (
+            {!isLoading && filteredEvents.length === 0 && (
               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-12 text-center">
                 <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
                   <span className="text-3xl">📅</span>
