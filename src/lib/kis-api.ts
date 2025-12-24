@@ -45,11 +45,46 @@ const KIS_BASE_URL = process.env.KIS_BASE_URL || 'https://openapi.koreainvestmen
 
 /**
  * 토큰 캐시 (서버 메모리에 저장)
+ *
+ * @description
+ * 한국투자증권 API는 토큰 발급에 1분당 1회 제한이 있으므로
+ * 토큰을 캐싱하여 재사용해야 합니다.
+ *
+ * 캐싱 전략:
+ * 1. 토큰은 24시간(86400초) 유효
+ * 2. 만료 10분 전까지 캐시된 토큰 재사용
+ * 3. 동시 요청 시 중복 발급 방지 (Promise 기반 락)
+ * 4. Rate limit 에러(EGW00133) 발생 시 1분 대기 후 재시도
+ *
+ * 주의사항:
  * - Next.js API Routes는 서버리스 환경에서 실행될 수 있으므로
- *   완벽한 캐싱이 보장되지 않음
+ *   인스턴스가 재시작되면 캐시가 초기화됨
  * - 프로덕션에서는 Redis 등 외부 캐시 사용 권장
  */
 let tokenCache: CachedToken | null = null;
+
+/**
+ * 토큰 발급 진행 중인 Promise
+ *
+ * @description
+ * 여러 API가 동시에 호출될 때 토큰 발급이 중복되지 않도록
+ * 첫 번째 요청만 실제 발급을 수행하고, 나머지는 대기 후 결과를 공유합니다.
+ *
+ * 동작 방식:
+ * 1. 첫 번째 요청: tokenPromise가 null → 토큰 발급 시작, Promise 저장
+ * 2. 동시 요청: tokenPromise가 존재 → 기존 Promise 대기
+ * 3. 발급 완료: Promise resolve, tokenPromise를 null로 초기화
+ */
+let tokenPromise: Promise<string> | null = null;
+
+/**
+ * Rate limit 에러 발생 시간
+ *
+ * @description
+ * 토큰 발급 rate limit(1분당 1회)에 걸린 경우
+ * 1분 동안 추가 발급 시도를 차단합니다.
+ */
+let rateLimitUntil: Date | null = null;
 
 /**
  * 환경변수 검증
@@ -66,32 +101,63 @@ function validateEnv(): void {
 }
 
 /**
- * 접근토큰 발급
+ * 캐시된 토큰이 유효한지 확인
  *
  * @description
- * POST /oauth2/tokenP 엔드포인트로 토큰 발급
- * - 토큰은 24시간(86400초) 유효
- * - 1분당 1회 발급 제한이 있으므로 캐싱 필수
+ * 토큰 만료 10분 전까지는 유효하다고 판단합니다.
+ * 이를 통해 만료 직전 API 호출 중 토큰이 만료되는 것을 방지합니다.
  *
- * @see https://apiportal.koreainvestment.com/apiservice/oauth2#L_5c87ba63-740a-4166-93ac-803510f9571d
+ * @returns 유효한 토큰이 있으면 토큰 문자열, 없으면 null
+ */
+function getCachedTokenIfValid(): string | null {
+  if (!tokenCache) return null;
+
+  const now = new Date();
+  const bufferTime = 10 * 60 * 1000; // 10분 버퍼 (만료 10분 전에 갱신)
+
+  if (tokenCache.expiresAt.getTime() - bufferTime > now.getTime()) {
+    return tokenCache.accessToken;
+  }
+
+  console.log('[KIS API] 토큰 만료 임박, 재발급 필요');
+  return null;
+}
+
+/**
+ * Rate limit 상태인지 확인
+ *
+ * @description
+ * 토큰 발급 rate limit(1분당 1회)에 걸린 경우
+ * 에러가 발생한 시점부터 1분 동안 true를 반환합니다.
+ *
+ * @returns rate limit 상태면 true
+ */
+function isRateLimited(): boolean {
+  if (!rateLimitUntil) return false;
+
+  const now = new Date();
+  if (now < rateLimitUntil) {
+    const remainingSeconds = Math.ceil((rateLimitUntil.getTime() - now.getTime()) / 1000);
+    console.log(`[KIS API] Rate limit 상태, ${remainingSeconds}초 후 재시도 가능`);
+    return true;
+  }
+
+  // Rate limit 해제
+  rateLimitUntil = null;
+  return false;
+}
+
+/**
+ * 실제 토큰 발급 수행 (내부 함수)
+ *
+ * @description
+ * 한국투자증권 OAuth2 토큰 발급 API를 호출합니다.
+ * 이 함수는 직접 호출하지 않고 getAccessToken()을 통해 호출됩니다.
  *
  * @returns 접근토큰
  * @throws 토큰 발급 실패 시 에러
  */
-export async function getAccessToken(): Promise<string> {
-  validateEnv();
-
-  // 캐시된 토큰이 유효한지 확인 (만료 10분 전까지 유효하다고 판단)
-  if (tokenCache) {
-    const now = new Date();
-    const bufferTime = 10 * 60 * 1000; // 10분 버퍼
-    if (tokenCache.expiresAt.getTime() - bufferTime > now.getTime()) {
-      console.log('[KIS API] 캐시된 토큰 사용');
-      return tokenCache.accessToken;
-    }
-    console.log('[KIS API] 토큰 만료 임박, 재발급 필요');
-  }
-
+async function fetchNewToken(): Promise<string> {
   console.log('[KIS API] 새 토큰 발급 중...');
 
   const response = await fetch(`${KIS_BASE_URL}/oauth2/tokenP`, {
@@ -105,6 +171,21 @@ export async function getAccessToken(): Promise<string> {
       appsecret: KIS_APP_SECRET,
     }),
   });
+
+  // Rate limit 에러 처리 (EGW00133: 1분당 1회 제한)
+  if (response.status === 403) {
+    const errorText = await response.text();
+    console.error('[KIS API] 토큰 발급 실패 (Rate Limit):', errorText);
+
+    // Rate limit 에러 코드 확인
+    if (errorText.includes('EGW00133')) {
+      // 1분 동안 추가 발급 시도 차단
+      rateLimitUntil = new Date(Date.now() + 60 * 1000);
+      console.log('[KIS API] Rate limit 설정, 해제 시간:', rateLimitUntil.toISOString());
+    }
+
+    throw new Error(`토큰 발급 실패 (Rate Limit): ${response.status} ${errorText}`);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -128,12 +209,111 @@ export async function getAccessToken(): Promise<string> {
 }
 
 /**
+ * 접근토큰 발급 (동시 요청 처리 포함)
+ *
+ * @description
+ * POST /oauth2/tokenP 엔드포인트로 토큰 발급
+ * - 토큰은 24시간(86400초) 유효
+ * - 1분당 1회 발급 제한이 있으므로 캐싱 필수
+ * - 동시 요청 시 중복 발급 방지 (Promise 기반 락)
+ *
+ * 동작 흐름:
+ * 1. 캐시된 토큰이 유효하면 즉시 반환
+ * 2. Rate limit 상태면 에러 throw
+ * 3. 다른 요청이 토큰 발급 중이면 해당 Promise 대기
+ * 4. 첫 번째 요청만 실제 토큰 발급 수행
+ * 5. 발급 완료 후 모든 대기 중인 요청에 결과 전달
+ *
+ * @see https://apiportal.koreainvestment.com/apiservice/oauth2#L_5c87ba63-740a-4166-93ac-803510f9571d
+ *
+ * @returns 접근토큰
+ * @throws 토큰 발급 실패 시 에러
+ */
+export async function getAccessToken(): Promise<string> {
+  validateEnv();
+
+  // 1단계: 캐시된 토큰이 유효하면 즉시 반환
+  const cachedToken = getCachedTokenIfValid();
+  if (cachedToken) {
+    console.log('[KIS API] 캐시된 토큰 사용');
+    return cachedToken;
+  }
+
+  // 2단계: Rate limit 상태 확인
+  if (isRateLimited()) {
+    // Rate limit 상태지만 캐시된 토큰이 있으면 사용 (만료 임박해도)
+    if (tokenCache) {
+      console.log('[KIS API] Rate limit 상태, 기존 토큰 사용 (만료 임박)');
+      return tokenCache.accessToken;
+    }
+    throw new Error(
+      '토큰 발급 rate limit 상태입니다. 1분 후 다시 시도해주세요. ' +
+      '(EGW00133: 접근토큰 발급 1분당 1회 제한)'
+    );
+  }
+
+  // 3단계: 다른 요청이 토큰 발급 중이면 대기
+  if (tokenPromise) {
+    console.log('[KIS API] 다른 요청이 토큰 발급 중, 대기...');
+    try {
+      return await tokenPromise;
+    } catch {
+      // 다른 요청이 실패해도 캐시된 토큰이 있으면 사용
+      if (tokenCache) {
+        console.log('[KIS API] 토큰 발급 실패, 기존 토큰 사용');
+        return tokenCache.accessToken;
+      }
+      throw new Error('토큰 발급 대기 중 에러 발생');
+    }
+  }
+
+  // 4단계: 토큰 발급 시작 (첫 번째 요청만)
+  tokenPromise = fetchNewToken()
+    .finally(() => {
+      // 5단계: 발급 완료 후 Promise 초기화
+      // 다음 만료 시점에 새로운 발급 요청을 받을 수 있도록
+      tokenPromise = null;
+    });
+
+  return tokenPromise;
+}
+
+/**
  * 토큰 캐시 강제 초기화
- * (토큰이 유효하지 않을 때 사용)
+ *
+ * @description
+ * 토큰이 유효하지 않을 때 (401 에러 등) 사용합니다.
+ * 캐시된 토큰, 진행 중인 Promise, rate limit 상태를 모두 초기화합니다.
+ *
+ * 주의: rate limit도 초기화되므로 API 호출이 연속적으로 실패할 경우
+ * rate limit 에러가 발생할 수 있습니다.
  */
 export function clearTokenCache(): void {
   tokenCache = null;
-  console.log('[KIS API] 토큰 캐시 초기화됨');
+  tokenPromise = null;
+  rateLimitUntil = null;
+  console.log('[KIS API] 토큰 캐시 초기화됨 (캐시, Promise, rate limit 모두 초기화)');
+}
+
+/**
+ * 토큰 캐시 상태 확인 (디버깅용)
+ *
+ * @returns 토큰 캐시 상태 정보
+ */
+export function getTokenCacheStatus(): {
+  hasToken: boolean;
+  expiresAt: Date | null;
+  isRateLimited: boolean;
+  rateLimitUntil: Date | null;
+  isPending: boolean;
+} {
+  return {
+    hasToken: !!tokenCache,
+    expiresAt: tokenCache?.expiresAt || null,
+    isRateLimited: isRateLimited(),
+    rateLimitUntil: rateLimitUntil,
+    isPending: !!tokenPromise,
+  };
 }
 
 // ==================== 공통 헤더 ====================
