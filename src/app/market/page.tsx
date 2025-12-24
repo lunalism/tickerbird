@@ -31,6 +31,7 @@ import {
   IndexCard,
   StockTable,
   TopMovers,
+  VolumeMovers,
   IndicesContent,
   StocksContent,
   ETFContent,
@@ -342,9 +343,37 @@ function MarketContent() {
           );
         }
 
+        // ========== 거래량/거래대금 TOP 데이터 준비 ==========
+        // 거래량순위 API 데이터를 활용하여 거래량/거래대금 기준 정렬
+        // 거래량순위: volume 기준 정렬 (API 기본값)
+        // 거래대금순위: tradingValue 기준 정렬
+        const volumeTop5 = activeMarket === 'kr' && volumeRankingData.length > 0
+          ? volumeRankingData.slice(0, 5).map(item => ({
+              name: item.name,
+              ticker: item.symbol,
+              changePercent: item.changePercent,
+              volume: item.volume,
+              tradingValue: item.tradingValue,
+            }))
+          : [];
+
+        // 거래대금 기준으로 정렬 후 상위 5개 추출
+        const tradingValueTop5 = activeMarket === 'kr' && volumeRankingData.length > 0
+          ? [...volumeRankingData]
+              .sort((a, b) => b.tradingValue - a.tradingValue)
+              .slice(0, 5)
+              .map(item => ({
+                name: item.name,
+                ticker: item.symbol,
+                changePercent: item.changePercent,
+                volume: item.volume,
+                tradingValue: item.tradingValue,
+              }))
+          : [];
+
         return (
           <>
-            {/* 주요 지수 섹션 */}
+            {/* ========== 주요 지수 섹션 ========== */}
             <section className="mb-8">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 주요 지수
@@ -361,10 +390,12 @@ function MarketContent() {
               </div>
             </section>
 
-            {/* 인기 종목 (거래량 TOP) 섹션 */}
+            {/* ========== 인기 종목 섹션 (테이블 형태) ========== */}
+            {/* 한국 시장: 거래량순위 API 데이터 (상위 10개) */}
+            {/* 다른 시장: 목업 데이터 */}
             <section className="mb-8">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                {activeMarket === 'kr' ? '거래량 TOP' : '인기 종목'}
+                인기 종목
                 {activeMarket === 'kr' && (
                   <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">
                     실시간
@@ -374,18 +405,21 @@ function MarketContent() {
               <StockTable stocks={currentStocks} market={activeMarket} />
             </section>
 
-            {/* 등락률 TOP 섹션 */}
-            <section>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                등락률 TOP
-                {activeMarket === 'kr' && (
-                  <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">
-                    실시간
-                  </span>
-                )}
-              </h2>
+            {/* ========== 상승/하락 TOP 섹션 ========== */}
+            {/* 한국 시장: 등락률순위 API 데이터 (상위 5개씩) */}
+            {/* 2열 그리드: 상승 TOP 5 / 하락 TOP 5 */}
+            <section className="mb-8">
               <TopMovers gainers={currentGainers} losers={currentLosers} />
             </section>
+
+            {/* ========== 거래량/거래대금 TOP 섹션 (한국 시장만) ========== */}
+            {/* 거래량순위 API 데이터를 활용하여 두 가지 기준으로 정렬 */}
+            {/* 2열 그리드: 거래량 TOP 5 / 거래대금 TOP 5 */}
+            {activeMarket === 'kr' && volumeTop5.length > 0 && (
+              <section>
+                <VolumeMovers volumeData={volumeTop5} tradingValueData={tradingValueTop5} />
+              </section>
+            )}
           </>
         );
 
