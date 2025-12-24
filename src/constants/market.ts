@@ -362,3 +362,119 @@ export const forexData: Forex[] = [
   { id: 'eurjpy', pair: 'EUR/JPY', name: '유로/엔', rate: 161.28, change: 0.45, changePercent: 0.28, chartData: [160.8, 160.9, 161, 161.1, 161.15, 161.2, 161.25, 161.27, 161.28] },
   { id: 'audusd', pair: 'AUD/USD', name: '호주달러/달러', rate: 0.6378, change: -0.0018, changePercent: -0.28, chartData: [0.64, 0.639, 0.639, 0.638, 0.638, 0.638, 0.638, 0.638, 0.6378] },
 ];
+
+// ==================== 한국 ETF 종목 리스트 (API 조회용) ====================
+/**
+ * 한국 ETF 종목 코드 리스트
+ *
+ * 카테고리별로 분류되어 있으며, 한국투자증권 API를 통해 실시간 시세 조회 가능
+ * 종목코드는 6자리 숫자 형식 (예: 069500)
+ *
+ * 카테고리:
+ * 1. index: 지수 추종 ETF (코스피200, 코스닥150 등)
+ * 2. leverage: 레버리지/인버스 ETF
+ * 3. sector: 섹터/테마 ETF (반도체, 2차전지 등)
+ * 4. overseas: 해외지수 ETF (미국, 중국 등)
+ * 5. bond: 채권/원자재 ETF
+ *
+ * @see https://apiportal.koreainvestment.com - 한국투자증권 API
+ */
+export interface KoreanETFInfo {
+  /** 종목코드 (6자리) */
+  symbol: string;
+  /** ETF 이름 */
+  name: string;
+  /** 카테고리 */
+  category: 'index' | 'leverage' | 'sector' | 'overseas' | 'bond';
+  /** 운용사 (삼성, 미래에셋 등) - 표시용 */
+  issuer: string;
+}
+
+/**
+ * 한국 ETF 종목 리스트 (카테고리별)
+ *
+ * 총 28개 종목:
+ * - 지수 추종: 6개
+ * - 레버리지/인버스: 6개
+ * - 섹터/테마: 6개
+ * - 해외지수: 6개
+ * - 채권/원자재: 4개
+ */
+export const koreanETFList: KoreanETFInfo[] = [
+  // ========== 지수 추종 ETF ==========
+  // 코스피, 코스닥 등 국내 주요 지수를 추종하는 ETF
+  { symbol: '069500', name: 'KODEX 200', category: 'index', issuer: '삼성' },
+  { symbol: '102110', name: 'TIGER 200', category: 'index', issuer: '미래에셋' },
+  { symbol: '229200', name: 'KODEX 코스닥150', category: 'index', issuer: '삼성' },
+  { symbol: '251340', name: 'KODEX 코스닥150선물인버스', category: 'index', issuer: '삼성' },
+  { symbol: '148020', name: 'KBSTAR 200', category: 'index', issuer: 'KB' },
+  { symbol: '292150', name: 'TIGER TOP10', category: 'index', issuer: '미래에셋' },
+
+  // ========== 레버리지/인버스 ETF ==========
+  // 지수 대비 2배 수익률 또는 역방향 수익률 추구
+  { symbol: '122630', name: 'KODEX 레버리지', category: 'leverage', issuer: '삼성' },
+  { symbol: '252670', name: 'KODEX 200선물인버스2X', category: 'leverage', issuer: '삼성' },
+  { symbol: '114800', name: 'KODEX 인버스', category: 'leverage', issuer: '삼성' },
+  { symbol: '233740', name: 'KODEX 코스닥150레버리지', category: 'leverage', issuer: '삼성' },
+  { symbol: '123320', name: 'TIGER 레버리지', category: 'leverage', issuer: '미래에셋' },
+  { symbol: '123310', name: 'TIGER 인버스', category: 'leverage', issuer: '미래에셋' },
+
+  // ========== 섹터/테마 ETF ==========
+  // 특정 산업이나 테마에 집중 투자
+  { symbol: '091230', name: 'TIGER 반도체', category: 'sector', issuer: '미래에셋' },
+  { symbol: '305720', name: 'KODEX 2차전지산업', category: 'sector', issuer: '삼성' },
+  { symbol: '091180', name: 'KODEX 자동차', category: 'sector', issuer: '삼성' },
+  { symbol: '140710', name: 'KODEX 운송', category: 'sector', issuer: '삼성' },
+  { symbol: '266370', name: 'KODEX 바이오', category: 'sector', issuer: '삼성' },
+  { symbol: '139260', name: 'TIGER 금융', category: 'sector', issuer: '미래에셋' },
+
+  // ========== 해외지수 ETF ==========
+  // 미국, 중국 등 해외 주요 지수에 투자
+  { symbol: '360750', name: 'TIGER 미국S&P500', category: 'overseas', issuer: '미래에셋' },
+  { symbol: '379810', name: 'KODEX 미국나스닥100TR', category: 'overseas', issuer: '삼성' },
+  { symbol: '371460', name: 'TIGER 차이나전기차SOLACTIVE', category: 'overseas', issuer: '미래에셋' },
+  { symbol: '143850', name: 'TIGER 미국S&P500선물(H)', category: 'overseas', issuer: '미래에셋' },
+  { symbol: '133690', name: 'TIGER 미국나스닥100', category: 'overseas', issuer: '미래에셋' },
+  { symbol: '381180', name: 'TIGER 미국테크TOP10 INDXX', category: 'overseas', issuer: '미래에셋' },
+
+  // ========== 채권/원자재 ETF ==========
+  // 채권, 금, 원유 등에 투자
+  { symbol: '148070', name: 'KOSEF 국고채10년', category: 'bond', issuer: '키움' },
+  { symbol: '132030', name: 'KODEX 골드선물(H)', category: 'bond', issuer: '삼성' },
+  { symbol: '261220', name: 'KODEX WTI원유선물(H)', category: 'bond', issuer: '삼성' },
+  { symbol: '130730', name: 'KOSEF 단기자금', category: 'bond', issuer: '키움' },
+];
+
+/**
+ * ETF 카테고리 라벨 (UI 표시용)
+ */
+export const etfCategoryLabels: Record<KoreanETFInfo['category'], string> = {
+  index: '지수 추종',
+  leverage: '레버리지/인버스',
+  sector: '섹터/테마',
+  overseas: '해외지수',
+  bond: '채권/원자재',
+};
+
+/**
+ * 특정 카테고리의 ETF 목록 반환
+ *
+ * @param category - ETF 카테고리
+ * @returns 해당 카테고리의 ETF 목록
+ *
+ * @example
+ * getETFsByCategory('sector'); // 섹터/테마 ETF 목록 반환
+ */
+export function getETFsByCategory(category: KoreanETFInfo['category']): KoreanETFInfo[] {
+  return koreanETFList.filter(etf => etf.category === category);
+}
+
+/**
+ * 모든 ETF 종목코드 배열 반환
+ * API 일괄 조회 시 사용
+ *
+ * @returns 종목코드 배열
+ */
+export function getAllETFSymbols(): string[] {
+  return koreanETFList.map(etf => etf.symbol);
+}

@@ -684,3 +684,135 @@ export function useMarketCapRanking(
 
   return { data, isLoading, error, refetch: fetchData };
 }
+
+// ==================== 한국 ETF 훅 ====================
+
+import type { KoreanETFInfo } from '@/constants';
+
+/**
+ * ETF 시세 데이터 타입 (API 응답)
+ *
+ * StockPriceData를 기반으로 ETF 정보를 추가
+ */
+export interface ETFPriceData extends StockPriceData {
+  /** ETF 이름 (한글) */
+  name: string;
+  /** ETF 카테고리 */
+  category: KoreanETFInfo['category'];
+  /** 운용사 */
+  issuer: string;
+}
+
+/**
+ * ETF API 응답 타입
+ */
+interface ETFPricesApiResponse {
+  /** 조회 성공한 ETF 목록 */
+  data: ETFPriceData[];
+  /** 조회 실패한 ETF 목록 (종목코드) */
+  failed: string[];
+  /** 조회 시각 */
+  timestamp: string;
+  /** 조회한 카테고리 */
+  category: string;
+}
+
+interface UseKoreanETFsResult {
+  /** ETF 시세 데이터 배열 */
+  etfs: ETFPriceData[];
+  /** 로딩 상태 */
+  isLoading: boolean;
+  /** 에러 메시지 */
+  error: string | null;
+  /** 수동 새로고침 함수 */
+  refetch: () => Promise<void>;
+  /** 조회 실패한 종목코드 목록 */
+  failedSymbols: string[];
+}
+
+/**
+ * 한국 ETF 시세 데이터 훅
+ *
+ * 한국투자증권 API를 통해 ETF 시세를 조회합니다.
+ * 카테고리별 필터링이 가능합니다.
+ *
+ * @param category ETF 카테고리 ('all' | 'index' | 'leverage' | 'sector' | 'overseas' | 'bond')
+ * @param options 옵션 (autoRefresh, refreshInterval)
+ * @returns ETF 시세 데이터, 로딩 상태, 에러, refetch 함수, 실패 종목
+ *
+ * @example
+ * ```tsx
+ * // 전체 ETF 조회
+ * const { etfs, isLoading, error, refetch } = useKoreanETFs();
+ *
+ * // 해외지수 ETF만 조회
+ * const { etfs, isLoading } = useKoreanETFs('overseas');
+ *
+ * // 자동 새로고침 활성화
+ * const { etfs } = useKoreanETFs('all', { autoRefresh: true, refreshInterval: 60000 });
+ * ```
+ *
+ * @see /api/kis/etf/prices - API 엔드포인트
+ */
+export function useKoreanETFs(
+  category: 'all' | 'index' | 'leverage' | 'sector' | 'overseas' | 'bond' = 'all',
+  options?: {
+    autoRefresh?: boolean;
+    refreshInterval?: number;
+  }
+): UseKoreanETFsResult {
+  const { autoRefresh = false, refreshInterval = DEFAULT_REFRESH_INTERVAL } = options || {};
+
+  const [etfs, setEtfs] = useState<ETFPriceData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [failedSymbols, setFailedSymbols] = useState<string[]>([]);
+
+  /**
+   * ETF 데이터 가져오기
+   */
+  const fetchETFs = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // ETF 시세 배치 조회 API 호출
+      const response = await fetch(`/api/kis/etf/prices?category=${category}`);
+      const result: ETFPricesApiResponse = await response.json();
+
+      if (response.ok && result.data) {
+        setEtfs(result.data);
+        setFailedSymbols(result.failed || []);
+
+        // 모든 ETF 조회 실패 시 에러 표시
+        if (result.data.length === 0) {
+          setError('ETF 시세 데이터를 가져올 수 없습니다.');
+        }
+      } else {
+        // API 에러 응답
+        const errorResponse = result as unknown as { message?: string };
+        setError(errorResponse.message || 'ETF 시세 데이터를 가져올 수 없습니다.');
+      }
+    } catch (err) {
+      console.error('[useKoreanETFs] 에러:', err);
+      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [category]);
+
+  // 초기 로드
+  useEffect(() => {
+    fetchETFs();
+  }, [fetchETFs]);
+
+  // 자동 새로고침
+  useEffect(() => {
+    if (!autoRefresh) return;
+
+    const intervalId = setInterval(fetchETFs, refreshInterval);
+    return () => clearInterval(intervalId);
+  }, [autoRefresh, refreshInterval, fetchETFs]);
+
+  return { etfs, isLoading, error, refetch: fetchETFs, failedSymbols };
+}
