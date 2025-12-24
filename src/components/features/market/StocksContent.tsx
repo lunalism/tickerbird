@@ -110,8 +110,9 @@ function StockTable({ stocks, market }: { stocks: Stock[]; market: MarketRegion 
             {stocks.map((stock, idx) => {
               const isPositive = stock.changePercent >= 0;
               return (
+                // key: ticker + index로 고유성 보장
                 <tr
-                  key={stock.ticker}
+                  key={`${stock.ticker || 'stock'}-${idx}`}
                   onClick={() => router.push(`/market/${stock.ticker}`)}
                   className="border-b border-gray-50 dark:border-gray-700 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors cursor-pointer"
                 >

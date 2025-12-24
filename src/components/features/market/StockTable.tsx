@@ -78,11 +78,12 @@ export function StockTable({ stocks, market }: StockTableProps) {
           └─────────────────────────────┘
           ======================================== */}
       <div className="md:hidden flex flex-col gap-3">
-        {stocks.map((stock) => {
+        {stocks.map((stock, idx) => {
           const isPositive = stock.changePercent >= 0;
           return (
+            // key: ticker + index로 고유성 보장
             <div
-              key={stock.ticker}
+              key={`${stock.ticker || 'stock'}-${idx}`}
               onClick={() => handleStockClick(stock.ticker)}
               className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 cursor-pointer
                          hover:shadow-md transition-shadow active:bg-gray-50 dark:active:bg-gray-700"
@@ -189,11 +190,12 @@ export function StockTable({ stocks, market }: StockTableProps) {
 
             {/* 테이블 바디 */}
             <tbody>
-              {stocks.map((stock) => {
+              {stocks.map((stock, idx) => {
                 const isPositive = stock.changePercent >= 0;
                 return (
+                  // key: ticker + index로 고유성 보장
                   <tr
-                    key={stock.ticker}
+                    key={`${stock.ticker || 'stock'}-${idx}`}
                     onClick={() => handleStockClick(stock.ticker)}
                     className="border-b border-gray-50 dark:border-gray-700 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors cursor-pointer"
                   >

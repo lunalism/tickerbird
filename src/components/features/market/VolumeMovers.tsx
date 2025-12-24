@@ -94,8 +94,9 @@ function VolumeMoverList({ title, emoji, movers, valueType }: VolumeMoverListPro
           const isPositive = mover.changePercent >= 0;
 
           return (
+            // key: ticker + index로 고유성 보장
             <div
-              key={mover.ticker}
+              key={`${mover.ticker || 'mover'}-${idx}`}
               onClick={() => router.push(`/market/${mover.ticker}`)}
               className="flex items-center justify-between py-2 px-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
             >

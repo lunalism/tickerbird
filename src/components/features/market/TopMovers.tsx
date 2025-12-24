@@ -28,8 +28,11 @@ function MoverList({ title, emoji, movers, isGainer }: {
       {/* 종목 리스트 */}
       <div className="space-y-3">
         {movers.map((mover, idx) => (
+          // key: ticker + index로 고유성 보장
+          // - ticker가 undefined인 경우 대비
+          // - 동일 ticker가 여러 번 나타날 수 있는 경우 대비
           <div
-            key={mover.ticker}
+            key={`${mover.ticker || 'mover'}-${idx}`}
             className="flex items-center justify-between py-2 px-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-3">
