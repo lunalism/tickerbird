@@ -192,21 +192,22 @@ export interface KISIndexPrice {
  */
 export interface StockPriceData {
   symbol: string;           // 종목코드
+  stockName?: string;       // 종목명 (선택사항)
   currentPrice: number;     // 현재가
   change: number;           // 전일 대비
   changePercent: number;    // 전일 대비율 (%)
   changeSign: string;       // 등락 부호 (up, down, flat)
   volume: number;           // 거래량
-  tradingValue: number;     // 거래대금
-  open: number;             // 시가
-  high: number;             // 고가
-  low: number;              // 저가
-  high52w: number;          // 52주 최고가
-  low52w: number;           // 52주 최저가
-  per: number;              // PER
-  pbr: number;              // PBR
-  eps: number;              // EPS
-  marketName: string;       // 시장명 (KOSPI, KOSDAQ 등)
+  tradingValue?: number;    // 거래대금 (선택사항)
+  openPrice: number;        // 시가
+  highPrice: number;        // 고가
+  lowPrice: number;         // 저가
+  high52w?: number;         // 52주 최고가 (선택사항)
+  low52w?: number;          // 52주 최저가 (선택사항)
+  per?: number;             // PER (선택사항)
+  pbr?: number;             // PBR (선택사항)
+  eps?: number;             // EPS (선택사항)
+  marketName?: string;      // 시장명 (KOSPI, KOSDAQ 등)
   timestamp: string;        // 조회 시간
 }
 

@@ -41,6 +41,7 @@ import {
 } from '@/components/features/market';
 import { IndexCardSkeletonGrid, StockTableSkeleton } from '@/components/skeleton';
 import { marketIndices, popularStocks, topGainers, topLosers } from '@/constants';
+import { useKoreanIndices, useKoreanStocks } from '@/hooks';
 
 /**
  * 메인 마켓 컨텐츠 컴포넌트
@@ -122,11 +123,31 @@ function MarketContent() {
     updateURL(activeType, activeMarket, category);
   };
 
+  // 한국 시장 실시간 데이터
+  const {
+    indices: koreanIndices,
+    isLoading: isKoreanIndicesLoading,
+    error: koreanIndicesError,
+    refetch: refetchKoreanIndices
+  } = useKoreanIndices();
+
+  const {
+    stocks: koreanStocks,
+    isLoading: isKoreanStocksLoading,
+    error: koreanStocksError,
+    refetch: refetchKoreanStocks
+  } = useKoreanStocks();
+
   // 현재 국가의 데이터 (국가별 시장용)
-  const currentIndices = marketIndices[activeMarket];
-  const currentStocks = popularStocks[activeMarket];
+  // 한국: API 데이터, 그 외: 목업 데이터
+  const currentIndices = activeMarket === 'kr' ? koreanIndices : marketIndices[activeMarket];
+  const currentStocks = activeMarket === 'kr' ? koreanStocks : popularStocks[activeMarket];
   const currentGainers = topGainers[activeMarket];
   const currentLosers = topLosers[activeMarket];
+
+  // 한국 시장 로딩/에러 상태
+  const isKoreanDataLoading = activeMarket === 'kr' && (isKoreanIndicesLoading || isKoreanStocksLoading);
+  const koreanDataError = activeMarket === 'kr' ? (koreanIndicesError || koreanStocksError) : null;
 
   /**
    * 로딩 스켈레톤 렌더링 (국가별 시장)
@@ -168,19 +189,49 @@ function MarketContent() {
    * 국가별 시장 콘텐츠 렌더링
    */
   const renderCountryContent = () => {
-    // 로딩 중이면 스켈레톤 표시
-    if (isLoading) {
+    // 로딩 중이면 스켈레톤 표시 (한국 시장 제외 - 별도 처리)
+    if (isLoading && activeMarket !== 'kr') {
       return renderCountrySkeleton();
     }
 
     switch (activeCategory) {
       // 전체: 지수 + 인기 종목 + 등락률
       case 'all':
+        // 한국 시장 로딩 중
+        if (isKoreanDataLoading) {
+          return renderCountrySkeleton();
+        }
+
+        // 한국 시장 에러
+        if (koreanDataError) {
+          return (
+            <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-6 text-center">
+              <p className="text-red-600 dark:text-red-400 mb-4">{koreanDataError}</p>
+              <button
+                onClick={() => {
+                  refetchKoreanIndices();
+                  refetchKoreanStocks();
+                }}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                다시 시도
+              </button>
+            </div>
+          );
+        }
+
         return (
           <>
             {/* 주요 지수 섹션 */}
             <section className="mb-8">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">주요 지수</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                주요 지수
+                {activeMarket === 'kr' && (
+                  <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">
+                    실시간
+                  </span>
+                )}
+              </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {currentIndices.map((index) => (
                   <IndexCard key={index.id} index={index} />
@@ -190,7 +241,14 @@ function MarketContent() {
 
             {/* 인기 종목 섹션 */}
             <section className="mb-8">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">인기 종목</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                인기 종목
+                {activeMarket === 'kr' && (
+                  <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">
+                    실시간
+                  </span>
+                )}
+              </h2>
               <StockTable stocks={currentStocks} market={activeMarket} />
             </section>
 

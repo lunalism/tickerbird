@@ -238,9 +238,9 @@ export default function KisApiTestPage() {
                             </span>
                           </div>
                           <div className="text-xs text-gray-500 grid grid-cols-2 gap-1">
-                            <span>시가: {formatPrice(result.data.open)}원</span>
-                            <span>고가: {formatPrice(result.data.high)}원</span>
-                            <span>저가: {formatPrice(result.data.low)}원</span>
+                            <span>시가: {formatPrice(result.data.openPrice)}원</span>
+                            <span>고가: {formatPrice(result.data.highPrice)}원</span>
+                            <span>저가: {formatPrice(result.data.lowPrice)}원</span>
                             <span>
                               거래량: {formatPrice(result.data.volume)}주
                             </span>

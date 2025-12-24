@@ -4,6 +4,13 @@
  * StocksContent 컴포넌트
  * 주식 카테고리 선택 시 표시되는 콘텐츠
  * 섹터별 필터 버튼과 주식 테이블을 포함
+ *
+ * 한국 시장(kr) 선택 시:
+ * - 한국투자증권 Open API에서 실시간 데이터 가져옴
+ * - 삼성전자, SK하이닉스 등 주요 종목 표시
+ *
+ * 다른 국가(us, jp, hk) 선택 시:
+ * - 기존 목업 데이터 사용
  */
 
 import { useState } from 'react';
@@ -11,6 +18,8 @@ import { useRouter } from 'next/navigation';
 import { MarketRegion, StockSector, Stock } from '@/types';
 import { stocksBySector, sectorTabs } from '@/constants';
 import { CompanyLogo } from '@/components/common';
+import { useKoreanStocks } from '@/hooks';
+import { StockTableSkeleton } from '@/components/skeleton';
 
 interface StocksContentProps {
   // 현재 선택된 국가
@@ -164,27 +173,73 @@ export function StocksContent({ market }: StocksContentProps) {
   // 현재 선택된 섹터 상태
   const [activeSector, setActiveSector] = useState<StockSector>('all');
 
-  // 전체 주식 데이터 (방어적 코딩)
-  const allStocks = stocksBySector[market] || [];
+  // 한국 시장인 경우 실제 API 데이터 사용
+  const { stocks: koreanStocks, isLoading: isKoreanLoading, error: koreanError, refetch } = useKoreanStocks();
 
-  // 섹터별 필터링
-  const filteredStocks = activeSector === 'all'
+  // 전체 주식 데이터 (한국: API, 그 외: 목업)
+  const allStocks = market === 'kr' ? koreanStocks : (stocksBySector[market] || []);
+  const isLoading = market === 'kr' && isKoreanLoading;
+  const error = market === 'kr' ? koreanError : null;
+
+  // 섹터별 필터링 (한국 API 데이터는 섹터 정보 없으므로 전체만 표시)
+  const filteredStocks = activeSector === 'all' || market === 'kr'
     ? allStocks
     : allStocks.filter(stock => stock.sector && stock.sector === activeSector);
+
+  // 로딩 중
+  if (isLoading) {
+    return (
+      <section>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          인기 종목
+        </h2>
+        <StockTableSkeleton rowCount={8} />
+      </section>
+    );
+  }
+
+  // 에러 발생
+  if (error) {
+    return (
+      <section>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          인기 종목
+        </h2>
+        <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-6 text-center">
+          <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
+          <button
+            onClick={() => refetch()}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+          >
+            다시 시도
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section>
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
         인기 종목
+        {market === 'kr' && (
+          <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">
+            실시간
+          </span>
+        )}
       </h2>
-      {/* 섹터 필터 */}
-      <SectorFilter activeSector={activeSector} onSectorChange={setActiveSector} />
+      {/* 섹터 필터 (한국 제외) */}
+      {market !== 'kr' && (
+        <SectorFilter activeSector={activeSector} onSectorChange={setActiveSector} />
+      )}
       {/* 주식 테이블 */}
       {filteredStocks.length > 0 ? (
         <StockTable stocks={filteredStocks} market={market} />
       ) : (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-8 text-center">
-          <p className="text-gray-500 dark:text-gray-400">해당 섹터의 종목이 없습니다.</p>
+          <p className="text-gray-500 dark:text-gray-400">
+            {market === 'kr' ? '데이터를 불러오는 중...' : '해당 섹터의 종목이 없습니다.'}
+          </p>
         </div>
       )}
     </section>

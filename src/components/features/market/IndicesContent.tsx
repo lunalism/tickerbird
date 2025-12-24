@@ -4,10 +4,19 @@
  * IndicesContent 컴포넌트
  * 지수 카테고리 선택 시 표시되는 콘텐츠
  * 각 국가별 주요 지수를 카드 형태로 표시 (VIX 등 추가 지수 포함)
+ *
+ * 한국 시장(kr) 선택 시:
+ * - 한국투자증권 Open API에서 실시간 데이터 가져옴
+ * - 코스피, 코스닥, 코스피200 표시
+ *
+ * 다른 국가(us, jp, hk) 선택 시:
+ * - 기존 목업 데이터 사용
  */
 
 import { MarketRegion, MarketIndex } from '@/types';
 import { extendedIndices } from '@/constants';
+import { useKoreanIndices } from '@/hooks';
+import { IndexCardSkeletonGrid } from '@/components/skeleton';
 
 interface IndicesContentProps {
   // 현재 선택된 국가
@@ -104,13 +113,56 @@ function IndexCard({ index }: { index: MarketIndex }) {
 }
 
 export function IndicesContent({ market }: IndicesContentProps) {
+  // 한국 시장인 경우 실제 API 데이터 사용
+  const { indices: koreanIndices, isLoading: isKoreanLoading, error: koreanError, refetch } = useKoreanIndices();
+
   // 현재 선택된 국가의 지수 데이터
-  const indices = extendedIndices[market];
+  // 한국: API 데이터, 그 외: 목업 데이터
+  const indices = market === 'kr' ? koreanIndices : extendedIndices[market];
+  const isLoading = market === 'kr' && isKoreanLoading;
+  const error = market === 'kr' ? koreanError : null;
+
+  // 로딩 중
+  if (isLoading) {
+    return (
+      <section>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          주요 지수
+        </h2>
+        <IndexCardSkeletonGrid count={3} />
+      </section>
+    );
+  }
+
+  // 에러 발생
+  if (error) {
+    return (
+      <section>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          주요 지수
+        </h2>
+        <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-6 text-center">
+          <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
+          <button
+            onClick={() => refetch()}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+          >
+            다시 시도
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section>
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
         주요 지수
+        {market === 'kr' && (
+          <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">
+            실시간
+          </span>
+        )}
       </h2>
       {/* 지수 카드 그리드 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
