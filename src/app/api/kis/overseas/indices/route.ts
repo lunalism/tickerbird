@@ -28,12 +28,26 @@ const US_INDICES: OverseasIndexCode[] = ['SPX', 'CCMP', 'INDU'];
 
 /**
  * 지수코드 → ETF 매핑 (폴백용)
- * 지수 API가 0을 반환할 때 해당 ETF 가격 사용
+ *
+ * 한국투자증권 API가 지수값 0을 반환할 때 해당 ETF 가격을 사용하여 추정
+ *
+ * 배수 계산 방식:
+ * - SPY: S&P 500 / 10 (SPY ≈ 690 → S&P 500 ≈ 6,900)
+ * - QQQ: NASDAQ 100 / 35 (QQQ ≈ 620 → NASDAQ 100 ≈ 21,700)
+ *   주의: QQQ는 NASDAQ Composite가 아닌 NASDAQ 100을 추종
+ * - DIA: DOW JONES / 90 (DIA ≈ 487 → DOW ≈ 43,800)
+ *
+ * 이 값들은 ETF 가격과 실제 지수 값의 비율을 기반으로 산출됨
  */
-const INDEX_TO_ETF_MAP: Record<OverseasIndexCode, { symbol: string; exchange: OverseasExchangeCode; multiplier: number }> = {
-  'SPX': { symbol: 'SPY', exchange: 'AMS', multiplier: 10 },    // SPY ≈ S&P 500 / 10
-  'CCMP': { symbol: 'QQQ', exchange: 'NAS', multiplier: 40 },   // QQQ ≈ NASDAQ 100 / 40 (NASDAQ Composite 대용)
-  'INDU': { symbol: 'DIA', exchange: 'AMS', multiplier: 100 },  // DIA ≈ DOW / 100
+const INDEX_TO_ETF_MAP: Record<OverseasIndexCode, {
+  symbol: string;
+  exchange: OverseasExchangeCode;
+  multiplier: number;
+  fallbackName: string;  // ETF 기준일 때 표시할 이름
+}> = {
+  'SPX': { symbol: 'SPY', exchange: 'AMS', multiplier: 10, fallbackName: 'S&P 500 (ETF 추정)' },
+  'CCMP': { symbol: 'QQQ', exchange: 'NAS', multiplier: 35, fallbackName: 'NASDAQ 100 (ETF 추정)' },  // NASDAQ 100 기준
+  'INDU': { symbol: 'DIA', exchange: 'AMS', multiplier: 90, fallbackName: 'DOW JONES (ETF 추정)' },
 };
 
 /**
@@ -70,18 +84,22 @@ async function getIndexWithFallback(indexCode: OverseasIndexCode): Promise<Overs
 
   // 3. 값이 0이면 ETF 가격을 폴백으로 사용
   const etfInfo = INDEX_TO_ETF_MAP[indexCode];
-  console.log(`[API] ${indexCode} 지수값 0, ${etfInfo.symbol} ETF로 폴백`);
+  console.log(`[API] ${indexCode} 지수값 0, ${etfInfo.symbol} ETF로 폴백 (배수: ${etfInfo.multiplier})`);
 
   try {
     const etfData = await getOverseasStockPrice(etfInfo.exchange, etfInfo.symbol);
 
     // ETF 가격에 배수를 곱해 대략적인 지수값 계산
+    // 예: QQQ $620 × 35 = NASDAQ 100 21,700
     const estimatedIndexValue = etfData.currentPrice * etfInfo.multiplier;
     const estimatedChange = etfData.change * etfInfo.multiplier;
 
+    console.log(`[API] ${etfInfo.symbol} ETF: $${etfData.currentPrice} × ${etfInfo.multiplier} = ${estimatedIndexValue.toFixed(2)}`);
+
     return {
       indexCode,
-      indexName: indexData.indexName + ' (ETF 기준)',
+      // ETF 기반 추정치임을 명확히 표시
+      indexName: etfInfo.fallbackName,
       currentValue: Math.round(estimatedIndexValue * 100) / 100,
       change: Math.round(estimatedChange * 100) / 100,
       changePercent: etfData.changePercent,

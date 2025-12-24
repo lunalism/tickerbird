@@ -275,6 +275,37 @@ function MarketContent() {
         }))
     : topLosers['us'];
 
+  // ========== 미국 거래량/거래대금 TOP 5 데이터 ==========
+  // VolumeMovers 컴포넌트에서 사용하는 형식으로 변환
+
+  // 거래량 TOP 5: volume 기준 내림차순 정렬
+  const usVolumeTop5 = usStockPrices.length > 0
+    ? [...usStockPrices]
+        .sort((a, b) => b.volume - a.volume)
+        .slice(0, 5)
+        .map(stock => ({
+          name: stock.name,
+          ticker: stock.symbol,
+          changePercent: stock.changePercent,
+          volume: stock.volume,
+          tradingValue: stock.tradingValue,
+        }))
+    : [];
+
+  // 거래대금 TOP 5: tradingValue 기준 내림차순 정렬
+  const usTradingValueTop5 = usStockPrices.length > 0
+    ? [...usStockPrices]
+        .sort((a, b) => b.tradingValue - a.tradingValue)
+        .slice(0, 5)
+        .map(stock => ({
+          name: stock.name,
+          ticker: stock.symbol,
+          changePercent: stock.changePercent,
+          volume: stock.volume,
+          tradingValue: stock.tradingValue,
+        }))
+    : [];
+
   // 현재 국가의 지수 데이터
   // 한국: 한국투자증권 국내지수 API
   // 미국: 한국투자증권 해외지수 API
@@ -539,12 +570,18 @@ function MarketContent() {
               <TopMovers gainers={currentGainers} losers={currentLosers} />
             </section>
 
-            {/* ========== 거래량/거래대금 TOP 섹션 (한국 시장만) ========== */}
-            {/* 거래량순위 API 데이터를 활용하여 두 가지 기준으로 정렬 */}
+            {/* ========== 거래량/거래대금 TOP 섹션 (한국/미국 시장) ========== */}
+            {/* 한국: 거래량순위 API 데이터 사용 (단위: 억원) */}
+            {/* 미국: 해외주식 시세 API 데이터에서 정렬 (단위: USD) */}
             {/* 2열 그리드: 거래량 TOP 5 / 거래대금 TOP 5 */}
             {activeMarket === 'kr' && volumeTop5.length > 0 && (
               <section>
-                <VolumeMovers volumeData={volumeTop5} tradingValueData={tradingValueTop5} />
+                <VolumeMovers volumeData={volumeTop5} tradingValueData={tradingValueTop5} market="kr" />
+              </section>
+            )}
+            {activeMarket === 'us' && usVolumeTop5.length > 0 && (
+              <section>
+                <VolumeMovers volumeData={usVolumeTop5} tradingValueData={usTradingValueTop5} market="us" />
               </section>
             )}
           </>

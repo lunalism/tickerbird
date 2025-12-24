@@ -509,13 +509,15 @@ export interface USETFInfo {
 /**
  * 미국 ETF 종목 리스트 (카테고리별)
  *
- * 총 76개 종목:
- * - 지수 추종: 13개
- * - 섹터/테마: 16개
- * - 레버리지/인버스: 20개
- * - 채권: 10개
- * - 원자재: 7개
- * - 해외 지수: 10개
+ * 총 145개 종목:
+ * - 지수 추종/배당: 20개
+ * - 섹터/테마: 50개 (기존 16 + ARK 4 + 테마 14 + 기타 16)
+ * - 레버리지/인버스: 31개
+ * - 채권: 15개
+ * - 원자재: 11개
+ * - 해외 지수: 16개
+ *
+ * 한국투자증권 해외주식 API로 실시간 시세 조회 가능
  */
 export const usETFList: USETFInfo[] = [
   // ========== 지수 추종 ETF ==========
@@ -618,6 +620,74 @@ export const usETFList: USETFInfo[] = [
   { symbol: 'EWZ', name: 'iShares MSCI Brazil ETF', category: 'international', exchange: 'NYS', issuer: 'BlackRock' },
   { symbol: 'MCHI', name: 'iShares MSCI China ETF', category: 'international', exchange: 'NAS', issuer: 'BlackRock' },
   { symbol: 'VEA', name: 'Vanguard FTSE Developed Markets', category: 'international', exchange: 'NYS', issuer: 'Vanguard' },
+  { symbol: 'EWY', name: 'iShares MSCI South Korea ETF', category: 'international', exchange: 'NYS', issuer: 'BlackRock' },
+  { symbol: 'EWT', name: 'iShares MSCI Taiwan ETF', category: 'international', exchange: 'NYS', issuer: 'BlackRock' },
+  { symbol: 'EWG', name: 'iShares MSCI Germany ETF', category: 'international', exchange: 'NYS', issuer: 'BlackRock' },
+  { symbol: 'EWU', name: 'iShares MSCI United Kingdom ETF', category: 'international', exchange: 'NYS', issuer: 'BlackRock' },
+  { symbol: 'INDA', name: 'iShares MSCI India ETF', category: 'international', exchange: 'NYS', issuer: 'BlackRock' },
+  { symbol: 'FXI', name: 'iShares China Large-Cap ETF', category: 'international', exchange: 'NYS', issuer: 'BlackRock' },
+
+  // ========== 테마/혁신 ETF (추가) ==========
+  // 인기 테마 ETF 추가
+  { symbol: 'ARKG', name: 'ARK Genomic Revolution ETF', category: 'sector', exchange: 'NYS', issuer: 'ARK Invest' },
+  { symbol: 'ARKW', name: 'ARK Next Generation Internet', category: 'sector', exchange: 'NYS', issuer: 'ARK Invest' },
+  { symbol: 'ARKF', name: 'ARK Fintech Innovation ETF', category: 'sector', exchange: 'NYS', issuer: 'ARK Invest' },
+  { symbol: 'ARKQ', name: 'ARK Autonomous Tech & Robotics', category: 'sector', exchange: 'NYS', issuer: 'ARK Invest' },
+  { symbol: 'ICLN', name: 'iShares Global Clean Energy', category: 'sector', exchange: 'NAS', issuer: 'BlackRock' },
+  { symbol: 'TAN', name: 'Invesco Solar ETF', category: 'sector', exchange: 'NYS', issuer: 'Invesco' },
+  { symbol: 'LIT', name: 'Global X Lithium & Battery Tech', category: 'sector', exchange: 'NYS', issuer: 'Global X' },
+  { symbol: 'BOTZ', name: 'Global X Robotics & AI ETF', category: 'sector', exchange: 'NAS', issuer: 'Global X' },
+  { symbol: 'ROBO', name: 'ROBO Global Robotics & Automation', category: 'sector', exchange: 'NYS', issuer: 'ROBO Global' },
+  { symbol: 'CLOU', name: 'Global X Cloud Computing ETF', category: 'sector', exchange: 'NAS', issuer: 'Global X' },
+  { symbol: 'HACK', name: 'ETFMG Prime Cyber Security', category: 'sector', exchange: 'NYS', issuer: 'ETFMG' },
+  { symbol: 'CIBR', name: 'First Trust Cybersecurity ETF', category: 'sector', exchange: 'NAS', issuer: 'First Trust' },
+  { symbol: 'IGV', name: 'iShares Expanded Tech-Software', category: 'sector', exchange: 'NYS', issuer: 'BlackRock' },
+  { symbol: 'SKYY', name: 'First Trust Cloud Computing', category: 'sector', exchange: 'NAS', issuer: 'First Trust' },
+  { symbol: 'FINX', name: 'Global X FinTech ETF', category: 'sector', exchange: 'NAS', issuer: 'Global X' },
+  { symbol: 'DRIV', name: 'Global X Autonomous & EV ETF', category: 'sector', exchange: 'NAS', issuer: 'Global X' },
+  { symbol: 'QCLN', name: 'First Trust NASDAQ Clean Edge', category: 'sector', exchange: 'NAS', issuer: 'First Trust' },
+  { symbol: 'PBW', name: 'Invesco WilderHill Clean Energy', category: 'sector', exchange: 'NYS', issuer: 'Invesco' },
+
+  // ========== 배당/인컴 ETF (추가) ==========
+  { symbol: 'VYM', name: 'Vanguard High Dividend Yield', category: 'index', exchange: 'NYS', issuer: 'Vanguard' },
+  { symbol: 'DVY', name: 'iShares Select Dividend ETF', category: 'index', exchange: 'NYS', issuer: 'BlackRock' },
+  { symbol: 'HDV', name: 'iShares Core High Dividend', category: 'index', exchange: 'NYS', issuer: 'BlackRock' },
+  { symbol: 'DGRO', name: 'iShares Core Dividend Growth', category: 'index', exchange: 'NYS', issuer: 'BlackRock' },
+  { symbol: 'NOBL', name: 'ProShares S&P 500 Dividend Aristocrats', category: 'index', exchange: 'NYS', issuer: 'ProShares' },
+  { symbol: 'SDY', name: 'SPDR S&P Dividend ETF', category: 'index', exchange: 'NYS', issuer: 'State Street' },
+  { symbol: 'SPYD', name: 'SPDR S&P 500 High Dividend', category: 'index', exchange: 'NYS', issuer: 'State Street' },
+
+  // ========== 기타 인기 ETF (추가) ==========
+  { symbol: 'VNQ', name: 'Vanguard Real Estate ETF', category: 'sector', exchange: 'NYS', issuer: 'Vanguard' },
+  { symbol: 'IYR', name: 'iShares U.S. Real Estate ETF', category: 'sector', exchange: 'NYS', issuer: 'BlackRock' },
+  { symbol: 'XBI', name: 'SPDR S&P Biotech ETF', category: 'sector', exchange: 'NYS', issuer: 'State Street' },
+  { symbol: 'IBB', name: 'iShares Biotechnology ETF', category: 'sector', exchange: 'NAS', issuer: 'BlackRock' },
+  { symbol: 'XOP', name: 'SPDR S&P Oil & Gas Exploration', category: 'sector', exchange: 'NYS', issuer: 'State Street' },
+  { symbol: 'OIH', name: 'VanEck Oil Services ETF', category: 'sector', exchange: 'NYS', issuer: 'VanEck' },
+  { symbol: 'XME', name: 'SPDR S&P Metals & Mining', category: 'sector', exchange: 'NYS', issuer: 'State Street' },
+  { symbol: 'KRE', name: 'SPDR S&P Regional Banking', category: 'sector', exchange: 'NYS', issuer: 'State Street' },
+  { symbol: 'KBE', name: 'SPDR S&P Bank ETF', category: 'sector', exchange: 'NYS', issuer: 'State Street' },
+  { symbol: 'XHB', name: 'SPDR S&P Homebuilders ETF', category: 'sector', exchange: 'NYS', issuer: 'State Street' },
+  { symbol: 'XRT', name: 'SPDR S&P Retail ETF', category: 'sector', exchange: 'NYS', issuer: 'State Street' },
+  { symbol: 'ITA', name: 'iShares U.S. Aerospace & Defense', category: 'sector', exchange: 'NYS', issuer: 'BlackRock' },
+  { symbol: 'PFF', name: 'iShares Preferred & Income Securities', category: 'bond', exchange: 'NAS', issuer: 'BlackRock' },
+  { symbol: 'JNK', name: 'SPDR Bloomberg High Yield Bond', category: 'bond', exchange: 'NYS', issuer: 'State Street' },
+  { symbol: 'EMB', name: 'iShares J.P. Morgan EM Bond', category: 'bond', exchange: 'NAS', issuer: 'BlackRock' },
+  { symbol: 'MUB', name: 'iShares National Muni Bond ETF', category: 'bond', exchange: 'NYS', issuer: 'BlackRock' },
+  { symbol: 'TIPS', name: 'iShares TIPS Bond ETF', category: 'bond', exchange: 'NYS', issuer: 'BlackRock' },
+  { symbol: 'TMF', name: 'Direxion Daily 20+ Yr Treasury Bull (3x)', category: 'leveraged', exchange: 'NYS', issuer: 'Direxion' },
+  { symbol: 'TMV', name: 'Direxion Daily 20+ Yr Treasury Bear (-3x)', category: 'leveraged', exchange: 'NYS', issuer: 'Direxion' },
+  { symbol: 'UVXY', name: 'ProShares Ultra VIX Short-Term', category: 'leveraged', exchange: 'NYS', issuer: 'ProShares' },
+  { symbol: 'SVXY', name: 'ProShares Short VIX Short-Term', category: 'leveraged', exchange: 'NYS', issuer: 'ProShares' },
+  { symbol: 'VIXY', name: 'ProShares VIX Short-Term Futures', category: 'leveraged', exchange: 'NYS', issuer: 'ProShares' },
+  { symbol: 'NUGT', name: 'Direxion Daily Gold Miners Bull (2x)', category: 'leveraged', exchange: 'NYS', issuer: 'Direxion' },
+  { symbol: 'DUST', name: 'Direxion Daily Gold Miners Bear (-2x)', category: 'leveraged', exchange: 'NYS', issuer: 'Direxion' },
+  { symbol: 'JNUG', name: 'Direxion Daily Jr Gold Miners Bull (2x)', category: 'leveraged', exchange: 'NYS', issuer: 'Direxion' },
+  { symbol: 'JDST', name: 'Direxion Daily Jr Gold Miners Bear (-2x)', category: 'leveraged', exchange: 'NYS', issuer: 'Direxion' },
+  { symbol: 'GDX', name: 'VanEck Gold Miners ETF', category: 'commodity', exchange: 'NYS', issuer: 'VanEck' },
+  { symbol: 'GDXJ', name: 'VanEck Junior Gold Miners ETF', category: 'commodity', exchange: 'NYS', issuer: 'VanEck' },
+  { symbol: 'SIL', name: 'Global X Silver Miners ETF', category: 'commodity', exchange: 'NYS', issuer: 'Global X' },
+  { symbol: 'COPX', name: 'Global X Copper Miners ETF', category: 'commodity', exchange: 'NYS', issuer: 'Global X' },
 ];
 
 /**
