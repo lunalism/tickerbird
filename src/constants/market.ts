@@ -27,9 +27,10 @@ export const marketTypeTabs: MarketTypeTab[] = [
 ];
 
 // ==================== 국가 탭 데이터 ====================
+// 한국 서비스이므로 한국을 첫 번째로 배치
 export const marketTabs: MarketTab[] = [
-  { id: 'us', label: '미국', flag: '🇺🇸' },
   { id: 'kr', label: '한국', flag: '🇰🇷' },
+  { id: 'us', label: '미국', flag: '🇺🇸' },
   { id: 'jp', label: '일본', flag: '🇯🇵' },
   { id: 'hk', label: '홍콩', flag: '🇭🇰' },
 ];

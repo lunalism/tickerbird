@@ -52,8 +52,9 @@ function MarketContent() {
   const searchParams = useSearchParams();
 
   // URL에서 초기값 읽기
+  // 한국 서비스이므로 기본 국가를 한국(kr)으로 설정
   const initialType = (searchParams.get('type') as MarketType) || 'country';
-  const initialCountry = (searchParams.get('country') as MarketRegion) || 'us';
+  const initialCountry = (searchParams.get('country') as MarketRegion) || 'kr';
   const initialCategory = (searchParams.get('category') as MarketCategory) || 'all';
 
   // 상태 관리
@@ -333,21 +334,42 @@ function MarketContent() {
             <MarketTypeTabs activeType={activeType} onTypeChange={handleTypeChange} />
           </div>
 
-          {/* 국가 탭 (국가별 시장 선택 시에만 표시) */}
-          {activeType === 'country' && (
-            <div className="mb-4">
-              <MarketTabs activeMarket={activeMarket} onMarketChange={handleMarketChange} />
+          {/* ========== 필터 탭 영역 ========== */}
+          {/*
+           * 레이아웃 구조:
+           * - 국가별 시장 선택 시: 국가 탭(왼쪽) + 카테고리 탭(오른쪽) 같은 줄 배치
+           * - 글로벌 시장 선택 시: 카테고리 탭만 왼쪽 정렬
+           *
+           * 반응형 처리:
+           * - 데스크톱 (md 이상): flex justify-between으로 양쪽 정렬
+           * - 모바일 (md 미만): 수직 스택 (국가 탭 → 카테고리 탭)
+           */}
+          {activeType === 'country' ? (
+            // 국가별 시장: 국가 탭 + 카테고리 탭 같은 줄
+            <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              {/* 국가 탭 - 왼쪽 정렬 */}
+              <div className="flex-shrink-0">
+                <MarketTabs activeMarket={activeMarket} onMarketChange={handleMarketChange} />
+              </div>
+              {/* 카테고리 탭 - 오른쪽 정렬 (데스크톱), 왼쪽 정렬 (모바일) */}
+              <div className="flex-shrink-0">
+                <MarketCategoryTabs
+                  marketType={activeType}
+                  activeCategory={activeCategory}
+                  onCategoryChange={handleCategoryChange}
+                />
+              </div>
+            </div>
+          ) : (
+            // 글로벌 시장: 카테고리 탭만 왼쪽 정렬
+            <div className="mb-6">
+              <MarketCategoryTabs
+                marketType={activeType}
+                activeCategory={activeCategory}
+                onCategoryChange={handleCategoryChange}
+              />
             </div>
           )}
-
-          {/* 카테고리 탭 */}
-          <div className="mb-6">
-            <MarketCategoryTabs
-              marketType={activeType}
-              activeCategory={activeCategory}
-              onCategoryChange={handleCategoryChange}
-            />
-          </div>
 
           {/* 콘텐츠 영역 - 로딩 상태에 따라 스켈레톤 또는 실제 데이터 표시 */}
           {activeType === 'country' ? renderCountryContent() : renderGlobalContent()}
