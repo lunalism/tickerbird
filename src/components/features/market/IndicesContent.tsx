@@ -9,13 +9,17 @@
  * - 한국투자증권 Open API에서 실시간 데이터 가져옴
  * - 코스피, 코스닥, 코스피200 표시
  *
- * 다른 국가(us, jp, hk) 선택 시:
+ * 미국 시장(us) 선택 시:
+ * - 한국투자증권 해외지수 API에서 실시간 데이터 가져옴
+ * - S&P 500, NASDAQ, DOW JONES 표시
+ *
+ * 다른 국가(jp, hk) 선택 시:
  * - 기존 목업 데이터 사용
  */
 
 import { MarketRegion, MarketIndex } from '@/types';
 import { extendedIndices } from '@/constants';
-import { useKoreanIndices } from '@/hooks';
+import { useKoreanIndices, useUSIndices } from '@/hooks';
 import { IndexCardSkeletonGrid } from '@/components/skeleton';
 
 interface IndicesContentProps {
@@ -114,13 +118,45 @@ function IndexCard({ index }: { index: MarketIndex }) {
 
 export function IndicesContent({ market }: IndicesContentProps) {
   // 한국 시장인 경우 실제 API 데이터 사용
-  const { indices: koreanIndices, isLoading: isKoreanLoading, error: koreanError, refetch } = useKoreanIndices();
+  const { indices: koreanIndices, isLoading: isKoreanLoading, error: koreanError, refetch: refetchKorean } = useKoreanIndices();
+
+  // 미국 시장인 경우 실제 API 데이터 사용
+  const { indices: usIndices, isLoading: isUSLoading, error: usError, refetch: refetchUS } = useUSIndices();
+
+  // 차트 데이터 생성 함수 (현재값 기반)
+  const generateChartData = (currentValue: number, changePercent: number): number[] => {
+    const baseValue = currentValue / (1 + changePercent / 100);
+    const data: number[] = [];
+    for (let i = 0; i < 9; i++) {
+      const progress = i / 8;
+      const noise = (Math.random() - 0.5) * 0.005 * currentValue;
+      const value = baseValue + (currentValue - baseValue) * progress + noise;
+      data.push(Math.round(value * 100) / 100);
+    }
+    return data;
+  };
+
+  // 미국 지수 데이터를 MarketIndex 형식으로 변환
+  const convertedUSIndices: MarketIndex[] = usIndices.map((idx) => ({
+    id: idx.indexCode.toLowerCase(),
+    name: idx.indexName,
+    value: idx.currentValue,
+    change: idx.change,
+    changePercent: idx.changePercent,
+    chartData: generateChartData(idx.currentValue, idx.changePercent),
+  }));
 
   // 현재 선택된 국가의 지수 데이터
-  // 한국: API 데이터, 그 외: 목업 데이터
-  const indices = market === 'kr' ? koreanIndices : extendedIndices[market];
-  const isLoading = market === 'kr' && isKoreanLoading;
-  const error = market === 'kr' ? koreanError : null;
+  // 한국/미국: API 데이터, 그 외: 목업 데이터
+  const indices = market === 'kr'
+    ? koreanIndices
+    : market === 'us'
+      ? convertedUSIndices
+      : extendedIndices[market];
+
+  const isLoading = (market === 'kr' && isKoreanLoading) || (market === 'us' && isUSLoading);
+  const error = market === 'kr' ? koreanError : market === 'us' ? usError : null;
+  const refetch = market === 'kr' ? refetchKorean : refetchUS;
 
   // 로딩 중
   if (isLoading) {
@@ -158,7 +194,7 @@ export function IndicesContent({ market }: IndicesContentProps) {
     <section>
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
         주요 지수
-        {market === 'kr' && (
+        {(market === 'kr' || market === 'us') && (
           <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">
             실시간
           </span>

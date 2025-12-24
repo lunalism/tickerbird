@@ -18,7 +18,7 @@ import { useRouter } from 'next/navigation';
 import { MarketRegion, StockSector, Stock } from '@/types';
 import { stocksBySector, sectorTabs } from '@/constants';
 import { CompanyLogo } from '@/components/common';
-import { useKoreanStocks, useMarketCapRanking } from '@/hooks';
+import { useKoreanStocks, useMarketCapRanking, useUSMarketCapRanking } from '@/hooks';
 import { StockTableSkeleton } from '@/components/skeleton';
 
 interface StocksContentProps {
@@ -203,6 +203,14 @@ export function StocksContent({ market }: StocksContentProps) {
     refetch: refetchKorean
   } = useKoreanStocks();
 
+  // 미국 시장: 시가총액 순위 API 사용 (NASDAQ 기본)
+  const {
+    data: usMarketCapData,
+    isLoading: isUSLoading,
+    error: usError,
+    refetch: refetchUS
+  } = useUSMarketCapRanking();
+
   // 한국 시장: 시가총액 순위 데이터를 Stock 형식으로 변환
   const koreanMarketCapStocks: Stock[] = marketCapData.length > 0
     ? marketCapData.slice(0, 30).map((item, idx) => ({
@@ -219,13 +227,36 @@ export function StocksContent({ market }: StocksContentProps) {
       }))
     : koreanStocks; // 시가총액 API 실패 시 기존 데이터 폴백
 
-  // 전체 주식 데이터 (한국: 시가총액 순위 API, 그 외: 목업)
-  const allStocks = market === 'kr' ? koreanMarketCapStocks : (stocksBySector[market] || []);
-  const isLoading = market === 'kr' && (isMarketCapLoading || (marketCapData.length === 0 && isKoreanLoading));
-  const error = market === 'kr' ? (marketCapError || (marketCapData.length === 0 ? koreanError : null)) : null;
+  // 미국 시장: 시가총액 순위 데이터를 Stock 형식으로 변환
+  const usMarketCapStocks: Stock[] = usMarketCapData.slice(0, 30).map((item, idx) => ({
+    rank: idx + 1,
+    name: item.name,
+    ticker: item.symbol,
+    price: item.currentPrice,
+    change: item.change,
+    changePercent: item.changePercent,
+    volume: formatVolumeForDisplay(item.volume),
+    domain: '',
+    marketCap: item.marketCap,
+  }));
 
-  // 섹터별 필터링 (한국 API 데이터는 섹터 정보 없으므로 전체만 표시)
-  const filteredStocks = activeSector === 'all' || market === 'kr'
+  // 전체 주식 데이터 (한국/미국: 시가총액 순위 API, 그 외: 목업)
+  const allStocks = market === 'kr'
+    ? koreanMarketCapStocks
+    : market === 'us'
+      ? usMarketCapStocks
+      : (stocksBySector[market] || []);
+
+  const isLoading = (market === 'kr' && (isMarketCapLoading || (marketCapData.length === 0 && isKoreanLoading)))
+    || (market === 'us' && isUSLoading);
+  const error = market === 'kr'
+    ? (marketCapError || (marketCapData.length === 0 ? koreanError : null))
+    : market === 'us'
+      ? usError
+      : null;
+
+  // 섹터별 필터링 (한국/미국 API 데이터는 섹터 정보 없으므로 전체만 표시)
+  const filteredStocks = activeSector === 'all' || market === 'kr' || market === 'us'
     ? allStocks
     : allStocks.filter(stock => stock.sector && stock.sector === activeSector);
 
@@ -252,8 +283,12 @@ export function StocksContent({ market }: StocksContentProps) {
           <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
           <button
             onClick={() => {
-              refetchMarketCap();
-              refetchKorean();
+              if (market === 'kr') {
+                refetchMarketCap();
+                refetchKorean();
+              } else if (market === 'us') {
+                refetchUS();
+              }
             }}
             className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
           >
@@ -267,15 +302,15 @@ export function StocksContent({ market }: StocksContentProps) {
   return (
     <section>
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-        {market === 'kr' ? '시가총액 순위' : '인기 종목'}
-        {market === 'kr' && (
+        {(market === 'kr' || market === 'us') ? '시가총액 순위' : '인기 종목'}
+        {(market === 'kr' || market === 'us') && (
           <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">
             실시간
           </span>
         )}
       </h2>
-      {/* 섹터 필터 (한국 제외) */}
-      {market !== 'kr' && (
+      {/* 섹터 필터 (한국/미국 제외) */}
+      {market !== 'kr' && market !== 'us' && (
         <SectorFilter activeSector={activeSector} onSectorChange={setActiveSector} />
       )}
       {/* 주식 테이블 */}
@@ -284,7 +319,7 @@ export function StocksContent({ market }: StocksContentProps) {
       ) : (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-8 text-center">
           <p className="text-gray-500 dark:text-gray-400">
-            {market === 'kr' ? '데이터를 불러오는 중...' : '해당 섹터의 종목이 없습니다.'}
+            {(market === 'kr' || market === 'us') ? '데이터를 불러오는 중...' : '해당 섹터의 종목이 없습니다.'}
           </p>
         </div>
       )}

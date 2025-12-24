@@ -30,8 +30,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ETF, MarketRegion } from '@/types';
-import { etfData, etfCategoryLabels, KoreanETFInfo } from '@/constants';
-import { useKoreanETFs, ETFPriceData } from '@/hooks';
+import { etfData, etfCategoryLabels, KoreanETFInfo, USETFInfo, usETFCategoryLabels } from '@/constants';
+import { useKoreanETFs, ETFPriceData, useUSETFs, USETFPriceData } from '@/hooks';
 
 interface ETFContentProps {
   /** 현재 선택된 국가 */
@@ -42,6 +42,9 @@ interface ETFContentProps {
 
 /** 한국 ETF 카테고리 (필터용) */
 type ETFCategory = 'all' | KoreanETFInfo['category'];
+
+/** 미국 ETF 카테고리 (필터용) */
+type USETFCategory = 'all' | USETFInfo['category'];
 
 // ==================== 카테고리 필터 컴포넌트 ====================
 
@@ -86,6 +89,45 @@ function CategoryFilter({
               // 활성화된 필터 스타일 (다크모드 지원)
               ? 'bg-blue-600 text-white'
               // 비활성화된 필터 스타일 (다크모드 지원)
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
+          }`}
+        >
+          {cat.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 미국 ETF 카테고리 필터 탭
+ */
+function USCategoryFilter({
+  activeCategory,
+  onCategoryChange,
+}: {
+  activeCategory: USETFCategory;
+  onCategoryChange: (category: USETFCategory) => void;
+}) {
+  // 카테고리 탭 목록 (전체 포함)
+  const categories: { id: USETFCategory; label: string }[] = [
+    { id: 'all', label: 'All' },
+    { id: 'index', label: usETFCategoryLabels.index },
+    { id: 'sector', label: usETFCategoryLabels.sector },
+    { id: 'bond', label: usETFCategoryLabels.bond },
+    { id: 'commodity', label: usETFCategoryLabels.commodity },
+    { id: 'international', label: usETFCategoryLabels.international },
+  ];
+
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-4">
+      {categories.map((cat) => (
+        <button
+          key={cat.id}
+          onClick={() => onCategoryChange(cat.id)}
+          className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+            activeCategory === cat.id
+              ? 'bg-blue-600 text-white'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
           }`}
         >
@@ -435,6 +477,85 @@ function KoreanETFCard({ etf }: { etf: ETFPriceData }) {
   );
 }
 
+// ==================== ETF 카드 컴포넌트 (미국 API 데이터용) ====================
+
+/**
+ * 미국 ETF 카드 컴포넌트 (API 데이터용)
+ *
+ * 미국 시장에서 사용
+ * 한국투자증권 해외주식 API로 조회한 실시간 데이터를 표시
+ */
+function USETFCard({ etf }: { etf: USETFPriceData }) {
+  const router = useRouter();
+  const isPositive = etf.changePercent >= 0;
+
+  // 차트 데이터 생성 (현재가 기반)
+  const chartData = generateChartData(etf.currentPrice, etf.changePercent);
+
+  return (
+    <div
+      onClick={() => router.push(`/market/${etf.symbol}`)}
+      className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700
+                 hover:shadow-lg hover:border-gray-200 dark:hover:border-gray-600
+                 transition-all duration-200 cursor-pointer"
+    >
+      {/* 헤더: 티커 + 미니차트 */}
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          {/* 티커 심볼 + 카테고리 배지 */}
+          <div className="flex items-center gap-2 mb-2">
+            <span className="inline-block px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-bold rounded-lg">
+              {etf.symbol}
+            </span>
+            {/* 카테고리 표시 (작은 배지) */}
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              {usETFCategoryLabels[etf.category]}
+            </span>
+          </div>
+          {/* ETF 이름 */}
+          <h3 className="font-medium text-gray-900 dark:text-white text-sm line-clamp-2">{etf.name}</h3>
+        </div>
+        <MiniChart data={chartData} isPositive={isPositive} />
+      </div>
+
+      {/* 가격 정보 */}
+      <div className="mb-3">
+        <p className="text-2xl font-bold text-gray-900 dark:text-white">
+          {formatPrice(etf.currentPrice, 'us')}
+        </p>
+        <div className="flex items-center gap-2 mt-1">
+          <span className={`text-sm font-medium ${
+            isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+          }`}>
+            {formatChange(etf.change, 'us')}
+          </span>
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+            isPositive
+              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+              : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+          }`}>
+            {formatPercent(etf.changePercent)}
+          </span>
+        </div>
+      </div>
+
+      {/* 추가 정보: 거래량, 운용사 */}
+      <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+        <div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Volume</p>
+          <p className="text-sm font-semibold text-gray-900 dark:text-white">
+            {formatVolume(etf.volume)}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Issuer</p>
+          <p className="text-sm font-semibold text-gray-900 dark:text-white">{etf.issuer}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ==================== 메인 컴포넌트 ====================
 
 /**
@@ -457,6 +578,18 @@ export function ETFContent({ market }: ETFContentProps) {
     error: koreanError,
     refetch: refetchKorean,
   } = useKoreanETFs(apiCategory);
+
+  // ========== 미국 시장: 실시간 API 데이터 ==========
+  const [usActiveCategory, setUSActiveCategory] = useState<USETFCategory>('all');
+
+  // useUSETFs 훅 사용 (미국 시장일 때만 실제 호출)
+  const usApiCategory = usActiveCategory === 'all' ? 'all' : usActiveCategory;
+  const {
+    etfs: usETFs,
+    isLoading: isUSLoading,
+    error: usError,
+    refetch: refetchUS,
+  } = useUSETFs(usApiCategory);
 
   // ========== 한국 시장 렌더링 ==========
   if (market === 'kr') {
@@ -506,6 +639,61 @@ export function ETFContent({ market }: ETFContentProps) {
           <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 text-center">
             <p className="text-gray-500 dark:text-gray-400">
               해당 카테고리의 ETF가 없습니다.
+            </p>
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  // ========== 미국 시장 렌더링 ==========
+  if (market === 'us') {
+    return (
+      <section>
+        {/* 섹션 헤더: 제목 + 실시간 배지 */}
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          Popular ETFs
+          <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">
+            Real-time
+          </span>
+        </h2>
+
+        {/* 카테고리 필터 (미국 시장에서만 표시) */}
+        <USCategoryFilter
+          activeCategory={usActiveCategory}
+          onCategoryChange={setUSActiveCategory}
+        />
+
+        {/* 로딩 중: 스켈레톤 표시 */}
+        {isUSLoading && <ETFSkeletonGrid count={8} />}
+
+        {/* 에러 발생: 에러 메시지 + 재시도 버튼 */}
+        {usError && !isUSLoading && (
+          <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-6 text-center">
+            <p className="text-red-600 dark:text-red-400 mb-4">{usError}</p>
+            <button
+              onClick={() => refetchUS()}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* 데이터 로드 완료: ETF 카드 그리드 */}
+        {!isUSLoading && !usError && usETFs.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {usETFs.map((etf) => (
+              <USETFCard key={etf.symbol} etf={etf} />
+            ))}
+          </div>
+        )}
+
+        {/* 데이터 없음 */}
+        {!isUSLoading && !usError && usETFs.length === 0 && (
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 text-center">
+            <p className="text-gray-500 dark:text-gray-400">
+              No ETFs found in this category.
             </p>
           </div>
         )}
