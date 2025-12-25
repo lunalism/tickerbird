@@ -352,6 +352,43 @@ export function getCommonHeaders(accessToken: string, trId: string): HeadersInit
 // ==================== 주식 현재가 조회 ====================
 
 /**
+ * 종목명 조회 (주식기본조회 API)
+ *
+ * @param symbol 종목코드 (6자리 숫자)
+ * @returns 종목명
+ *
+ * @description
+ * GET /uapi/domestic-stock/v1/quotations/search-stock-info
+ * tr_id: CTPF1002R
+ */
+async function getStockName(symbol: string, accessToken: string): Promise<string> {
+  try {
+    const url = new URL(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/search-stock-info`);
+    url.searchParams.append('PDNO', symbol);
+    url.searchParams.append('PRDT_TYPE_CD', '300'); // 300: 주식
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: getCommonHeaders(accessToken, 'CTPF1002R'),
+    });
+
+    if (!response.ok) {
+      console.error('[KIS API] 종목명 조회 실패:', response.status);
+      return '';
+    }
+
+    const data = await response.json();
+    if (data.rt_cd === '0' && data.output) {
+      return data.output.prdt_abrv_name || data.output.prdt_name || '';
+    }
+    return '';
+  } catch (error) {
+    console.error('[KIS API] 종목명 조회 에러:', error);
+    return '';
+  }
+}
+
+/**
  * 주식 현재가 조회
  *
  * @param symbol 종목코드 (6자리, 예: 005930 삼성전자)
@@ -370,38 +407,44 @@ export function getCommonHeaders(accessToken: string, trId: string): HeadersInit
 export async function getStockPrice(symbol: string): Promise<StockPriceData> {
   const accessToken = await getAccessToken();
 
-  const url = new URL(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price`);
-  url.searchParams.append('FID_COND_MRKT_DIV_CODE', 'J'); // J: 주식, ETF, ETN
-  url.searchParams.append('FID_INPUT_ISCD', symbol);
+  // 시세 조회와 종목명 조회를 병렬로 실행
+  const [priceResponse, stockName] = await Promise.all([
+    fetch(
+      (() => {
+        const url = new URL(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price`);
+        url.searchParams.append('FID_COND_MRKT_DIV_CODE', 'J');
+        url.searchParams.append('FID_INPUT_ISCD', symbol);
+        return url.toString();
+      })(),
+      {
+        method: 'GET',
+        headers: getCommonHeaders(accessToken, 'FHKST01010100'),
+      }
+    ),
+    getStockName(symbol, accessToken),
+  ]);
 
-  const response = await fetch(url.toString(), {
-    method: 'GET',
-    headers: getCommonHeaders(accessToken, 'FHKST01010100'),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
+  if (!priceResponse.ok) {
+    const errorText = await priceResponse.text();
     console.error('[KIS API] 주식 현재가 조회 실패:', errorText);
 
-    // 토큰 만료로 인한 실패일 수 있으므로 캐시 초기화 후 재시도
-    if (response.status === 401) {
+    if (priceResponse.status === 401) {
       clearTokenCache();
       throw new Error('인증 토큰이 만료되었습니다. 다시 시도해주세요.');
     }
 
-    throw new Error(`주식 현재가 조회 실패: ${response.status}`);
+    throw new Error(`주식 현재가 조회 실패: ${priceResponse.status}`);
   }
 
-  const data: KISStockPriceResponse = await response.json();
+  const data: KISStockPriceResponse = await priceResponse.json();
 
-  // API 응답 결과 확인
   if (data.rt_cd !== '0') {
     console.error('[KIS API] API 에러:', data.msg1);
     throw new Error(`API 에러: ${data.msg1} (${data.msg_cd})`);
   }
 
-  // 데이터 정제 및 반환
-  return transformStockPrice(symbol, data.output);
+  // 데이터 정제 및 반환 (종목명 포함)
+  return transformStockPrice(symbol, data.output, stockName);
 }
 
 /**
@@ -410,7 +453,8 @@ export async function getStockPrice(symbol: string): Promise<StockPriceData> {
  */
 function transformStockPrice(
   symbol: string,
-  raw: KISStockPriceResponse['output']
+  raw: KISStockPriceResponse['output'],
+  stockName: string = ''
 ): StockPriceData {
   // 전일 대비 부호 변환
   // 1:상한, 2:상승, 3:보합, 4:하한, 5:하락
@@ -424,7 +468,7 @@ function transformStockPrice(
 
   return {
     symbol,
-    stockName: raw.hts_kor_isnm || '',  // HTS 한글 종목명
+    stockName,  // 주식기본조회 API에서 가져온 종목명
     currentPrice: parseFloat(raw.stck_prpr) || 0,
     change: parseFloat(raw.prdy_vrss) || 0,
     changePercent: parseFloat(raw.prdy_ctrt) || 0,
