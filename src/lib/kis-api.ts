@@ -43,23 +43,42 @@ const KIS_BASE_URL = process.env.KIS_BASE_URL || 'https://openapi.koreainvestmen
 
 // ==================== 토큰 캐싱 ====================
 
+import fs from 'fs';
+import path from 'path';
+
 /**
- * 토큰 캐시 (서버 메모리에 저장)
+ * 토큰 캐시 파일 경로
+ *
+ * @description
+ * 토큰을 파일에 저장하여 서버 재시작 후에도 토큰을 재사용합니다.
+ * .next/cache 디렉토리는 Next.js 빌드 캐시 디렉토리로, gitignore됨.
+ *
+ * 파일 저장 이유:
+ * 1. 서버 재시작 시에도 토큰 유지 (메모리 캐시는 초기화됨)
+ * 2. 개발 중 HMR(Hot Module Replacement)에도 토큰 유지
+ * 3. Rate limit (1분당 1회) 에러 방지
+ */
+const TOKEN_CACHE_FILE = path.join(process.cwd(), '.next', 'cache', 'kis-token.json');
+
+/**
+ * 토큰 캐시 (메모리 + 파일 이중 저장)
  *
  * @description
  * 한국투자증권 API는 토큰 발급에 1분당 1회 제한이 있으므로
  * 토큰을 캐싱하여 재사용해야 합니다.
  *
- * 캐싱 전략:
- * 1. 토큰은 24시간(86400초) 유효
- * 2. 만료 10분 전까지 캐시된 토큰 재사용
- * 3. 동시 요청 시 중복 발급 방지 (Promise 기반 락)
- * 4. Rate limit 에러(EGW00133) 발생 시 1분 대기 후 재시도
+ * 이중 캐싱 전략:
+ * 1. 메모리 캐시: 빠른 접근 (현재 프로세스 내)
+ * 2. 파일 캐시: 서버 재시작 후에도 유지
  *
- * 주의사항:
- * - Next.js API Routes는 서버리스 환경에서 실행될 수 있으므로
- *   인스턴스가 재시작되면 캐시가 초기화됨
- * - 프로덕션에서는 Redis 등 외부 캐시 사용 권장
+ * 캐싱 흐름:
+ * 1. 메모리 캐시 확인 → 있으면 사용
+ * 2. 파일 캐시 확인 → 있으면 메모리에 로드 후 사용
+ * 3. 둘 다 없으면 새 토큰 발급 후 메모리+파일에 저장
+ *
+ * 토큰 유효 기간:
+ * - 토큰은 24시간(86400초) 유효
+ * - 만료 10분 전까지 캐시된 토큰 재사용
  */
 let tokenCache: CachedToken | null = null;
 
@@ -76,6 +95,82 @@ let tokenCache: CachedToken | null = null;
  * 3. 발급 완료: Promise resolve, tokenPromise를 null로 초기화
  */
 let tokenPromise: Promise<string> | null = null;
+
+// ==================== 파일 캐시 함수 ====================
+
+/**
+ * 파일에서 캐시된 토큰 로드
+ *
+ * @description
+ * 서버 재시작 시 메모리 캐시가 초기화되므로
+ * 파일에서 저장된 토큰을 읽어 메모리에 복원합니다.
+ *
+ * @returns 유효한 토큰이 있으면 CachedToken, 없으면 null
+ */
+function loadTokenFromFile(): CachedToken | null {
+  try {
+    // 파일 존재 확인
+    if (!fs.existsSync(TOKEN_CACHE_FILE)) {
+      console.log('[KIS API] 토큰 캐시 파일 없음');
+      return null;
+    }
+
+    // 파일에서 토큰 읽기
+    const data = fs.readFileSync(TOKEN_CACHE_FILE, 'utf-8');
+    const parsed = JSON.parse(data);
+
+    // expiresAt을 Date 객체로 변환
+    const cachedToken: CachedToken = {
+      accessToken: parsed.accessToken,
+      expiresAt: new Date(parsed.expiresAt),
+    };
+
+    // 토큰 유효성 확인 (만료된 토큰은 무시)
+    const now = new Date();
+    if (cachedToken.expiresAt.getTime() <= now.getTime()) {
+      console.log('[KIS API] 파일 캐시 토큰 만료됨, 삭제');
+      fs.unlinkSync(TOKEN_CACHE_FILE);
+      return null;
+    }
+
+    console.log('[KIS API] 파일에서 토큰 로드 성공, 만료:', cachedToken.expiresAt.toISOString());
+    return cachedToken;
+  } catch (error) {
+    console.error('[KIS API] 파일 캐시 로드 실패:', error);
+    return null;
+  }
+}
+
+/**
+ * 토큰을 파일에 저장
+ *
+ * @description
+ * 새 토큰 발급 시 파일에 저장하여
+ * 서버 재시작 후에도 토큰을 재사용할 수 있도록 합니다.
+ *
+ * @param token 저장할 토큰 정보
+ */
+function saveTokenToFile(token: CachedToken): void {
+  try {
+    // 디렉토리 생성 (없으면)
+    const dir = path.dirname(TOKEN_CACHE_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    // 토큰 저장 (JSON 형식)
+    const data = JSON.stringify({
+      accessToken: token.accessToken,
+      expiresAt: token.expiresAt.toISOString(),
+    }, null, 2);
+
+    fs.writeFileSync(TOKEN_CACHE_FILE, data, 'utf-8');
+    console.log('[KIS API] 토큰 파일 저장 완료:', TOKEN_CACHE_FILE);
+  } catch (error) {
+    // 파일 저장 실패해도 메모리 캐시는 유지되므로 경고만 출력
+    console.warn('[KIS API] 토큰 파일 저장 실패 (메모리 캐시는 유지됨):', error);
+  }
+}
 
 /**
  * Rate limit 에러 발생 시간
@@ -101,25 +196,48 @@ function validateEnv(): void {
 }
 
 /**
- * 캐시된 토큰이 유효한지 확인
+ * 캐시된 토큰이 유효한지 확인 (메모리 + 파일)
  *
  * @description
+ * 메모리 캐시 → 파일 캐시 순으로 확인합니다.
  * 토큰 만료 10분 전까지는 유효하다고 판단합니다.
  * 이를 통해 만료 직전 API 호출 중 토큰이 만료되는 것을 방지합니다.
+ *
+ * 확인 순서:
+ * 1. 메모리 캐시 확인 (가장 빠름)
+ * 2. 메모리 캐시 없으면 파일 캐시 확인
+ * 3. 파일 캐시 있으면 메모리에 복원 후 사용
  *
  * @returns 유효한 토큰이 있으면 토큰 문자열, 없으면 null
  */
 function getCachedTokenIfValid(): string | null {
-  if (!tokenCache) return null;
-
   const now = new Date();
   const bufferTime = 10 * 60 * 1000; // 10분 버퍼 (만료 10분 전에 갱신)
 
-  if (tokenCache.expiresAt.getTime() - bufferTime > now.getTime()) {
-    return tokenCache.accessToken;
+  // 1단계: 메모리 캐시 확인
+  if (tokenCache) {
+    if (tokenCache.expiresAt.getTime() - bufferTime > now.getTime()) {
+      return tokenCache.accessToken;
+    }
+    console.log('[KIS API] 메모리 캐시 토큰 만료 임박, 재발급 필요');
   }
 
-  console.log('[KIS API] 토큰 만료 임박, 재발급 필요');
+  // 2단계: 메모리 캐시 없거나 만료 임박 → 파일 캐시 확인
+  if (!tokenCache) {
+    const fileToken = loadTokenFromFile();
+    if (fileToken) {
+      // 파일 캐시를 메모리에 복원
+      tokenCache = fileToken;
+
+      // 유효성 다시 확인
+      if (tokenCache.expiresAt.getTime() - bufferTime > now.getTime()) {
+        console.log('[KIS API] 파일 캐시에서 토큰 복원 성공');
+        return tokenCache.accessToken;
+      }
+      console.log('[KIS API] 파일 캐시 토큰 만료 임박, 재발급 필요');
+    }
+  }
+
   return null;
 }
 
@@ -195,13 +313,16 @@ async function fetchNewToken(): Promise<string> {
 
   const data: KISTokenResponse = await response.json();
 
-  // 토큰 캐싱
+  // 토큰 캐싱 (메모리 + 파일)
   // expires_in은 초 단위 (보통 86400 = 24시간)
   const expiresAt = new Date(Date.now() + data.expires_in * 1000);
   tokenCache = {
     accessToken: data.access_token,
     expiresAt,
   };
+
+  // 파일에도 저장 (서버 재시작 후에도 유지)
+  saveTokenToFile(tokenCache);
 
   console.log('[KIS API] 토큰 발급 완료, 만료:', expiresAt.toISOString());
 
@@ -289,10 +410,22 @@ export async function getAccessToken(): Promise<string> {
  * rate limit 에러가 발생할 수 있습니다.
  */
 export function clearTokenCache(): void {
+  // 메모리 캐시 초기화
   tokenCache = null;
   tokenPromise = null;
   rateLimitUntil = null;
-  console.log('[KIS API] 토큰 캐시 초기화됨 (캐시, Promise, rate limit 모두 초기화)');
+
+  // 파일 캐시도 삭제
+  try {
+    if (fs.existsSync(TOKEN_CACHE_FILE)) {
+      fs.unlinkSync(TOKEN_CACHE_FILE);
+      console.log('[KIS API] 토큰 파일 캐시 삭제됨');
+    }
+  } catch (error) {
+    console.warn('[KIS API] 토큰 파일 캐시 삭제 실패:', error);
+  }
+
+  console.log('[KIS API] 토큰 캐시 초기화됨 (메모리, 파일, Promise, rate limit 모두 초기화)');
 }
 
 /**
