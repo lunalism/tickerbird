@@ -921,6 +921,7 @@ const US_INDEX_NAME_MAP: Record<OverseasIndexCode, string> = {
   'SPX': 'S&P 500',
   'CCMP': 'NASDAQ',
   'INDU': 'DOW JONES',
+  'RUT': 'Russell 2000',
 };
 
 /**

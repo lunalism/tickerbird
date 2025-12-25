@@ -476,8 +476,9 @@ export type OverseasExchangeCode = 'NYS' | 'NAS' | 'AMS' | 'HKS' | 'TSE' | 'SHS'
  * - SPX: S&P 500
  * - CCMP: NASDAQ Composite
  * - INDU: Dow Jones Industrial
+ * - RUT: Russell 2000 (소형주 지수)
  */
-export type OverseasIndexCode = 'SPX' | 'CCMP' | 'INDU';
+export type OverseasIndexCode = 'SPX' | 'CCMP' | 'INDU' | 'RUT';
 
 // ==================== 해외주식 현재가 조회 타입 ====================
 

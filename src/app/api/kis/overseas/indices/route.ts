@@ -4,12 +4,13 @@
  * @route GET /api/kis/overseas/indices
  *
  * @description
- * 한국투자증권 Open API를 통해 미국 주요 지수(S&P500, NASDAQ, DOW JONES)의
+ * 한국투자증권 Open API를 통해 미국 주요 지수(S&P500, NASDAQ, DOW JONES, Russell 2000)의
  * 현재가를 조회합니다.
  *
- * 지수 API가 0을 반환하는 경우(CCMP, INDU) 해당 ETF 가격을 폴백으로 사용:
+ * 지수 API가 0을 반환하는 경우 해당 ETF 가격을 폴백으로 사용:
  * - NASDAQ(CCMP) → QQQ ETF (NASDAQ 100 추종)
  * - DOW JONES(INDU) → DIA ETF (다우존스 추종)
+ * - Russell 2000(RUT) → IWM ETF (Russell 2000 추종)
  *
  * 사용 예시:
  * - GET /api/kis/overseas/indices (모든 지수 조회)
@@ -23,8 +24,13 @@ import type { OverseasIndexData, OverseasIndexCode, OverseasExchangeCode, KISApi
 
 /**
  * 조회할 미국 주요 지수 목록
+ *
+ * - SPX: S&P 500 (대형주 500개)
+ * - CCMP: NASDAQ Composite (나스닥 전체)
+ * - INDU: Dow Jones Industrial (대형 우량주 30개)
+ * - RUT: Russell 2000 (소형주 2000개)
  */
-const US_INDICES: OverseasIndexCode[] = ['SPX', 'CCMP', 'INDU'];
+const US_INDICES: OverseasIndexCode[] = ['SPX', 'CCMP', 'INDU', 'RUT'];
 
 /**
  * 지수코드 → ETF 매핑 (폴백용)
@@ -63,6 +69,9 @@ const INDEX_TO_ETF_MAP: Record<OverseasIndexCode, {
   'CCMP': { symbol: 'QQQ', exchange: 'NAS', multiplier: 35, fallbackName: 'NASDAQ 100', isEstimated: true },
   // DOW JONES: DIA ETF로 폴백 (INDU가 0 반환하므로 항상 사용)
   'INDU': { symbol: 'DIA', exchange: 'AMS', multiplier: 90, fallbackName: 'DOW JONES', isEstimated: true },
+  // Russell 2000: IWM ETF로 폴백 (소형주 지수)
+  // IWM ≈ $225 × 10 = Russell 2000 ≈ 2,250
+  'RUT': { symbol: 'IWM', exchange: 'AMS', multiplier: 10, fallbackName: 'Russell 2000', isEstimated: true },
 };
 
 /**
