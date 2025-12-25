@@ -1,5 +1,19 @@
 'use client';
 
+/**
+ * IndexCard 컴포넌트
+ *
+ * @description
+ * 주가 지수를 카드 형태로 표시합니다.
+ * - 지수명, 현재값, 변동폭, 변동률 표시
+ * - 미니 차트로 추세 시각화
+ * - ETF 기반 추정치인 경우 표시
+ *
+ * @props
+ * - index: MarketIndex - 지수 데이터
+ *   - isEstimated: true인 경우 "ETF 기준" 표시
+ */
+
 import { useRouter } from 'next/navigation';
 import { MarketIndex } from '@/types';
 
@@ -7,6 +21,10 @@ interface IndexCardProps {
   index: MarketIndex;
 }
 
+/**
+ * 미니 차트 컴포넌트
+ * SVG로 간단한 라인 차트를 렌더링합니다.
+ */
 function MiniChart({ data, isPositive }: { data: number[]; isPositive: boolean }) {
   const min = Math.min(...data);
   const max = Math.max(...data);
@@ -66,8 +84,19 @@ export function IndexCard({ index }: IndexCardProps) {
     >
       <div className="flex items-start justify-between mb-3">
         <div>
-          {/* 지수 이름 - 다크모드 텍스트 */}
-          <h3 className="font-semibold text-gray-900 dark:text-white text-sm">{index.name}</h3>
+          {/* 지수 이름 + ETF 기준 표시 */}
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-gray-900 dark:text-white text-sm">{index.name}</h3>
+            {/* ETF 기반 추정치인 경우 표시 */}
+            {index.isEstimated && (
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                title="지수 추적 ETF 가격 기반 추정치"
+              >
+                ETF
+              </span>
+            )}
+          </div>
           {/* 현재 값 - 다크모드 텍스트 */}
           <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{formatValue(index.value)}</p>
         </div>

@@ -39,15 +39,30 @@ const US_INDICES: OverseasIndexCode[] = ['SPX', 'CCMP', 'INDU'];
  *
  * 이 값들은 ETF 가격과 실제 지수 값의 비율을 기반으로 산출됨
  */
+/**
+ * 지수 → ETF 폴백 매핑 정보
+ *
+ * 한국투자증권 해외지수 API는 SPX(S&P 500)만 실시간 데이터를 제공합니다.
+ * CCMP(나스닥), INDU(다우존스)는 0을 반환하므로 해당 지수 추적 ETF 가격으로 추정합니다.
+ *
+ * 참고: 나스닥은 "NASDAQ Composite"와 "NASDAQ 100" 두 종류가 있습니다.
+ * - NASDAQ Composite (IXIC): 나스닥 전체 종목 (~19,900)
+ * - NASDAQ 100 (NDX): 상위 100개 종목 (~21,700)
+ * QQQ ETF는 NASDAQ 100을 추적하므로 "NASDAQ 100"으로 표시합니다.
+ */
 const INDEX_TO_ETF_MAP: Record<OverseasIndexCode, {
   symbol: string;
   exchange: OverseasExchangeCode;
   multiplier: number;
   fallbackName: string;  // ETF 기준일 때 표시할 이름
+  isEstimated: boolean;  // ETF 기반 추정치 여부
 }> = {
-  'SPX': { symbol: 'SPY', exchange: 'AMS', multiplier: 10, fallbackName: 'S&P 500 (ETF 추정)' },
-  'CCMP': { symbol: 'QQQ', exchange: 'NAS', multiplier: 35, fallbackName: 'NASDAQ 100 (ETF 추정)' },  // NASDAQ 100 기준
-  'INDU': { symbol: 'DIA', exchange: 'AMS', multiplier: 90, fallbackName: 'DOW JONES (ETF 추정)' },
+  // S&P 500: SPY ETF로 폴백 (실제로는 SPX가 정상 반환되어 사용 안 됨)
+  'SPX': { symbol: 'SPY', exchange: 'AMS', multiplier: 10, fallbackName: 'S&P 500', isEstimated: true },
+  // NASDAQ 100: QQQ ETF로 폴백 (CCMP가 0 반환하므로 항상 사용)
+  'CCMP': { symbol: 'QQQ', exchange: 'NAS', multiplier: 35, fallbackName: 'NASDAQ 100', isEstimated: true },
+  // DOW JONES: DIA ETF로 폴백 (INDU가 0 반환하므로 항상 사용)
+  'INDU': { symbol: 'DIA', exchange: 'AMS', multiplier: 90, fallbackName: 'DOW JONES', isEstimated: true },
 };
 
 /**
@@ -70,19 +85,29 @@ interface OverseasIndicesResponse {
 /**
  * 지수 데이터 조회 (ETF 폴백 포함)
  *
- * 1. 먼저 지수 API로 조회
- * 2. 값이 0이면 해당 ETF 가격을 폴백으로 사용
+ * 동작 방식:
+ * 1. 먼저 한국투자증권 지수 API로 직접 조회 시도
+ * 2. 값이 0이면 해당 지수를 추적하는 ETF 가격으로 추정
+ *
+ * 데이터 소스 표시:
+ * - isEstimated = false: 실제 지수 API 데이터 (SPX만 지원)
+ * - isEstimated = true: ETF 가격 기반 추정치 (CCMP, INDU)
  */
 async function getIndexWithFallback(indexCode: OverseasIndexCode): Promise<OverseasIndexData> {
-  // 1. 지수 API 호출
+  // 1. 지수 API 호출 (한국투자증권 해외지수 시세 조회)
   const indexData = await getOverseasIndexPrice(indexCode);
 
-  // 2. 값이 0이 아니면 정상 반환
+  // 2. 값이 0이 아니면 실제 API 데이터로 반환
   if (indexData.currentValue > 0) {
-    return indexData;
+    return {
+      ...indexData,
+      isEstimated: false,  // 실제 지수 API 데이터
+    };
   }
 
   // 3. 값이 0이면 ETF 가격을 폴백으로 사용
+  // 한국투자증권 API는 SPX만 실시간 데이터를 제공하고,
+  // CCMP(나스닥), INDU(다우)는 0을 반환함
   const etfInfo = INDEX_TO_ETF_MAP[indexCode];
   console.log(`[API] ${indexCode} 지수값 0, ${etfInfo.symbol} ETF로 폴백 (배수: ${etfInfo.multiplier})`);
 
@@ -98,17 +123,17 @@ async function getIndexWithFallback(indexCode: OverseasIndexCode): Promise<Overs
 
     return {
       indexCode,
-      // ETF 기반 추정치임을 명확히 표시
-      indexName: etfInfo.fallbackName,
+      indexName: etfInfo.fallbackName,  // "NASDAQ 100", "DOW JONES"
       currentValue: Math.round(estimatedIndexValue * 100) / 100,
       change: Math.round(estimatedChange * 100) / 100,
       changePercent: etfData.changePercent,
       changeSign: etfData.changeSign,
       timestamp: new Date().toISOString(),
+      isEstimated: true,  // ETF 기반 추정치
     };
   } catch (etfError) {
     console.error(`[API] ${etfInfo.symbol} ETF 폴백도 실패:`, etfError);
-    // ETF도 실패하면 원래 0 값 반환
+    // ETF도 실패하면 원래 0 값 반환 (isEstimated 없음)
     return indexData;
   }
 }

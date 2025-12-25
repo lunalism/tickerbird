@@ -48,6 +48,7 @@ export interface MarketIndex {
   change: number;
   changePercent: number;
   chartData: number[];
+  isEstimated?: boolean;  // ETF 기반 추정치 여부 (true: ETF 가격으로 추정)
 }
 
 export interface Stock {

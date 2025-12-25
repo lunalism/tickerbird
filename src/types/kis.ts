@@ -597,6 +597,7 @@ export interface OverseasIndexData {
   lowValue?: number;             // 저가
   volume?: number;               // 거래량
   timestamp: string;             // 조회 시간
+  isEstimated?: boolean;         // ETF 기반 추정치 여부 (true: ETF 가격으로 추정, false/undefined: 실제 API 데이터)
 }
 
 // ==================== 해외주식 순위 조회 API 타입 ====================

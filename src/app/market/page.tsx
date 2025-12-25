@@ -223,6 +223,7 @@ function MarketContent() {
 
   // 미국 지수 데이터를 MarketIndex 형식으로 변환
   // useUSIndices 훅에서 가져온 데이터를 UI에 맞게 변환
+  // - isEstimated: ETF 기반 추정치 여부 (SPX는 실제 데이터, CCMP/INDU는 ETF 추정)
   const usMarketIndices = usIndices.length > 0
     ? usIndices.map((idx) => ({
         id: idx.indexCode.toLowerCase(),
@@ -231,6 +232,7 @@ function MarketContent() {
         change: idx.change,
         changePercent: idx.changePercent,
         chartData: [idx.currentValue], // 차트 데이터는 추후 확장 가능
+        isEstimated: idx.isEstimated,  // ETF 기반 추정치 여부
       }))
     : marketIndices['us']; // API 실패 시 목업 데이터 폴백
 
