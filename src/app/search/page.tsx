@@ -23,9 +23,12 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Sidebar } from "@/components/layout";
 import { MobileSearchHeader } from "@/components/features/search";
-import { search, searchCategoryFilters } from "@/utils/search";
-import { useRecentSearches } from "@/hooks";
-import type { SearchCategory, SearchResults, GroupedSearchResults } from "@/types";
+import { searchCategoryFilters } from "@/utils/search";
+import { useRecentSearches, useStockSearch, type StockSearchResult } from "@/hooks";
+import { newsData } from "@/constants/news";
+import { glossaryTerms } from "@/constants/glossary";
+import { calendarEvents } from "@/constants/calendar";
+import type { SearchCategory, NewsItem, GlossaryTerm, CalendarEvent } from "@/types";
 
 /**
  * 검색 입력 컴포넌트
@@ -302,53 +305,52 @@ function SearchInput({
 }
 
 /**
- * 종목 검색 결과 카드 컴포넌트
+ * 종목 검색 결과 카드 컴포넌트 (API 기반)
  *
- * 종목명, 티커, 현재가, 등락률을 표시합니다.
+ * 종목명, 티커, 시장/거래소 정보를 표시합니다.
  * 클릭 시 종목 상세 페이지로 이동합니다.
  */
 function StockResultCard({
   stock,
-  market,
 }: {
-  stock: GroupedSearchResults["stocks"][0]["item"];
-  market: string;
+  stock: StockSearchResult;
 }) {
+  // 시장/거래소 표시 텍스트
+  const marketLabel = stock.type === 'kr'
+    ? stock.market // KOSPI or KOSDAQ
+    : stock.exchange; // NASDAQ, NYSE, AMEX
+
   return (
     <Link
-      href={`/market/${stock.ticker}`}
+      href={`/market/${stock.symbol}`}
       className="flex items-center gap-4 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
     >
       {/* 종목 아이콘 */}
       <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-xl flex items-center justify-center text-lg font-bold text-gray-600 dark:text-gray-300">
-        {stock.ticker.slice(0, 2)}
+        {stock.symbol.slice(0, 2)}
       </div>
 
-      {/* 종목명 및 티커 */}
+      {/* 종목명 및 심볼 */}
       <div className="flex-1 min-w-0">
         <p className="font-medium text-gray-900 dark:text-white truncate">
           {stock.name}
         </p>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          {stock.ticker} · {market.toUpperCase()}
+          {stock.symbol} · {marketLabel}
         </p>
       </div>
 
-      {/* 현재가 및 등락률 */}
-      <div className="text-right">
-        <p className="font-medium text-gray-900 dark:text-white">
-          {typeof stock.price === "number"
-            ? stock.price.toLocaleString()
-            : stock.price}
-        </p>
-        <p
-          className={`text-sm ${
-            stock.changePercent >= 0 ? "text-red-500" : "text-blue-500"
-          }`}
-        >
-          {stock.changePercent >= 0 ? "+" : ""}
-          {stock.changePercent.toFixed(2)}%
-        </p>
+      {/* 시장 타입 배지 */}
+      <div className="flex-shrink-0">
+        <span className={`
+          px-2 py-1 text-xs font-medium rounded
+          ${stock.type === 'kr'
+            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+            : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+          }
+        `}>
+          {stock.type === 'kr' ? '한국' : '미국'}
+        </span>
       </div>
     </Link>
   );
@@ -363,7 +365,7 @@ function StockResultCard({
 function NewsResultCard({
   news,
 }: {
-  news: GroupedSearchResults["news"][0]["item"];
+  news: NewsItem;
 }) {
   return (
     <Link
@@ -423,7 +425,7 @@ function NewsResultCard({
 function CalendarResultCard({
   event,
 }: {
-  event: GroupedSearchResults["calendar"][0]["item"];
+  event: CalendarEvent;
 }) {
   return (
     <Link
@@ -489,7 +491,7 @@ function CalendarResultCard({
 function GlossaryResultCard({
   term,
 }: {
-  term: GroupedSearchResults["glossary"][0]["item"];
+  term: GlossaryTerm;
 }) {
   return (
     <Link
@@ -521,10 +523,70 @@ function GlossaryResultCard({
   );
 }
 
+// ==================== 로컬 검색 유틸리티 ====================
+
+/**
+ * 문자열이 검색어를 포함하는지 확인 (대소문자 무시)
+ */
+function matchesQuery(text: string, query: string): boolean {
+  return text.toLowerCase().includes(query.toLowerCase());
+}
+
+/**
+ * 뉴스 검색 (로컬)
+ */
+function searchNews(query: string): NewsItem[] {
+  if (!query.trim()) return [];
+  return newsData.filter((news) => {
+    const titleMatch = matchesQuery(news.title, query);
+    const tagMatch = news.tags.some((tag) =>
+      matchesQuery(tag.replace('#', ''), query)
+    );
+    return titleMatch || tagMatch;
+  });
+}
+
+/**
+ * 용어사전 검색 (로컬)
+ */
+function searchGlossary(query: string): GlossaryTerm[] {
+  if (!query.trim()) return [];
+  return glossaryTerms.filter((term) => {
+    const abbreviationMatch = matchesQuery(term.abbreviation, query);
+    const koreanMatch = matchesQuery(term.korean, query);
+    const fullNameMatch = matchesQuery(term.fullName, query);
+    return abbreviationMatch || koreanMatch || fullNameMatch;
+  });
+}
+
+/**
+ * 캘린더 검색 (로컬)
+ */
+function searchCalendar(query: string): CalendarEvent[] {
+  if (!query.trim()) return [];
+  return calendarEvents.filter((event) => {
+    const titleMatch = matchesQuery(event.title, query);
+    const descriptionMatch = event.description
+      ? matchesQuery(event.description, query)
+      : false;
+    return titleMatch || descriptionMatch;
+  });
+}
+
+// ==================== 검색 결과 타입 ====================
+
+interface LocalSearchResults {
+  news: NewsItem[];
+  calendar: CalendarEvent[];
+  glossary: GlossaryTerm[];
+}
+
 /**
  * 검색 결과 메인 컴포넌트
  *
  * URL의 검색어를 기반으로 검색 결과를 표시합니다.
+ * - 종목: API 기반 검색 (전체 종목 마스터 데이터)
+ * - 뉴스, 캘린더, 용어사전: 로컬 검색
  * 카테고리별 탭으로 필터링할 수 있습니다.
  */
 function SearchResultsContent() {
@@ -535,8 +597,12 @@ function SearchResultsContent() {
   // 입력값 상태
   const [inputValue, setInputValue] = useState(initialQuery);
 
-  // 검색 결과 상태
-  const [results, setResults] = useState<SearchResults | null>(null);
+  // 로컬 검색 결과 상태 (뉴스, 캘린더, 용어사전)
+  const [localResults, setLocalResults] = useState<LocalSearchResults>({
+    news: [],
+    calendar: [],
+    glossary: [],
+  });
 
   // 현재 선택된 카테고리 탭
   const [activeCategory, setActiveCategory] = useState<SearchCategory>("all");
@@ -544,17 +610,30 @@ function SearchResultsContent() {
   // 최근 검색어 훅
   const { addSearch } = useRecentSearches();
 
+  // API 기반 종목 검색 훅
+  const {
+    results: stockResults,
+    isLoading: isStockLoading,
+    search: searchStocks,
+    clear: clearStocks,
+  } = useStockSearch();
+
+  // 현재 검색어 (URL에서)
+  const currentQuery = searchParams.get("q") || "";
+
   /**
-   * 검색 실행
-   * 검색어가 있으면 검색을 수행하고 결과를 저장합니다.
+   * 로컬 검색 실행 (뉴스, 캘린더, 용어사전)
    */
-  const performSearch = useCallback((query: string) => {
+  const performLocalSearch = useCallback((query: string) => {
     if (!query.trim()) {
-      setResults(null);
+      setLocalResults({ news: [], calendar: [], glossary: [] });
       return;
     }
-    const searchResults = search(query);
-    setResults(searchResults);
+    setLocalResults({
+      news: searchNews(query),
+      calendar: searchCalendar(query),
+      glossary: searchGlossary(query),
+    });
   }, []);
 
   /**
@@ -564,13 +643,19 @@ function SearchResultsContent() {
   useEffect(() => {
     const query = searchParams.get("q") || "";
     setInputValue(query);
-    performSearch(query);
 
-    // 검색어가 있으면 최근 검색어에 추가
     if (query.trim()) {
+      // API 기반 종목 검색
+      searchStocks(query);
+      // 로컬 검색 (뉴스, 캘린더, 용어사전)
+      performLocalSearch(query);
+      // 최근 검색어에 추가
       addSearch(query.trim());
+    } else {
+      clearStocks();
+      setLocalResults({ news: [], calendar: [], glossary: [] });
     }
-  }, [searchParams, performSearch, addSearch]);
+  }, [searchParams, performLocalSearch, addSearch, searchStocks, clearStocks]);
 
   /**
    * 검색 버튼 클릭 핸들러
@@ -582,47 +667,41 @@ function SearchResultsContent() {
     }
   };
 
-  /**
-   * 필터된 결과 계산
-   * 선택된 카테고리에 따라 결과를 필터링합니다.
-   */
-  const getFilteredResults = () => {
-    if (!results) return null;
+  // 전체 결과 개수 계산
+  const totalCount =
+    stockResults.length +
+    localResults.news.length +
+    localResults.calendar.length +
+    localResults.glossary.length;
 
-    switch (activeCategory) {
-      case "stocks":
-        return { ...results.results, news: [], calendar: [], glossary: [] };
-      case "news":
-        return { ...results.results, stocks: [], calendar: [], glossary: [] };
-      case "calendar":
-        return { ...results.results, stocks: [], news: [], glossary: [] };
-      case "glossary":
-        return { ...results.results, stocks: [], news: [], calendar: [] };
-      default:
-        return results.results;
-    }
-  };
-
-  const filteredResults = getFilteredResults();
+  // 검색어가 있는지 확인
+  const hasQuery = !!currentQuery.trim();
 
   /**
    * 각 카테고리별 결과 개수
    */
   const getCategoryCount = (category: SearchCategory) => {
-    if (!results) return 0;
     switch (category) {
       case "stocks":
-        return results.results.stocks.length;
+        return stockResults.length;
       case "news":
-        return results.results.news.length;
+        return localResults.news.length;
       case "calendar":
-        return results.results.calendar.length;
+        return localResults.calendar.length;
       case "glossary":
-        return results.results.glossary.length;
+        return localResults.glossary.length;
       case "all":
-        return results.totalCount;
+        return totalCount;
     }
   };
+
+  /**
+   * 필터된 결과 가져오기
+   */
+  const shouldShowStocks = activeCategory === "all" || activeCategory === "stocks";
+  const shouldShowNews = activeCategory === "all" || activeCategory === "news";
+  const shouldShowCalendar = activeCategory === "all" || activeCategory === "calendar";
+  const shouldShowGlossary = activeCategory === "all" || activeCategory === "glossary";
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -643,7 +722,7 @@ function SearchResultsContent() {
           />
 
           {/* 카테고리 탭 */}
-          {results && (
+          {hasQuery && (
             <div className="flex gap-2 mt-6 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0">
               {searchCategoryFilters.map((filter) => (
                 <button
@@ -672,10 +751,20 @@ function SearchResultsContent() {
           )}
 
           {/* 검색 결과 */}
-          {results && filteredResults && (
+          {hasQuery && (
             <div className="mt-6 space-y-6">
+              {/* 로딩 상태 */}
+              {isStockLoading && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-gray-300 dark:border-gray-600 border-t-blue-500 rounded-full animate-spin" />
+                  <span className="ml-3 text-gray-500 dark:text-gray-400">
+                    종목 검색 중...
+                  </span>
+                </div>
+              )}
+
               {/* 결과 없음 */}
-              {results.totalCount === 0 && (
+              {!isStockLoading && totalCount === 0 && (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 mx-auto bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
                     <svg
@@ -693,7 +782,7 @@ function SearchResultsContent() {
                     </svg>
                   </div>
                   <p className="text-gray-500 dark:text-gray-400">
-                    &quot;{results.query}&quot;에 대한 검색 결과가 없습니다
+                    &quot;{currentQuery}&quot;에 대한 검색 결과가 없습니다
                   </p>
                   <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
                     다른 검색어로 다시 시도해보세요
@@ -701,18 +790,17 @@ function SearchResultsContent() {
                 </div>
               )}
 
-              {/* 종목 결과 */}
-              {filteredResults.stocks.length > 0 && (
+              {/* 종목 결과 (API 기반) */}
+              {shouldShowStocks && stockResults.length > 0 && (
                 <section>
                   <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
-                    📈 종목 ({results.results.stocks.length})
+                    📈 종목 ({stockResults.length})
                   </h2>
                   <div className="space-y-3">
-                    {filteredResults.stocks.map((result) => (
+                    {stockResults.map((stock) => (
                       <StockResultCard
-                        key={`${result.market}-${result.item.ticker}`}
-                        stock={result.item}
-                        market={result.market}
+                        key={`${stock.type}-${stock.symbol}`}
+                        stock={stock}
                       />
                     ))}
                   </div>
@@ -720,30 +808,30 @@ function SearchResultsContent() {
               )}
 
               {/* 뉴스 결과 */}
-              {filteredResults.news.length > 0 && (
+              {shouldShowNews && localResults.news.length > 0 && (
                 <section>
                   <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
-                    📰 뉴스 ({results.results.news.length})
+                    📰 뉴스 ({localResults.news.length})
                   </h2>
                   <div className="space-y-3">
-                    {filteredResults.news.map((result) => (
-                      <NewsResultCard key={result.item.id} news={result.item} />
+                    {localResults.news.map((news) => (
+                      <NewsResultCard key={news.id} news={news} />
                     ))}
                   </div>
                 </section>
               )}
 
               {/* 캘린더 결과 */}
-              {filteredResults.calendar.length > 0 && (
+              {shouldShowCalendar && localResults.calendar.length > 0 && (
                 <section>
                   <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
-                    📅 캘린더 ({results.results.calendar.length})
+                    📅 캘린더 ({localResults.calendar.length})
                   </h2>
                   <div className="space-y-3">
-                    {filteredResults.calendar.map((result) => (
+                    {localResults.calendar.map((event) => (
                       <CalendarResultCard
-                        key={result.item.id}
-                        event={result.item}
+                        key={event.id}
+                        event={event}
                       />
                     ))}
                   </div>
@@ -751,16 +839,16 @@ function SearchResultsContent() {
               )}
 
               {/* 용어사전 결과 */}
-              {filteredResults.glossary.length > 0 && (
+              {shouldShowGlossary && localResults.glossary.length > 0 && (
                 <section>
                   <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
-                    📖 용어사전 ({results.results.glossary.length})
+                    📖 용어사전 ({localResults.glossary.length})
                   </h2>
                   <div className="space-y-3">
-                    {filteredResults.glossary.map((result) => (
+                    {localResults.glossary.map((term) => (
                       <GlossaryResultCard
-                        key={result.item.id}
-                        term={result.item}
+                        key={term.id}
+                        term={term}
                       />
                     ))}
                   </div>
@@ -770,7 +858,7 @@ function SearchResultsContent() {
           )}
 
           {/* 초기 상태 (검색 전) */}
-          {!results && !initialQuery && (
+          {!hasQuery && (
             <div className="text-center py-12">
               <div className="w-16 h-16 mx-auto bg-blue-50 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
                 <svg

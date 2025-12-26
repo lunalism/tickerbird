@@ -35,3 +35,12 @@ export { useWatchlist, type WatchlistItem } from './useWatchlist';
 
 // 최근 검색어 관리 훅
 export { useRecentSearches } from './useRecentSearches';
+
+// 종목 검색 훅
+export {
+  useStockSearch,
+  type StockSearchResult,
+  type KoreanSearchResult,
+  type USSearchResult,
+  type SearchOptions,
+} from './useStockSearch';
