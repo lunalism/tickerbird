@@ -46,3 +46,6 @@ export {
   type USSearchResult,
   type SearchOptions,
 } from './useStockSearch';
+
+// 뉴스 훅
+export { useNews, useMultiCategoryNews } from './useNews';
