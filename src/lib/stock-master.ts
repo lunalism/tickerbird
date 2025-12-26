@@ -288,8 +288,19 @@ function parseKoreanMaster(data: Buffer, market: 'KOSPI' | 'KOSDAQ'): KoreanStoc
  *
  * 파일 형식 (한국투자증권 공식 문서 참고):
  * - 탭(0x09) 구분자로 분리된 형식
- * - 컬럼 순서: US, 코드, 거래소(NAS/NYS/AMS), 한글명, 심볼, 확장심볼, 영문명, ...
- * - 한글명은 EUC-KR 인코딩
+ * - 컬럼 순서 (실제 확인된 형식):
+ *   [0]: US (국가 코드)
+ *   [1]: 22 (코드)
+ *   [2]: NAS/NYS/AMS (거래소 코드)
+ *   [3]: 나스닥/뉴욕/아멕스 (거래소 한글명)
+ *   [4]: AAPL (심볼)
+ *   [5]: NASAAPL (확장 심볼)
+ *   [6]: 애플 (한글 종목명)
+ *   [7]: APPLE INC (영문 종목명)
+ *   [8]: 2/3 (종목 유형)
+ *   [9]: USD (통화)
+ *   ...
+ * - EUC-KR 인코딩
  *
  * @param data 압축 해제된 마스터 파일 데이터
  * @param exchange 거래소 구분
@@ -313,25 +324,31 @@ function parseUSMaster(data: Buffer, exchange: 'NASDAQ' | 'NYSE' | 'AMEX'): USSt
         // 탭으로 분리
         const parts = line.split('\t');
 
-        // 최소 7개 필드 필요: US, 코드, 거래소, 한글명, 심볼, 확장심볼, 영문명
-        if (parts.length < 7) continue;
+        // 최소 8개 필드 필요: US, 코드, 거래소, 거래소명, 심볼, 확장심볼, 한글명, 영문명
+        if (parts.length < 8) continue;
 
-        // 파싱: [0]=US, [1]=코드, [2]=거래소, [3]=한글명, [4]=심볼, [5]=확장심볼, [6]=영문명
+        /**
+         * 필드 매핑 (올바른 순서):
+         * - parts[4]: 심볼 (예: AAPL, PLTR)
+         * - parts[7]: 영문 종목명 (예: APPLE INC, PALANTIR TECHNOLOGIES INC)
+         * - parts[6]: 한글 종목명 (예: 애플, 팔란티어 테크)
+         */
         const symbol = parts[4]?.trim() || '';
-        const name = parts[6]?.trim() || '';
-        const nameKr = parts[3]?.trim() || '';
+        const name = parts[7]?.trim() || '';  // 영문 종목명 (수정됨: parts[6] → parts[7])
+        const nameKr = parts[6]?.trim() || '';  // 한글 종목명 (수정됨: parts[3] → parts[6])
 
         // 유효한 심볼인지 확인 (영문 대문자, 숫자, 일부 특수문자)
         if (!/^[A-Z0-9.\-]+$/.test(symbol)) continue;
         if (symbol.length > 10 || symbol.length < 1) continue;
 
-        // 종목명이 없으면 건너뜀
-        if (!name || name === '') continue;
+        // 영문 종목명이 없으면 한글 종목명 사용, 둘 다 없으면 건너뜀
+        const finalName = name || nameKr || '';
+        if (!finalName || finalName === '') continue;
 
         stocks.push({
           symbol,
-          name,
-          nameKr: nameKr || undefined,
+          name: finalName,  // 영문명 우선, 없으면 한글명
+          nameKr: nameKr || undefined,  // 한글명 (별도 저장)
           exchange,
         });
       } catch {

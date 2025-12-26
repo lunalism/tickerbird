@@ -8,6 +8,11 @@
  * 한국투자증권 Open API를 통해 미국 개별 주식의 현재가를 조회합니다.
  * 관심종목 페이지에서 미국 주식 시세 표시에 사용됩니다.
  *
+ * 종목명 조회 우선순위:
+ * 1. usStockList 상수에서 조회 (자주 사용되는 인기 종목)
+ * 2. 종목 마스터 캐시에서 조회 (전체 미국 종목 11,000+)
+ * 3. 티커 심볼을 그대로 사용 (fallback)
+ *
  * 사용 예시:
  * - GET /api/kis/overseas/stock/price?symbol=AAPL
  * - GET /api/kis/overseas/stock/price?symbol=MSFT
@@ -16,6 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOverseasStockPrice } from '@/lib/kis-api';
 import { usStockList } from '@/constants';
+import { getUSStockMaster, type USStockMaster } from '@/lib/stock-master';
 import type { OverseasExchangeCode, KISApiErrorResponse } from '@/types/kis';
 
 /**
@@ -58,14 +64,52 @@ export async function GET(request: NextRequest): Promise<NextResponse<USStockPri
   }
 
   try {
-    // usStockList에서 종목 정보 찾기
+    /**
+     * 종목 정보 조회 (이름, 거래소)
+     *
+     * 조회 순서:
+     * 1. usStockList 상수 (자주 사용되는 인기 종목, 빠른 조회)
+     * 2. 종목 마스터 캐시 (전체 미국 종목 11,000+, 디스크 캐시)
+     * 3. fallback: 티커를 이름으로 사용
+     */
+
+    // 1단계: usStockList 상수에서 종목 정보 찾기 (메모리, 빠름)
     const stockInfo = usStockList.find(stock => stock.symbol === symbol);
 
-    // 목록에 없는 종목은 기본 NAS로 시도
-    const exchange: OverseasExchangeCode = stockInfo?.exchange || 'NAS';
-    const name = stockInfo?.name || symbol;
+    // 종목명과 거래소 초기값 (fallback 값으로 시작)
+    let name = symbol;  // 기본값: 티커 심볼
+    let exchange: OverseasExchangeCode = 'NAS';  // 기본값: NASDAQ
 
-    console.log(`[US Stock Price API] ${symbol} (${exchange}) 조회`);
+    if (stockInfo) {
+      // usStockList에서 찾은 경우 - 인기 종목
+      name = stockInfo.name;
+      exchange = stockInfo.exchange;
+      console.log(`[US Stock Price API] ${symbol} - usStockList에서 조회: ${name}`);
+    } else {
+      // 2단계: 종목 마스터 캐시에서 종목 정보 찾기 (디스크 캐시)
+      try {
+        const usMaster = await getUSStockMaster();
+        const masterStock = usMaster.find((stock: USStockMaster) => stock.symbol === symbol);
+
+        if (masterStock) {
+          // 종목 마스터에서 찾은 경우
+          name = masterStock.name;
+          // 거래소 코드 변환 (NASDAQ → NAS, NYSE → NYS, AMEX → AMS)
+          exchange = masterStock.exchange === 'NASDAQ' ? 'NAS'
+            : masterStock.exchange === 'NYSE' ? 'NYS'
+            : 'AMS';
+          console.log(`[US Stock Price API] ${symbol} - 종목 마스터에서 조회: ${name}`);
+        } else {
+          // 3단계: 종목 마스터에도 없는 경우 (fallback)
+          console.log(`[US Stock Price API] ${symbol} - 종목 마스터에 없음, 티커 사용`);
+        }
+      } catch (masterError) {
+        // 종목 마스터 조회 실패 시 무시하고 fallback 사용
+        console.warn(`[US Stock Price API] 종목 마스터 조회 실패:`, masterError);
+      }
+    }
+
+    console.log(`[US Stock Price API] ${symbol} (${exchange}) 시세 조회 시작`);
 
     const priceData = await getOverseasStockPrice(exchange, symbol);
 
