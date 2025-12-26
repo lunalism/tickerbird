@@ -32,3 +32,6 @@ export {
 
 // 관심종목 관리 훅
 export { useWatchlist, type WatchlistItem } from './useWatchlist';
+
+// 최근 검색어 관리 훅
+export { useRecentSearches } from './useRecentSearches';
