@@ -75,7 +75,7 @@ export function CrawledNewsCard({ news }: CrawledNewsCardProps) {
         href={news.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="relative aspect-[16/9] sm:aspect-[2/1] overflow-hidden bg-gray-100 dark:bg-gray-700 block"
+        className="relative h-40 w-full overflow-hidden bg-gray-100 dark:bg-gray-700 block"
       >
         {news.thumbnail ? (
           <Image
@@ -89,7 +89,7 @@ export function CrawledNewsCard({ news }: CrawledNewsCardProps) {
         ) : (
           // 썸네일이 없는 경우 플레이스홀더
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800">
-            <span className="text-4xl">{getCategoryIcon(news.category)}</span>
+            <span className="text-5xl">{getCategoryIcon(news.category)}</span>
           </div>
         )}
 
