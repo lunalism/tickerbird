@@ -943,9 +943,10 @@ export default function AssetDetailPage({ params }: { params: Promise<{ ticker: 
   /**
    * 시장 유형 판별 로직:
    * 1. market 파라미터가 'kr'이면 한국 종목
-   * 2. market 파라미터가 'us'이면 미국 종목
-   * 3. 6자리 숫자이면 한국 종목 (레거시 URL 호환)
-   * 4. 그 외: 기존 목업 데이터 사용
+   * 2. 6자리 숫자이면 한국 종목 (레거시 URL 호환)
+   * 3. market 파라미터가 'us'이면 미국 종목
+   * 4. 알파벳 티커(market 파라미터 없음)이면 미국 종목으로 간주
+   * 5. 그 외: 기존 목업 데이터 사용
    */
 
   // 한국 종목인 경우 (market=kr 또는 6자리 숫자)
@@ -953,8 +954,10 @@ export default function AssetDetailPage({ params }: { params: Promise<{ ticker: 
     return <KoreanAssetDetailPage ticker={ticker} />;
   }
 
-  // 미국 종목인 경우 (market=us)
-  if (marketParam === 'us') {
+  // 미국 종목인 경우 (market=us 또는 알파벳 티커)
+  // 알파벳으로만 구성된 티커는 미국 종목으로 간주
+  const isAlphabeticTicker = /^[A-Za-z]+$/.test(ticker);
+  if (marketParam === 'us' || isAlphabeticTicker) {
     return <USAssetDetailPage ticker={ticker} />;
   }
 

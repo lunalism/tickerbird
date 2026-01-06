@@ -8,10 +8,14 @@
  * 기능:
  * - 실시간 검색 결과 드롭다운 (debounce 300ms)
  * - 전체 종목 검색 (API 기반, ~5,000+ 종목)
- * - 뉴스/캘린더/용어사전 검색 (목업 데이터)
+ * - 최근 본 종목 표시 (검색어 없을 때)
  * - 최근 검색어 표시 및 관리
  * - 키보드 지원: Enter, ESC, 화살표 위/아래
  * - 엔터 키 또는 검색 버튼 클릭 시 /search 페이지로 이동
+ *
+ * 드롭다운 표시 로직:
+ * - 검색어가 없고 포커스 시 → 최근 본 종목 + 최근 검색어 표시
+ * - 검색어 입력 시 → 검색 결과 표시
  *
  * 최근 검색어:
  * - 검색 시 자동 저장 (localStorage)
@@ -23,12 +27,41 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useRecentSearches, useStockSearch, type StockSearchResult } from "@/hooks";
+import { useRecentSearches, useStockSearch, useRecentlyViewed, type StockSearchResult } from "@/hooks";
+import type { RecentlyViewedStock, MarketType } from "@/types/recentlyViewed";
 
 // 드롭다운에 표시할 검색 결과 개수 제한
 const DROPDOWN_LIMITS = {
-  stocks: 5,  // 종목: 최대 5개
+  stocks: 5,           // 검색 결과 종목: 최대 5개
+  recentlyViewed: 5,   // 최근 본 종목: 최대 5개
+  recentSearches: 5,   // 최근 검색어: 최대 5개
 };
+
+/**
+ * 시장 배지 색상 반환 (최근 본 종목용)
+ */
+function getMarketBadgeColor(market: MarketType): string {
+  const colors: Record<MarketType, string> = {
+    kr: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    us: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    jp: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    hk: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  };
+  return colors[market] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+}
+
+/**
+ * 시장 라벨 반환
+ */
+function getMarketLabelText(market: MarketType): string {
+  const labels: Record<MarketType, string> = {
+    kr: 'KR',
+    us: 'US',
+    jp: 'JP',
+    hk: 'HK',
+  };
+  return labels[market] || market.toUpperCase();
+}
 
 interface GlobalSearchProps {
   /** 컴팩트 모드 (사이드바용) */
@@ -63,11 +96,23 @@ export function GlobalSearch({
   // 최근 검색어 훅
   const { recentSearches, isMounted, addSearch, removeSearch, clearAll } = useRecentSearches();
 
+  // 최근 본 종목 훅
+  const { recentlyViewed, isLoaded: isRecentlyViewedLoaded } = useRecentlyViewed();
+
   // 종목 검색 훅 (API 기반)
   const { results: stockResults, isLoading, search: searchStocks, clear: clearStockResults } = useStockSearch();
 
   // 표시할 종목 결과 (제한된 개수)
   const limitedStockResults = stockResults.slice(0, DROPDOWN_LIMITS.stocks);
+
+  // 표시할 최근 본 종목 (제한된 개수)
+  const limitedRecentlyViewed = recentlyViewed.slice(0, DROPDOWN_LIMITS.recentlyViewed);
+
+  // 표시할 최근 검색어 (제한된 개수)
+  const limitedRecentSearches = recentSearches.slice(0, DROPDOWN_LIMITS.recentSearches);
+
+  // 최근 데이터가 있는지 확인 (최근 본 종목 또는 최근 검색어)
+  const hasRecentData = (limitedRecentlyViewed.length > 0 || limitedRecentSearches.length > 0) && isMounted && isRecentlyViewedLoaded;
 
   /**
    * 검색어 변경 핸들러
@@ -77,14 +122,14 @@ export function GlobalSearch({
     setQuery(value);
 
     if (value.trim()) {
-      // 종목 검색 API 호출
+      // 검색어가 있으면 → 검색 결과 모드
       searchStocks(value, { limit: DROPDOWN_LIMITS.stocks });
       setShowRecentSearches(false);
       setIsOpen(true);
     } else {
-      // 검색어 비어있으면 결과 초기화
+      // 검색어 비어있으면 → 최근 데이터 모드 (최근 본 종목 + 최근 검색어)
       clearStockResults();
-      if (recentSearches.length > 0 && isMounted) {
+      if (hasRecentData) {
         setShowRecentSearches(true);
         setIsOpen(true);
       } else {
@@ -227,15 +272,15 @@ export function GlobalSearch({
 
   /**
    * 포커스 핸들러
-   * 검색어가 있으면 검색 결과 표시, 없으면 최근 검색어 표시
+   * 검색어가 있으면 검색 결과 표시, 없으면 최근 데이터(최근 본 종목 + 최근 검색어) 표시
    */
   const handleFocus = () => {
     if (query.trim() && stockResults.length > 0) {
       // 검색어가 있으면 검색 결과 표시
       setIsOpen(true);
       setShowRecentSearches(false);
-    } else if (!query.trim() && recentSearches.length > 0 && isMounted) {
-      // 검색어가 없고 최근 검색어가 있으면 최근 검색어 표시
+    } else if (!query.trim() && hasRecentData) {
+      // 검색어가 없고 최근 데이터가 있으면 최근 데이터 표시
       setShowRecentSearches(true);
       setIsOpen(true);
     }
@@ -363,8 +408,8 @@ export function GlobalSearch({
             onClick={() => {
               setQuery("");
               clearStockResults();
-              // 최근 검색어가 있으면 최근 검색어 드롭다운 표시
-              if (recentSearches.length > 0 && isMounted) {
+              // 최근 데이터가 있으면 최근 데이터 드롭다운 표시
+              if (hasRecentData) {
                 setShowRecentSearches(true);
                 setIsOpen(true);
               } else {
@@ -381,81 +426,130 @@ export function GlobalSearch({
         )}
       </div>
 
-      {/* 드롭다운 컨테이너 */}
+      {/* 드롭다운 컨테이너 - 오른쪽 정렬로 화면 밖 넘침 방지 */}
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden z-50 max-h-[70vh] overflow-y-auto animate-fade-in"
+          className="absolute top-full right-0 mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden z-50 max-h-[70vh] overflow-y-auto animate-fade-in w-[350px] lg:w-[420px] max-w-[calc(100vw-2rem)]"
         >
-          {/* 최근 검색어 드롭다운 */}
-          {showRecentSearches && recentSearches.length > 0 && (
+          {/* ========================================
+              최근 데이터 드롭다운 (검색어가 없을 때)
+              - 최근 본 종목 (가로 스크롤 카드)
+              - 최근 검색어 (리스트)
+          ======================================== */}
+          {showRecentSearches && (
             <>
-              {/* 헤더: 최근 검색어 + 전체 삭제 */}
-              <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  최근 검색어
-                </span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    clearAll();
-                    setShowRecentSearches(false);
-                    setIsOpen(false);
-                  }}
-                  className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                >
-                  전체 삭제
-                </button>
-              </div>
-
-              {/* 최근 검색어 목록 */}
-              <div className="py-1">
-                {recentSearches.map((searchQuery, idx) => (
-                  <button
-                    key={`recent-${searchQuery}-${idx}`}
-                    type="button"
-                    onClick={() => handleRecentSearchClick(searchQuery)}
-                    className={`
-                      w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left
-                      ${selectedIndex === idx ? "bg-blue-50 dark:bg-blue-900/30" : ""}
-                    `}
-                  >
-                    {/* 시계 아이콘 + 검색어 */}
-                    <div className="flex items-center gap-2 min-w-0">
-                      <svg
-                        className="w-4 h-4 text-gray-400 flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
+              {/* 최근 본 종목 섹션 */}
+              {limitedRecentlyViewed.length > 0 && (
+                <div className="border-b border-gray-100 dark:border-gray-800">
+                  {/* 헤더 */}
+                  <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                        {searchQuery}
-                      </span>
-                    </div>
+                      최근 본 종목
+                    </span>
+                  </div>
 
-                    {/* 삭제 버튼 */}
+                  {/* 종목 카드 가로 스크롤 */}
+                  <div className="p-3 overflow-x-auto scrollbar-hide">
+                    <div className="flex flex-nowrap gap-2">
+                      {limitedRecentlyViewed.map((stock) => (
+                        <Link
+                          key={`recent-stock-${stock.ticker}`}
+                          href={`/market/${stock.ticker}${stock.market !== 'kr' ? `?market=${stock.market}` : ''}`}
+                          onClick={() => closeDropdown()}
+                          className="flex-shrink-0 px-3 py-2 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors min-w-[120px] max-w-[160px]"
+                        >
+                          {/* 시장 배지 */}
+                          <span className={`inline-block px-1.5 py-0.5 text-[10px] font-medium rounded mb-1.5 ${getMarketBadgeColor(stock.market)}`}>
+                            {getMarketLabelText(stock.market)}
+                          </span>
+                          {/* 종목명 */}
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {stock.name}
+                          </p>
+                          {/* 티커 */}
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                            {stock.ticker}
+                          </p>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 최근 검색어 섹션 */}
+              {limitedRecentSearches.length > 0 && (
+                <>
+                  {/* 헤더: 최근 검색어 + 전체 삭제 */}
+                  <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      최근 검색어
+                    </span>
                     <button
                       type="button"
-                      onClick={(e) => handleRemoveRecentSearch(e, searchQuery)}
-                      className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0"
-                      title="삭제"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        clearAll();
+                        // 최근 본 종목이 없으면 드롭다운 닫기
+                        if (limitedRecentlyViewed.length === 0) {
+                          setShowRecentSearches(false);
+                          setIsOpen(false);
+                        }
+                      }}
+                      className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      전체 삭제
                     </button>
-                  </button>
-                ))}
-              </div>
+                  </div>
+
+                  {/* 최근 검색어 목록 */}
+                  <div className="py-1">
+                    {limitedRecentSearches.map((searchQuery, idx) => (
+                      <div
+                        key={`recent-search-${searchQuery}-${idx}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleRecentSearchClick(searchQuery)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleRecentSearchClick(searchQuery);
+                          }
+                        }}
+                        className={`
+                          w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left cursor-pointer
+                          ${selectedIndex === idx ? "bg-blue-50 dark:bg-blue-900/30" : ""}
+                        `}
+                      >
+                        {/* 검색어 */}
+                        <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                          {searchQuery}
+                        </span>
+
+                        {/* 삭제 버튼 */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleRemoveRecentSearch(e, searchQuery)}
+                          className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0"
+                          title="삭제"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </>
           )}
 
