@@ -7,6 +7,7 @@ import { MobileSearchHeader, GlobalSearch } from '@/components/features/search';
 import { NewsCardSkeletonGrid } from '@/components/skeleton';
 import { useNews } from '@/hooks';
 import { NEWS_CATEGORIES, type CrawledNewsCategory } from '@/types/crawled-news';
+import { RecentlyViewedList } from '@/components/features/recently-viewed';
 
 export default function Home() {
   const [activeCategory, setActiveCategory] = useState<CrawledNewsCategory>("headlines");
@@ -33,6 +34,23 @@ export default function Home() {
       {/* Main Content */}
       <main className="md:pl-[72px] lg:pl-60 transition-all duration-300 pt-14 md:pt-0">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-6">
+          {/* ========================================
+              최근 본 종목 섹션
+              - 사용자가 방문한 종목들을 가로 스크롤 카드로 표시
+              - 종목 클릭 시 해당 종목 상세 페이지로 이동
+          ======================================== */}
+          <section className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                최근 본 종목
+              </h2>
+            </div>
+            <RecentlyViewedList />
+          </section>
+
           {/* 뉴스 카테고리 탭 + 검색바 영역 */}
           <div className="mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             {/* News Category Tabs */}

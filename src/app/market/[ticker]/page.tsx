@@ -27,8 +27,9 @@ import {
 } from 'recharts';
 import { getAssetDetail, getRelatedNews } from '@/constants';
 import { ChartPeriod, AssetDetail, RelatedNews } from '@/types/market';
-import { useKoreanStockPrice, useUSStockPrice, KOREAN_STOCKS, useWatchlist } from '@/hooks';
+import { useKoreanStockPrice, useUSStockPrice, KOREAN_STOCKS, useWatchlist, useRecentlyViewed } from '@/hooks';
 import { showSuccess } from '@/lib/toast';
+import { MarketType } from '@/types/recentlyViewed';
 
 // 차트 기간 탭 정의
 const chartPeriods: { id: ChartPeriod; label: string }[] = [
@@ -253,6 +254,25 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
   // 관심종목 관리
   const { isInWatchlist, toggleWatchlist } = useWatchlist();
   const inWatchlist = isInWatchlist(ticker);
+
+  // 최근 본 종목 관리
+  const { addToRecentlyViewed } = useRecentlyViewed();
+
+  // ========================================
+  // 최근 본 종목 자동 기록
+  // 페이지 진입 시 종목 정보를 localStorage에 저장
+  // ========================================
+  useEffect(() => {
+    // 데이터 로딩이 완료되고 종목 정보가 있을 때만 기록
+    if (!isLoading && stock) {
+      const stockName = stockInfo?.name || stock.stockName || ticker;
+      addToRecentlyViewed({
+        ticker,
+        market: 'kr' as MarketType,
+        name: stockName,
+      });
+    }
+  }, [ticker, stock, isLoading, stockInfo, addToRecentlyViewed]);
 
   const handleToggleWatchlist = () => {
     const stockName = stockInfo?.name || stock?.stockName || ticker;
@@ -564,6 +584,24 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
   // 관심종목 관리
   const { isInWatchlist, toggleWatchlist } = useWatchlist();
   const inWatchlist = isInWatchlist(ticker);
+
+  // 최근 본 종목 관리
+  const { addToRecentlyViewed } = useRecentlyViewed();
+
+  // ========================================
+  // 최근 본 종목 자동 기록
+  // 페이지 진입 시 종목 정보를 localStorage에 저장
+  // ========================================
+  useEffect(() => {
+    // 데이터 로딩이 완료되고 종목 정보가 있을 때만 기록
+    if (!isLoading && stock) {
+      addToRecentlyViewed({
+        ticker,
+        market: 'us' as MarketType,
+        name: stock.name,
+      });
+    }
+  }, [ticker, stock, isLoading, addToRecentlyViewed]);
 
   /**
    * 관심종목 토글 핸들러
@@ -898,6 +936,9 @@ export default function AssetDetailPage({ params }: { params: Promise<{ ticker: 
 
   // 관심종목 관리 (훅은 조건부 반환 전에 호출해야 함)
   const { isInWatchlist, toggleWatchlist } = useWatchlist();
+
+  // 최근 본 종목 관리
+  const { addToRecentlyViewed } = useRecentlyViewed();
 
   /**
    * 시장 유형 판별 로직:

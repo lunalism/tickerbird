@@ -49,3 +49,6 @@ export {
 
 // 뉴스 훅
 export { useNews, useMultiCategoryNews } from './useNews';
+
+// 최근 본 종목 관리 훅
+export { useRecentlyViewed } from './useRecentlyViewed';
