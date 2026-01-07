@@ -18,7 +18,12 @@
  */
 
 import { useState } from 'react';
-import { CommunityCategory, SortType } from '@/types/community';
+import {
+  CommunityCategory,
+  SortType,
+  CommunityPost,
+  FeedPost as FeedPostType,
+} from '@/types/community';
 import { Sidebar, BottomNav } from '@/components/layout';
 import {
   CommunityTabs,
@@ -27,8 +32,64 @@ import {
   FeedPost,
   PostComposer,
 } from '@/components/features/community';
-import { feedPosts, hotPosts, discussionStocks, activeUsers } from '@/constants';
+import { hotPosts, discussionStocks, activeUsers } from '@/constants';
 import { useAuthStore } from '@/stores';
+import { useCommunity } from '@/hooks';
+
+/**
+ * CommunityPost를 FeedPost 형식으로 변환
+ * 기존 FeedPost 컴포넌트와 호환성 유지
+ */
+function toFeedPost(post: CommunityPost): FeedPostType {
+  // 상대 시간 계산
+  const createdDate = new Date(post.createdAt);
+  const now = new Date();
+  const diffMs = now.getTime() - createdDate.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  let timeAgo: string;
+  if (diffMins < 1) {
+    timeAgo = '방금 전';
+  } else if (diffMins < 60) {
+    timeAgo = `${diffMins}분 전`;
+  } else if (diffHours < 24) {
+    timeAgo = `${diffHours}시간 전`;
+  } else if (diffDays < 7) {
+    timeAgo = `${diffDays}일 전`;
+  } else {
+    timeAgo = createdDate.toLocaleDateString('ko-KR');
+  }
+
+  // 아바타 이모지 선택 (이름의 첫 글자 기반)
+  const avatarEmojis = ['👤', '😊', '🙂', '😎', '🤓', '👨‍💼', '👩‍💼', '🧑‍💻'];
+  const avatarIndex = post.author.name.charCodeAt(0) % avatarEmojis.length;
+
+  return {
+    id: parseInt(post.id.replace(/-/g, '').slice(0, 8), 16) || Date.now(),
+    author: post.author.name,
+    username: post.author.name.toLowerCase().replace(/\s+/g, '_'),
+    authorAvatar: post.author.avatarUrl || avatarEmojis[avatarIndex],
+    content: post.content,
+    hashtags: post.hashtags,
+    stockTags: post.tickers.map(ticker => ({
+      ticker,
+      name: ticker,
+      price: 0,
+      changePercent: 0,
+    })),
+    category: post.category,
+    createdAt: timeAgo,
+    likes: post.likesCount,
+    comments: post.commentsCount,
+    reposts: post.repostsCount,
+    liked: post.isLiked,
+    bookmarked: false,
+    reposted: false,
+    isHot: post.likesCount >= 10,
+  };
+}
 
 export default function CommunityPage() {
   const [activeMenu, setActiveMenu] = useState('community');
@@ -36,33 +97,23 @@ export default function CommunityPage() {
   const [sortType, setSortType] = useState<SortType>('latest');
   const { isLoggedIn, login } = useAuthStore();
 
-  /**
-   * 피드 필터링 및 정렬
-   */
-  const getFilteredPosts = () => {
-    let filtered = [...feedPosts];
+  // Supabase 연동 커뮤니티 훅
+  const {
+    posts,
+    isLoading,
+    error,
+    hasMore,
+    loadMore,
+    refetch,
+    createPost,
+    toggleLike,
+  } = useCommunity({
+    category: activeTab,
+    sort: sortType,
+  });
 
-    // 카테고리 필터링
-    if (activeTab !== 'all' && activeTab !== 'following') {
-      filtered = filtered.filter((post) => post.category === activeTab);
-    }
-
-    // 팔로잉 탭은 현재 목업이므로 빈 결과 또는 일부만 표시
-    if (activeTab === 'following') {
-      // 팔로잉 기능 구현 전까지는 랜덤하게 일부만 표시
-      filtered = filtered.filter((_, index) => index % 2 === 0);
-    }
-
-    // 정렬
-    if (sortType === 'popular') {
-      filtered.sort((a, b) => b.likes - a.likes);
-    }
-    // 최신순은 기본 순서 유지 (이미 최신순으로 정렬됨)
-
-    return filtered;
-  };
-
-  const filteredPosts = getFilteredPosts();
+  // FeedPost 형식으로 변환
+  const feedPosts = posts.map(toFeedPost);
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900">
@@ -99,13 +150,57 @@ export default function CommunityPage() {
 
               {/* 글쓰기 입력창 (데스크톱에서만 표시) */}
               <div className="hidden md:block">
-                <PostComposer isLoggedIn={isLoggedIn} onLoginRequest={login} />
+                <PostComposer
+                  isLoggedIn={isLoggedIn}
+                  onLoginRequest={login}
+                  onSubmit={async (content: string) => {
+                    // 해시태그 추출
+                    const hashtagMatches = content.match(/#([^\s#]+)/g);
+                    const hashtags = hashtagMatches
+                      ? hashtagMatches.map(tag => tag.slice(1))
+                      : [];
+
+                    // 티커 추출
+                    const tickerMatches = content.match(/\$([A-Za-z0-9]+)/g);
+                    const tickers = tickerMatches
+                      ? tickerMatches.map(tag => tag.slice(1).toUpperCase())
+                      : [];
+
+                    await createPost({
+                      content,
+                      category: activeTab === 'all' || activeTab === 'following' ? 'stock' : activeTab,
+                      hashtags,
+                      tickers,
+                    });
+                  }}
+                />
               </div>
+
+              {/* 에러 메시지 */}
+              {error && (
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-center">
+                  {error}
+                  <button
+                    onClick={refetch}
+                    className="ml-2 underline hover:no-underline"
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              )}
 
               {/* 피드 리스트 */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-                {filteredPosts.length > 0 ? (
-                  filteredPosts.map((post) => <FeedPost key={post.id} post={post} />)
+                {isLoading && feedPosts.length === 0 ? (
+                  /* 로딩 상태 */
+                  <div className="p-8 text-center">
+                    <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3" />
+                    <p className="text-gray-500 dark:text-gray-400">
+                      게시글을 불러오는 중...
+                    </p>
+                  </div>
+                ) : feedPosts.length > 0 ? (
+                  feedPosts.map((post) => <FeedPost key={post.id} post={post} />)
                 ) : (
                   /* 빈 상태 */
                   <div className="p-8 text-center">
@@ -113,17 +208,21 @@ export default function CommunityPage() {
                     <p className="text-gray-500 dark:text-gray-400">
                       {activeTab === 'following'
                         ? '팔로우한 사용자의 글이 없습니다'
-                        : '아직 게시물이 없습니다'}
+                        : '아직 게시물이 없습니다. 첫 번째 글을 작성해보세요!'}
                     </p>
                   </div>
                 )}
               </div>
 
               {/* 더 보기 버튼 */}
-              {filteredPosts.length > 0 && (
+              {hasMore && (
                 <div className="text-center">
-                  <button className="px-6 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    더 보기
+                  <button
+                    onClick={loadMore}
+                    disabled={isLoading}
+                    className="px-6 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                  >
+                    {isLoading ? '로딩 중...' : '더 보기'}
                   </button>
                 </div>
               )}

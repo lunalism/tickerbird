@@ -20,20 +20,23 @@ interface PostComposerProps {
   isLoggedIn: boolean;
   /** 로그인 요청 콜백 */
   onLoginRequest?: () => void;
+  /** 게시글 제출 콜백 */
+  onSubmit?: (content: string) => Promise<void>;
 }
 
-export function PostComposer({ isLoggedIn, onLoginRequest }: PostComposerProps) {
+export function PostComposer({ isLoggedIn, onLoginRequest, onSubmit }: PostComposerProps) {
   const [content, setContent] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 글자 수 제한 (280자)
-  const maxLength = 280;
+  // 글자 수 제한 (500자로 증가)
+  const maxLength = 500;
   const remainingChars = maxLength - content.length;
 
   /**
    * 게시 버튼 클릭
    */
-  const handlePost = () => {
+  const handlePost = async () => {
     if (!isLoggedIn) {
       showInfo('로그인이 필요합니다');
       onLoginRequest?.();
@@ -45,10 +48,22 @@ export function PostComposer({ isLoggedIn, onLoginRequest }: PostComposerProps) 
       return;
     }
 
-    // 실제로는 API 호출
-    showSuccess('게시물이 등록되었습니다');
-    setContent('');
-    setIsFocused(false);
+    if (isSubmitting) return;
+
+    try {
+      setIsSubmitting(true);
+      if (onSubmit) {
+        await onSubmit(content.trim());
+      }
+      showSuccess('게시물이 등록되었습니다');
+      setContent('');
+      setIsFocused(false);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : '게시물 등록에 실패했습니다';
+      showInfo(errorMsg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   /**
@@ -203,11 +218,11 @@ export function PostComposer({ isLoggedIn, onLoginRequest }: PostComposerProps) 
                   {/* 게시 버튼 */}
                   <button
                     onClick={handlePost}
-                    disabled={content.trim().length === 0}
+                    disabled={content.trim().length === 0 || isSubmitting}
                     className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-full
                                hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    게시
+                    {isSubmitting ? '게시 중...' : '게시'}
                   </button>
                 </div>
               </div>

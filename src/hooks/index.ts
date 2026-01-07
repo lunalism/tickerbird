@@ -55,3 +55,6 @@ export { useRecentlyViewed } from './useRecentlyViewed';
 
 // 가격 알림 관리 훅
 export { useAlerts } from './useAlerts';
+
+// 커뮤니티 훅
+export { useCommunity, useComments } from './useCommunity';
