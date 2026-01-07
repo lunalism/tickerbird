@@ -24,6 +24,7 @@
 import { useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { FeedPost as FeedPostType, StockTag, CommunityComment } from '@/types/community';
+import { GlossaryText } from '@/components/ui';
 
 interface FeedPostProps {
   post: FeedPostType;
@@ -143,13 +144,9 @@ export function FeedPost({ post, postId, onLikeToggle, onLoadComments, onAddComm
   /**
    * 본문 내용 파싱
    * $종목태그와 #해시태그를 링크로 변환
+   * 일반 텍스트는 용어사전 툴팁 적용
    */
   const parseContent = (content: string) => {
-    // $종목태그 파싱 (파란색 링크)
-    const stockTagRegex = /\$([A-Za-z0-9]+)/g;
-    // #해시태그 파싱 (파란색)
-    const hashtagRegex = /#([^\s#]+)/g;
-
     // 먼저 줄바꿈을 처리
     const lines = content.split('\n');
 
@@ -162,9 +159,14 @@ export function FeedPost({ post, postId, onLikeToggle, onLoadComments, onAddComm
       const combinedRegex = /(\$[A-Za-z0-9]+|#[^\s#]+)/g;
 
       while ((match = combinedRegex.exec(line)) !== null) {
-        // 매치 전 텍스트
+        // 매치 전 텍스트 (용어사전 툴팁 적용)
         if (match.index > lastIndex) {
-          parts.push(line.slice(lastIndex, match.index));
+          const textBefore = line.slice(lastIndex, match.index);
+          parts.push(
+            <GlossaryText key={`text-${lineIndex}-${lastIndex}`}>
+              {textBefore}
+            </GlossaryText>
+          );
         }
 
         const tag = match[1];
@@ -198,9 +200,14 @@ export function FeedPost({ post, postId, onLikeToggle, onLoadComments, onAddComm
         lastIndex = match.index + match[0].length;
       }
 
-      // 남은 텍스트
+      // 남은 텍스트 (용어사전 툴팁 적용)
       if (lastIndex < line.length) {
-        parts.push(line.slice(lastIndex));
+        const remainingText = line.slice(lastIndex);
+        parts.push(
+          <GlossaryText key={`text-${lineIndex}-${lastIndex}`}>
+            {remainingText}
+          </GlossaryText>
+        );
       }
 
       return (

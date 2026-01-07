@@ -6,6 +6,7 @@ import Link from "next/link";
 import { NewsItem } from '@/types';
 import { getCategoryColor } from '@/utils';
 import { CategoryIcon, CompanyLogo, FlagLogo } from '@/components/common';
+import { GlossaryText } from '@/components/ui';
 import { useFontSizeStore, FONT_SIZE_MAP } from '@/stores';
 
 interface NewsCardProps {
@@ -59,7 +60,7 @@ export function NewsCard({ news }: NewsCardProps) {
         {/* Title - 사용자 설정 크기 적용, 클릭 시 상세 페이지 이동 */}
         <Link href={`/news/${news.id}`}>
           <h2 className={`${FONT_SIZE_MAP.card.title[titleSize]} font-bold text-gray-900 dark:text-white mb-2 leading-snug line-clamp-2 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors`}>
-            {news.title}
+            <GlossaryText>{news.title}</GlossaryText>
           </h2>
         </Link>
 
@@ -72,9 +73,9 @@ export function NewsCard({ news }: NewsCardProps) {
           ))}
         </div>
 
-        {/* Summary - 사용자 설정 크기 적용 */}
+        {/* Summary - 사용자 설정 크기 적용, 용어사전 툴팁 적용 */}
         <p className={`${FONT_SIZE_MAP.card.body[bodySize]} text-gray-600 dark:text-gray-300 leading-relaxed line-clamp-3 flex-1`}>
-          {news.summary}
+          <GlossaryText>{news.summary}</GlossaryText>
         </p>
 
         {/* Footer */}
