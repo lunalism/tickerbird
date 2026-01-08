@@ -9,14 +9,18 @@
  * 주요 기능:
  * - 앱 시작 시 기존 세션 확인
  * - OAuth 로그인 후 세션 감지
+ * - 신규 사용자 온보딩 리다이렉트
  * - 로그아웃 시 스토어 초기화
  */
 
 import { useEffect, useRef } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const { setUser, logout } = useAuthStore();
   const initialized = useRef(false);
 
@@ -29,17 +33,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // 사용자 정보를 스토어에 저장하는 헬퍼 함수
     // profiles 테이블의 커스텀 이미지를 우선 사용
-    const syncUserToStore = async (user: {
-      id: string;
-      email?: string | null;
-      user_metadata?: Record<string, unknown>;
-    }) => {
+    // 신규 사용자면 온보딩으로 리다이렉트
+    const syncUserToStore = async (
+      user: {
+        id: string;
+        email?: string | null;
+        user_metadata?: Record<string, unknown>;
+      },
+      isNewSignIn: boolean = false
+    ) => {
       // profiles 테이블에서 커스텀 프로필 정보 가져오기
       const { data: profile } = await supabase
         .from('profiles')
         .select('name, avatar_url')
         .eq('id', user.id)
         .single();
+
+      // 신규 사용자 판별: profile이 없거나 name이 없으면 신규
+      const isNewUser = !profile || !profile.name;
 
       // 우선순위: profiles 테이블 > Google OAuth user_metadata
       const userData = {
@@ -57,6 +68,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
       console.log('[AuthProvider] Setting user:', userData);
       setUser(userData);
+
+      // 신규 사용자이고, 현재 온보딩 페이지가 아니면 온보딩으로 리다이렉트
+      // 단, SIGNED_IN 이벤트에서만 리다이렉트 (페이지 새로고침 시에는 스킵)
+      if (isNewUser && isNewSignIn && pathname !== '/onboarding') {
+        console.log('[AuthProvider] 신규 사용자 → 온보딩으로 리다이렉트');
+        router.push('/onboarding');
+      }
     };
 
     // 1. 현재 세션 확인 (페이지 로드 시)
@@ -71,7 +89,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (session?.user) {
         console.log('[AuthProvider] Found existing session for:', session.user.email);
-        await syncUserToStore(session.user);
+        // 페이지 로드 시에는 온보딩 리다이렉트 안 함 (isNewSignIn = false)
+        await syncUserToStore(session.user, false);
       } else {
         console.log('[AuthProvider] No existing session found');
       }
@@ -85,17 +104,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('[AuthProvider] Auth state changed:', event, session?.user?.email);
 
         if (event === 'SIGNED_IN' && session?.user) {
-          await syncUserToStore(session.user);
+          // 신규 로그인 시에만 온보딩 체크 (isNewSignIn = true)
+          await syncUserToStore(session.user, true);
         } else if (event === 'SIGNED_OUT') {
           console.log('[AuthProvider] User signed out');
           logout();
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           console.log('[AuthProvider] Token refreshed');
-          await syncUserToStore(session.user);
+          await syncUserToStore(session.user, false);
         } else if (event === 'INITIAL_SESSION' && session?.user) {
-          // 초기 세션 로드 시에도 동기화
+          // 초기 세션 로드 시에도 동기화 (온보딩 리다이렉트 안 함)
           console.log('[AuthProvider] Initial session loaded');
-          await syncUserToStore(session.user);
+          await syncUserToStore(session.user, false);
         }
       }
     );
@@ -104,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [setUser, logout]);
+  }, [setUser, logout, router, pathname]);
 
   return <>{children}</>;
 }
