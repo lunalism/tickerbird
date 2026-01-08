@@ -7,10 +7,9 @@
  * - Google OAuth 로그인
  * - 테스트 모드 로그인 (개발용)
  *
- * 테스트 모드:
- * - 토글 ON: Supabase에 테스트 계정으로 로그인
- * - 토글 OFF: 로그아웃
- * - 로그인 성공 시 메인 페이지로 이동
+ * 로그인 후 리다이렉트:
+ * - 신규 사용자 (닉네임 없음) → /onboarding
+ * - 기존 사용자 → /
  */
 
 import { useState, useTransition, useEffect } from 'react';
@@ -18,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores';
 import { Sidebar, BottomNav } from '@/components/layout';
 import { signInWithGoogle, testSignIn, testSignOut } from './actions';
+import { createClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
   const [activeMenu, setActiveMenu] = useState('');
@@ -26,18 +26,72 @@ export default function LoginPage() {
   // 인증 스토어에서 상태 및 액션 가져오기
   const { isLoggedIn, isTestMode, testLogin, testLogout } = useAuthStore();
 
-  // 이미 로그인된 사용자는 홈으로 리다이렉트
-  useEffect(() => {
-    if (isLoggedIn && !isTestMode) {
-      router.replace('/');
-    }
-  }, [isLoggedIn, isTestMode, router]);
-
   // Server Action 실행 중 상태 (로딩 표시용)
   const [isPending, startTransition] = useTransition();
 
   // 에러 메시지 상태
   const [error, setError] = useState<string | null>(null);
+
+  // 로그인 상태 체크 및 리다이렉트
+  useEffect(() => {
+    const supabase = createClient();
+
+    // 현재 세션 확인 및 리다이렉트
+    const checkAuthAndRedirect = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        console.log('[Login] 이미 로그인됨, 리다이렉트 체크...');
+
+        // 신규 사용자인지 확인
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('id', session.user.id)
+          .single();
+
+        if (!profile || !profile.name) {
+          console.log('[Login] 신규 사용자 → /onboarding');
+          router.replace('/onboarding');
+        } else {
+          console.log('[Login] 기존 사용자 → /');
+          router.replace('/');
+        }
+      }
+    };
+
+    checkAuthAndRedirect();
+
+    // auth 상태 변경 구독 (Google 로그인 완료 후 감지)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('[Login] Auth state changed:', event);
+
+        if (event === 'SIGNED_IN' && session?.user) {
+          console.log('[Login] 로그인 감지, 리다이렉트 체크...');
+
+          // 신규 사용자인지 확인
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('name')
+            .eq('id', session.user.id)
+            .single();
+
+          if (!profile || !profile.name) {
+            console.log('[Login] 신규 사용자 → /onboarding');
+            router.replace('/onboarding');
+          } else {
+            console.log('[Login] 기존 사용자 → /');
+            router.replace('/');
+          }
+        }
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [router]);
 
   /**
    * 테스트 모드 토글 핸들러
