@@ -9,6 +9,7 @@ import {
   ProfileCard,
   ActivitySummaryCard,
   SettingsSection,
+  EditProfileModal,
 } from '@/components/features/profile';
 import { defaultUserSettings } from '@/constants';
 import { useAuthStore } from '@/stores';
@@ -18,9 +19,10 @@ import { createClient } from '@/lib/supabase/client';
 export default function ProfilePage() {
   const router = useRouter();
   const [activeMenu, setActiveMenu] = useState('profile');
-  const { isLoggedIn, user, isTestMode, toggleLogin, login, logout } = useAuthStore();
+  const { isLoggedIn, user, isTestMode, setUser, toggleLogin, login, logout } = useAuthStore();
   const [settings, setSettings] = useState<UserSettings>(defaultUserSettings);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [joinDate, setJoinDate] = useState<string>('');
   const [activitySummary, setActivitySummary] = useState<ActivitySummary>({
@@ -87,7 +89,18 @@ export default function ProfilePage() {
   }), [user, joinDate]);
 
   const handleEditProfile = () => {
-    showInfo('프로필 수정 기능은 준비 중입니다');
+    setShowEditModal(true);
+  };
+
+  const handleSaveProfile = (name: string, avatarUrl?: string) => {
+    // Zustand 스토어의 user 정보 업데이트
+    if (user) {
+      setUser({
+        ...user,
+        name,
+        avatarUrl: avatarUrl || user.avatarUrl,
+      });
+    }
   };
 
   const handleTestToggle = () => {
@@ -216,6 +229,18 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Profile Modal */}
+      {user && (
+        <EditProfileModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          userId={user.id}
+          currentName={user.name}
+          currentAvatar={user.avatarUrl}
+          onSave={handleSaveProfile}
+        />
       )}
     </div>
   );
