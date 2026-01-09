@@ -25,7 +25,7 @@ import { stocksBySector, sectorTabs } from '@/constants';
 import { CompanyLogo } from '@/components/common';
 import { useKoreanStocks, useMarketCapRanking, useUSStocks, useWatchlist } from '@/hooks';
 import { StockTableSkeleton } from '@/components/skeleton';
-import { showSuccess } from '@/lib/toast';
+import { showSuccess, showError } from '@/lib/toast';
 
 interface StocksContentProps {
   // 현재 선택된 국가
@@ -277,12 +277,21 @@ export function StocksContent({ market }: StocksContentProps) {
   const { isInWatchlist, toggleWatchlist } = useWatchlist();
 
   /**
-   * 관심종목 토글 핸들러 (Supabase 연동으로 async)
+   * 관심종목 토글 핸들러 (Supabase 연동, 로그인 필수)
+   * - 비로그인 시 로그인 안내 토스트 표시
    * - 추가/제거 후 토스트 알림 표시
    */
   const handleToggleWatchlist = async (ticker: string, name: string) => {
-    const added = await toggleWatchlist({ ticker, name, market });
-    if (added) {
+    const result = await toggleWatchlist({ ticker, name, market });
+
+    // null이면 비로그인 상태 - 로그인 안내
+    if (result === null) {
+      showError('로그인이 필요합니다');
+      return;
+    }
+
+    // true면 추가됨, false면 제거됨
+    if (result) {
       showSuccess(`${name}을(를) 관심종목에 추가했습니다`);
     } else {
       showSuccess(`${name}을(를) 관심종목에서 제거했습니다`);

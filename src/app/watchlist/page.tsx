@@ -6,21 +6,23 @@
  * @route /watchlist
  *
  * @description
- * localStorage 기반 관심종목 관리 페이지
+ * Supabase DB 기반 관심종목 관리 페이지 (로그인 사용자 전용)
  * - 저장된 관심종목 목록 표시
  * - 실시간 시세 연동 (한국투자증권 API)
  * - 종목별 현재가, 등락률, 등락폭 표시
  * - 삭제 버튼으로 관심종목 제거
  *
  * @features
+ * - 로그인 필수 (비로그인 시 로그인 안내)
  * - 반응형 UI: 데스크톱(테이블), 모바일(카드)
  * - 다크모드 지원
  * - 빈 상태 표시
  * - 시장별 탭 (한국/미국/일본/홍콩)
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { MarketRegion } from '@/types';
 import { Sidebar, BottomNav } from '@/components/layout';
 import { MarketTabs } from '@/components/features/market';
@@ -43,6 +45,39 @@ interface WatchlistItemWithPrice extends WatchlistItem {
 }
 
 // ==================== 컴포넌트 ====================
+
+/**
+ * 로그인 필요 컴포넌트
+ * 비로그인 상태에서 표시
+ */
+function LoginRequired() {
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-12 text-center">
+      {/* 잠금 아이콘 */}
+      <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+        <svg className="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      </div>
+
+      {/* 안내 텍스트 */}
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+        로그인이 필요합니다
+      </h3>
+      <p className="text-gray-500 dark:text-gray-400 mb-6">
+        관심종목 기능은 로그인 후 이용 가능합니다
+      </p>
+
+      {/* 로그인 페이지로 이동 버튼 */}
+      <Link
+        href="/login"
+        className="inline-block px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+      >
+        로그인하기
+      </Link>
+    </div>
+  );
+}
 
 /**
  * 빈 상태 컴포넌트
@@ -390,8 +425,8 @@ export default function WatchlistPage() {
   const [activeMenu, setActiveMenu] = useState('watchlist');
   const [activeMarket, setActiveMarket] = useState<MarketRegion>('kr');
 
-  // 관심종목 훅
-  const { watchlist, isLoaded, removeFromWatchlist, getWatchlistByMarket } = useWatchlist();
+  // 관심종목 훅 (로그인 사용자 전용)
+  const { watchlist, isLoaded, removeFromWatchlist, getWatchlistByMarket, requiresLogin } = useWatchlist();
 
   // 시세 정보가 포함된 관심종목 상태
   const [itemsWithPrice, setItemsWithPrice] = useState<WatchlistItemWithPrice[]>([]);
@@ -541,7 +576,10 @@ export default function WatchlistPage() {
           </div>
 
           {/* Content */}
-          {!isLoaded ? (
+          {requiresLogin ? (
+            // 비로그인 상태 - 로그인 안내
+            <LoginRequired />
+          ) : !isLoaded ? (
             // 초기 로딩
             <LoadingSkeleton />
           ) : marketWatchlist.length === 0 ? (

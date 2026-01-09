@@ -4,20 +4,25 @@
  * useWatchlist 커스텀 훅
  *
  * @description
- * 관심종목 관리 훅 - Supabase DB와 localStorage 하이브리드 방식
+ * 관심종목 관리 훅 - Supabase DB 연동 (로그인 사용자 전용)
  *
  * 작동 방식:
  * - 로그인 사용자: Supabase DB에 저장 (계정 간 동기화)
- * - 비로그인 사용자: localStorage에 저장 (브라우저 로컬)
+ * - 비로그인 사용자: 기능 사용 불가 (requiresLogin = true)
  *
  * 주요 기능:
  * - 관심종목 추가/제거/조회
- * - 로그인 시 Supabase에서 불러오기
+ * - 로그인 시 Supabase에서 자동 불러오기
  * - 로그아웃 시 로컬 상태 초기화
  *
  * @usage
  * ```tsx
- * const { watchlist, addToWatchlist, removeFromWatchlist, isInWatchlist } = useWatchlist();
+ * const { watchlist, addToWatchlist, removeFromWatchlist, isInWatchlist, requiresLogin } = useWatchlist();
+ *
+ * // 비로그인 시 로그인 안내
+ * if (requiresLogin) {
+ *   return <LoginPrompt />;
+ * }
  *
  * // 관심종목 추가
  * addToWatchlist({ ticker: '005930', name: '삼성전자', market: 'kr' });
@@ -62,11 +67,6 @@ interface WatchlistRow {
   created_at: string;
 }
 
-// ==================== 상수 ====================
-
-/** localStorage 키 */
-const WATCHLIST_STORAGE_KEY = 'watchlist';
-
 // ==================== 유틸리티 함수 ====================
 
 /**
@@ -100,45 +100,10 @@ const rowToItem = (row: WatchlistRow): WatchlistItem => ({
   addedAt: row.created_at,
 });
 
-/**
- * localStorage에서 관심종목 불러오기
- * SSR 환경에서는 빈 배열 반환
- */
-function loadFromLocalStorage(): WatchlistItem[] {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  try {
-    const stored = localStorage.getItem(WATCHLIST_STORAGE_KEY);
-    if (!stored) return [];
-
-    const parsed = JSON.parse(stored);
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed;
-  } catch {
-    return [];
-  }
-}
-
-/**
- * localStorage에 관심종목 저장
- */
-function saveToLocalStorage(watchlist: WatchlistItem[]): void {
-  if (typeof window === 'undefined') return;
-
-  try {
-    localStorage.setItem(WATCHLIST_STORAGE_KEY, JSON.stringify(watchlist));
-  } catch {
-    // 저장 실패 시 무시
-  }
-}
-
 // ==================== 훅 ====================
 
 /**
- * 관심종목 관리 훅
+ * 관심종목 관리 훅 (로그인 사용자 전용)
  *
  * @returns 관심종목 상태 및 관리 함수
  */
@@ -157,7 +122,7 @@ export function useWatchlist() {
   const [isLoaded, setIsLoaded] = useState(false);
 
   // 인증 상태에서 사용자 정보 가져오기
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, isLoggedIn } = useAuth();
 
   // ========================================
   // Supabase에서 관심종목 불러오기
@@ -180,7 +145,7 @@ export function useWatchlist() {
   }, []);
 
   // ========================================
-  // 초기 로드
+  // 초기 로드 (로그인 사용자만)
   // ========================================
   useEffect(() => {
     // 인증 상태 확인이 완료될 때까지 대기
@@ -194,9 +159,8 @@ export function useWatchlist() {
         const items = await fetchFromSupabase(user.id);
         setWatchlist(items);
       } else {
-        // 비로그인 상태: localStorage에서 불러오기
-        const items = loadFromLocalStorage();
-        setWatchlist(items);
+        // 비로그인 상태: 빈 배열로 초기화
+        setWatchlist([]);
       }
 
       setIsLoading(false);
@@ -207,9 +171,14 @@ export function useWatchlist() {
   }, [user, authLoading, fetchFromSupabase]);
 
   // ========================================
-  // 관심종목 추가
+  // 관심종목 추가 (로그인 필수)
   // ========================================
-  const addToWatchlist = useCallback(async (item: Omit<WatchlistItem, 'addedAt'>) => {
+  const addToWatchlist = useCallback(async (item: Omit<WatchlistItem, 'addedAt'>): Promise<boolean> => {
+    // 비로그인 시 실패 반환
+    if (!user) {
+      return false;
+    }
+
     // 이미 존재하는지 확인
     const exists = watchlist.some((w) => w.ticker === item.ticker);
     if (exists) {
@@ -222,72 +191,66 @@ export function useWatchlist() {
       addedAt: new Date().toISOString(),
     };
 
-    if (user) {
-      // 로그인 상태: Supabase에 저장
-      try {
-        const supabase = createClient();
-        const { error } = await supabase
-          .from('watchlist')
-          .insert({
-            user_id: user.id,
-            ticker: item.ticker,
-            stock_name: item.name,
-            market: clientMarketToDb(item.market),
-          });
+    // Supabase에 저장
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('watchlist')
+        .insert({
+          user_id: user.id,
+          ticker: item.ticker,
+          stock_name: item.name,
+          market: clientMarketToDb(item.market),
+        });
 
-        if (error) throw error;
+      if (error) throw error;
 
-        // 로컬 상태 업데이트
-        setWatchlist((prev) => [newItem, ...prev]);
-        return true;
-      } catch {
-        return false;
-      }
-    } else {
-      // 비로그인 상태: localStorage에 저장
-      const updated = [newItem, ...watchlist];
-      setWatchlist(updated);
-      saveToLocalStorage(updated);
+      // 로컬 상태 업데이트
+      setWatchlist((prev) => [newItem, ...prev]);
       return true;
+    } catch {
+      return false;
     }
   }, [watchlist, user]);
 
   // ========================================
-  // 관심종목 제거
+  // 관심종목 제거 (로그인 필수)
   // ========================================
-  const removeFromWatchlist = useCallback(async (ticker: string) => {
-    if (user) {
-      // 로그인 상태: Supabase에서 삭제
-      try {
-        const supabase = createClient();
-        const { error } = await supabase
-          .from('watchlist')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('ticker', ticker);
-
-        if (error) throw error;
-
-        // 로컬 상태 업데이트
-        setWatchlist((prev) => prev.filter((w) => w.ticker !== ticker));
-        return true;
-      } catch {
-        return false;
-      }
-    } else {
-      // 비로그인 상태: localStorage에서 삭제
-      const updated = watchlist.filter((w) => w.ticker !== ticker);
-      setWatchlist(updated);
-      saveToLocalStorage(updated);
-      return true;
+  const removeFromWatchlist = useCallback(async (ticker: string): Promise<boolean> => {
+    // 비로그인 시 실패 반환
+    if (!user) {
+      return false;
     }
-  }, [watchlist, user]);
+
+    // Supabase에서 삭제
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('watchlist')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('ticker', ticker);
+
+      if (error) throw error;
+
+      // 로컬 상태 업데이트
+      setWatchlist((prev) => prev.filter((w) => w.ticker !== ticker));
+      return true;
+    } catch {
+      return false;
+    }
+  }, [user]);
 
   // ========================================
-  // 관심종목 토글 (추가/제거)
+  // 관심종목 토글 (추가/제거) - 로그인 필수
   // ========================================
   const toggleWatchlist = useCallback(
-    async (item: Omit<WatchlistItem, 'addedAt'>) => {
+    async (item: Omit<WatchlistItem, 'addedAt'>): Promise<boolean | null> => {
+      // 비로그인 시 null 반환 (로그인 필요 표시용)
+      if (!user) {
+        return null;
+      }
+
       const exists = watchlist.some((w) => w.ticker === item.ticker);
       if (exists) {
         await removeFromWatchlist(item.ticker);
@@ -297,7 +260,7 @@ export function useWatchlist() {
         return true; // 추가됨
       }
     },
-    [watchlist, addToWatchlist, removeFromWatchlist]
+    [watchlist, user, addToWatchlist, removeFromWatchlist]
   );
 
   // ========================================
@@ -321,25 +284,24 @@ export function useWatchlist() {
   );
 
   // ========================================
-  // 관심종목 전체 삭제
+  // 관심종목 전체 삭제 (로그인 필수)
   // ========================================
   const clearWatchlist = useCallback(async () => {
-    if (user) {
-      // 로그인 상태: Supabase에서 전체 삭제
-      try {
-        const supabase = createClient();
-        await supabase
-          .from('watchlist')
-          .delete()
-          .eq('user_id', user.id);
-      } catch {
-        // 삭제 실패 시 무시
-      }
+    if (!user) return;
+
+    // Supabase에서 전체 삭제
+    try {
+      const supabase = createClient();
+      await supabase
+        .from('watchlist')
+        .delete()
+        .eq('user_id', user.id);
+    } catch {
+      // 삭제 실패 시 무시
     }
 
     // 로컬 상태 초기화
     setWatchlist([]);
-    saveToLocalStorage([]);
   }, [user]);
 
   // ========================================
@@ -361,17 +323,19 @@ export function useWatchlist() {
     isLoading,
     /** 초기 로드 완료 여부 */
     isLoaded,
-    /** 관심종목 추가 */
+    /** 로그인 필요 여부 (true면 비로그인 상태) */
+    requiresLogin: !isLoggedIn && !authLoading,
+    /** 관심종목 추가 (로그인 필수) */
     addToWatchlist,
-    /** 관심종목 제거 */
+    /** 관심종목 제거 (로그인 필수) */
     removeFromWatchlist,
-    /** 관심종목 토글 (추가/제거) - 추가되면 true, 제거되면 false 반환 */
+    /** 관심종목 토글 (추가/제거) - 추가되면 true, 제거되면 false, 비로그인이면 null 반환 */
     toggleWatchlist,
     /** 관심종목 여부 확인 */
     isInWatchlist,
     /** 특정 시장의 관심종목 조회 */
     getWatchlistByMarket,
-    /** 관심종목 전체 삭제 */
+    /** 관심종목 전체 삭제 (로그인 필수) */
     clearWatchlist,
     /** Supabase에서 다시 불러오기 */
     refetch,

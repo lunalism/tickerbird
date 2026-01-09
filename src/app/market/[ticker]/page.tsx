@@ -344,11 +344,19 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
     }
   }, [ticker, stock, isLoading, stockInfo, addToRecentlyViewed]);
 
-  // 관심종목 토글 핸들러 (Supabase 연동으로 async)
+  // 관심종목 토글 핸들러 (Supabase 연동, 로그인 필수)
   const handleToggleWatchlist = async () => {
     const stockName = stockInfo?.name || stock?.stockName || ticker;
-    const added = await toggleWatchlist({ ticker, name: stockName, market: 'kr' });
-    if (added) {
+    const result = await toggleWatchlist({ ticker, name: stockName, market: 'kr' });
+
+    // null이면 비로그인 상태 - 로그인 안내
+    if (result === null) {
+      showError('로그인이 필요합니다');
+      return;
+    }
+
+    // true면 추가됨, false면 제거됨
+    if (result) {
       showSuccess(`${stockName}을(를) 관심종목에 추가했습니다`);
     } else {
       showSuccess(`${stockName}을(를) 관심종목에서 제거했습니다`);
@@ -713,12 +721,20 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
   }, [ticker, stock, isLoading, addToRecentlyViewed]);
 
   /**
-   * 관심종목 토글 핸들러 (Supabase 연동으로 async)
+   * 관심종목 토글 핸들러 (Supabase 연동, 로그인 필수)
    */
   const handleToggleWatchlist = async () => {
     const stockName = stock?.name || ticker;
-    const added = await toggleWatchlist({ ticker, name: stockName, market: 'us' });
-    if (added) {
+    const result = await toggleWatchlist({ ticker, name: stockName, market: 'us' });
+
+    // null이면 비로그인 상태 - 로그인 안내
+    if (result === null) {
+      showError('로그인이 필요합니다');
+      return;
+    }
+
+    // true면 추가됨, false면 제거됨
+    if (result) {
       showSuccess(`${stockName}을(를) 관심종목에 추가했습니다`);
     } else {
       showSuccess(`${stockName}을(를) 관심종목에서 제거했습니다`);
@@ -1090,13 +1106,21 @@ export default function AssetDetailPage({ params }: { params: Promise<{ ticker: 
   const asset = getAssetDetail(ticker);
   const news = getRelatedNews(ticker);
 
-  // 관심종목 상태 및 핸들러 (asset 로드 후, Supabase 연동으로 async)
+  // 관심종목 상태 및 핸들러 (asset 로드 후, Supabase 연동, 로그인 필수)
   const inWatchlist = isInWatchlist(ticker);
   const handleToggleWatchlist = async () => {
     if (!asset) return;
     // 미국 주식으로 기본 설정 (다른 시장은 향후 확장)
-    const added = await toggleWatchlist({ ticker, name: asset.name, market: 'us' });
-    if (added) {
+    const result = await toggleWatchlist({ ticker, name: asset.name, market: 'us' });
+
+    // null이면 비로그인 상태 - 로그인 안내
+    if (result === null) {
+      showError('로그인이 필요합니다');
+      return;
+    }
+
+    // true면 추가됨, false면 제거됨
+    if (result) {
       showSuccess(`${asset.name}을(를) 관심종목에 추가했습니다`);
     } else {
       showSuccess(`${asset.name}을(를) 관심종목에서 제거했습니다`);
