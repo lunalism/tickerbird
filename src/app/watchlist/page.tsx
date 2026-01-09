@@ -497,10 +497,10 @@ export default function WatchlistPage() {
   }, [isLoaded, activeMarket, marketWatchlistKey]);
 
   /**
-   * 관심종목 삭제 핸들러
+   * 관심종목 삭제 핸들러 (Supabase 연동으로 async)
    */
-  const handleDelete = (ticker: string, name: string) => {
-    removeFromWatchlist(ticker);
+  const handleDelete = async (ticker: string, name: string) => {
+    await removeFromWatchlist(ticker);
     showSuccess(`${name}을(를) 관심종목에서 제거했습니다`);
   };
 

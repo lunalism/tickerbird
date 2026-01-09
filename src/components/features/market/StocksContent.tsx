@@ -277,11 +277,11 @@ export function StocksContent({ market }: StocksContentProps) {
   const { isInWatchlist, toggleWatchlist } = useWatchlist();
 
   /**
-   * 관심종목 토글 핸들러
+   * 관심종목 토글 핸들러 (Supabase 연동으로 async)
    * - 추가/제거 후 토스트 알림 표시
    */
-  const handleToggleWatchlist = (ticker: string, name: string) => {
-    const added = toggleWatchlist({ ticker, name, market });
+  const handleToggleWatchlist = async (ticker: string, name: string) => {
+    const added = await toggleWatchlist({ ticker, name, market });
     if (added) {
       showSuccess(`${name}을(를) 관심종목에 추가했습니다`);
     } else {

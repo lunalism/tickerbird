@@ -344,9 +344,10 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
     }
   }, [ticker, stock, isLoading, stockInfo, addToRecentlyViewed]);
 
-  const handleToggleWatchlist = () => {
+  // 관심종목 토글 핸들러 (Supabase 연동으로 async)
+  const handleToggleWatchlist = async () => {
     const stockName = stockInfo?.name || stock?.stockName || ticker;
-    const added = toggleWatchlist({ ticker, name: stockName, market: 'kr' });
+    const added = await toggleWatchlist({ ticker, name: stockName, market: 'kr' });
     if (added) {
       showSuccess(`${stockName}을(를) 관심종목에 추가했습니다`);
     } else {
@@ -712,11 +713,11 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
   }, [ticker, stock, isLoading, addToRecentlyViewed]);
 
   /**
-   * 관심종목 토글 핸들러
+   * 관심종목 토글 핸들러 (Supabase 연동으로 async)
    */
-  const handleToggleWatchlist = () => {
+  const handleToggleWatchlist = async () => {
     const stockName = stock?.name || ticker;
-    const added = toggleWatchlist({ ticker, name: stockName, market: 'us' });
+    const added = await toggleWatchlist({ ticker, name: stockName, market: 'us' });
     if (added) {
       showSuccess(`${stockName}을(를) 관심종목에 추가했습니다`);
     } else {
@@ -1089,12 +1090,12 @@ export default function AssetDetailPage({ params }: { params: Promise<{ ticker: 
   const asset = getAssetDetail(ticker);
   const news = getRelatedNews(ticker);
 
-  // 관심종목 상태 및 핸들러 (asset 로드 후)
+  // 관심종목 상태 및 핸들러 (asset 로드 후, Supabase 연동으로 async)
   const inWatchlist = isInWatchlist(ticker);
-  const handleToggleWatchlist = () => {
+  const handleToggleWatchlist = async () => {
     if (!asset) return;
     // 미국 주식으로 기본 설정 (다른 시장은 향후 확장)
-    const added = toggleWatchlist({ ticker, name: asset.name, market: 'us' });
+    const added = await toggleWatchlist({ ticker, name: asset.name, market: 'us' });
     if (added) {
       showSuccess(`${asset.name}을(를) 관심종목에 추가했습니다`);
     } else {
