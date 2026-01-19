@@ -1,5 +1,5 @@
 /**
- * 개별 가격 알림 API 라우트
+ * 개별 가격 알림 API 라우트 (Firestore)
  *
  * 특정 알림 수정 및 삭제 API
  *
@@ -8,13 +8,43 @@
  * - DELETE /api/alerts/[id]: 알림 삭제
  *
  * 인증:
- * - Supabase 세션 기반 인증 (쿠키)
- * - RLS 정책으로 본인 데이터만 접근 가능
+ * - x-user-id 헤더로 사용자 인증
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { PriceAlertRow, rowToPriceAlert, UpdateAlertRequest } from '@/types/priceAlert';
+import {
+  alertDoc,
+  getDocument,
+  updateDocument,
+  deleteDocument,
+  timestampToString,
+  type FirestoreAlert,
+} from '@/lib/firestore';
+import {
+  PriceAlert,
+  UpdateAlertRequest,
+  AlertMarket,
+  AlertDirection,
+} from '@/types/priceAlert';
+
+/**
+ * Firestore 문서를 PriceAlert로 변환
+ */
+function docToAlert(doc: FirestoreAlert & { id: string }): PriceAlert {
+  return {
+    id: doc.id,
+    userId: doc.userId,
+    ticker: doc.ticker,
+    market: doc.market as AlertMarket,
+    stockName: doc.stockName,
+    targetPrice: doc.targetPrice,
+    direction: doc.direction as AlertDirection,
+    isActive: doc.isActive,
+    isTriggered: doc.isTriggered,
+    createdAt: timestampToString(doc.createdAt),
+    triggeredAt: doc.triggeredAt ? timestampToString(doc.triggeredAt) : undefined,
+  };
+}
 
 /**
  * PATCH /api/alerts/[id]
@@ -36,20 +66,32 @@ export async function PATCH(
     // 경로 파라미터에서 알림 ID 추출
     const { id } = await params;
 
-    // Supabase 클라이언트 생성
-    const supabase = await createClient();
-
-    // 현재 로그인한 사용자 확인
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // 요청 헤더에서 사용자 ID 가져오기
+    const userId = request.headers.get('x-user-id');
 
     // 인증 에러 체크
-    if (authError || !user) {
+    if (!userId) {
       return NextResponse.json(
         { success: false, error: '로그인이 필요합니다' },
         { status: 401 }
+      );
+    }
+
+    // 알림 조회
+    const alert = await getDocument<FirestoreAlert>(alertDoc(id));
+
+    if (!alert) {
+      return NextResponse.json(
+        { success: false, error: '알림을 찾을 수 없습니다' },
+        { status: 404 }
+      );
+    }
+
+    // 본인 확인
+    if (alert.userId !== userId) {
+      return NextResponse.json(
+        { success: false, error: '알림 수정 권한이 없습니다' },
+        { status: 403 }
       );
     }
 
@@ -84,42 +126,28 @@ export async function PATCH(
       );
     }
 
-    // 업데이트 데이터 구성 (snake_case로 변환)
+    // 업데이트 데이터 구성
     const updateData: Record<string, unknown> = {};
     if (body.isActive !== undefined) {
-      updateData.is_active = body.isActive;
+      updateData.isActive = body.isActive;
     }
     if (body.targetPrice !== undefined) {
-      updateData.target_price = body.targetPrice;
+      updateData.targetPrice = body.targetPrice;
       // 목표가 변경 시 트리거 상태 초기화
-      updateData.is_triggered = false;
-      updateData.triggered_at = null;
+      updateData.isTriggered = false;
+      updateData.triggeredAt = null;
     }
     if (body.direction !== undefined) {
       updateData.direction = body.direction;
     }
 
-    // 알림 수정
-    // RLS 정책으로 본인 알림만 수정 가능
-    const { data, error } = await supabase
-      .from('price_alerts')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    // Firestore 문서 업데이트
+    await updateDocument(alertDoc(id), updateData);
 
-    // DB 에러 체크
-    if (error) {
-      console.error('알림 수정 에러:', error);
+    // 업데이트된 알림 조회
+    const updatedAlert = await getDocument<FirestoreAlert>(alertDoc(id));
 
-      // 알림을 찾을 수 없는 경우
-      if (error.code === 'PGRST116') {
-        return NextResponse.json(
-          { success: false, error: '알림을 찾을 수 없습니다' },
-          { status: 404 }
-        );
-      }
-
+    if (!updatedAlert) {
       return NextResponse.json(
         { success: false, error: '알림 수정에 실패했습니다' },
         { status: 500 }
@@ -127,11 +155,11 @@ export async function PATCH(
     }
 
     // 수정된 알림 반환
-    const alert = rowToPriceAlert(data as PriceAlertRow);
+    const priceAlert = docToAlert(updatedAlert);
 
-    return NextResponse.json({ success: true, data: alert });
+    return NextResponse.json({ success: true, data: priceAlert });
   } catch (error) {
-    console.error('알림 API 에러:', error);
+    console.error('[Alerts API] 알림 수정 에러:', error);
     return NextResponse.json(
       { success: false, error: '서버 에러가 발생했습니다' },
       { status: 500 }
@@ -156,42 +184,41 @@ export async function DELETE(
     // 경로 파라미터에서 알림 ID 추출
     const { id } = await params;
 
-    // Supabase 클라이언트 생성
-    const supabase = await createClient();
-
-    // 현재 로그인한 사용자 확인
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // 요청 헤더에서 사용자 ID 가져오기
+    const userId = request.headers.get('x-user-id');
 
     // 인증 에러 체크
-    if (authError || !user) {
+    if (!userId) {
       return NextResponse.json(
         { success: false, error: '로그인이 필요합니다' },
         { status: 401 }
       );
     }
 
-    // 알림 삭제
-    // RLS 정책으로 본인 알림만 삭제 가능
-    const { error } = await supabase
-      .from('price_alerts')
-      .delete()
-      .eq('id', id);
+    // 알림 조회
+    const alert = await getDocument<FirestoreAlert>(alertDoc(id));
 
-    // DB 에러 체크
-    if (error) {
-      console.error('알림 삭제 에러:', error);
+    if (!alert) {
       return NextResponse.json(
-        { success: false, error: '알림 삭제에 실패했습니다' },
-        { status: 500 }
+        { success: false, error: '알림을 찾을 수 없습니다' },
+        { status: 404 }
       );
     }
 
+    // 본인 확인
+    if (alert.userId !== userId) {
+      return NextResponse.json(
+        { success: false, error: '알림 삭제 권한이 없습니다' },
+        { status: 403 }
+      );
+    }
+
+    // Firestore 문서 삭제
+    await deleteDocument(alertDoc(id));
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('알림 API 에러:', error);
+    console.error('[Alerts API] 알림 삭제 에러:', error);
     return NextResponse.json(
       { success: false, error: '서버 에러가 발생했습니다' },
       { status: 500 }

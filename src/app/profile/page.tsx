@@ -4,7 +4,11 @@
  * 프로필 페이지
  *
  * 사용자 프로필 정보, 활동 통계, 설정을 표시합니다.
- * 전역 AuthContext를 사용하여 인증 상태를 확인합니다.
+ * 전역 AuthContext (Firebase Auth)를 사용하여 인증 상태를 확인합니다.
+ *
+ * 데이터 소스:
+ * - 사용자 정보: Firebase Auth + Firestore users 컬렉션
+ * - 활동 통계: Firestore (posts, watchlist 컬렉션)
  */
 
 import { useState, useEffect, useMemo } from 'react';
@@ -20,15 +24,16 @@ import {
 } from '@/components/features/profile';
 import { defaultUserSettings } from '@/constants';
 import { showSuccess, showError, showWarning, showInfo } from '@/lib/toast';
-import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function ProfilePage() {
   const router = useRouter();
   const [activeMenu, setActiveMenu] = useState('profile');
 
-  // 전역 인증 상태 사용 (자체 세션 체크 없음)
-  const { userProfile: authProfile, isLoading, isLoggedIn, signOut } = useAuth();
+  // 전역 인증 상태 사용 (Firebase Auth)
+  const { user, userProfile: authProfile, isLoading, isLoggedIn, signOut } = useAuth();
 
   // 로컬 상태
   const [settings, setSettings] = useState<UserSettings>(defaultUserSettings);
@@ -42,33 +47,33 @@ export default function ProfilePage() {
   });
 
 
-  // Supabase에서 가입일과 활동 통계 가져오기
+  // 가입일과 활동 통계 가져오기
   useEffect(() => {
     if (authProfile?.id) {
       const fetchUserData = async () => {
-        const supabase = createClient();
+        // 1. Firebase에서 가입일 가져오기 (Firestore users 컬렉션)
+        try {
+          const userDocRef = doc(db, 'users', authProfile.id);
+          const userDoc = await getDoc(userDocRef);
 
-        // 가입일 가져오기 (auth.users 또는 profiles 테이블에서)
-        const { data, error } = await supabase.auth.getUser();
-
-        if (data.user?.created_at) {
-          const date = new Date(data.user.created_at);
-          const formatted = date.toLocaleDateString('ko-KR', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          });
-          setJoinDate(formatted);
-        } else {
-          // auth.users에서 가져오기 실패 시 profiles 테이블에서 시도
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('created_at')
-            .eq('id', authProfile.id)
-            .single();
-
-          if (profile?.created_at) {
-            const date = new Date(profile.created_at);
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (userData.createdAt) {
+              // Firestore Timestamp를 Date로 변환
+              const date = userData.createdAt.toDate ? userData.createdAt.toDate() : new Date(userData.createdAt);
+              const formatted = date.toLocaleDateString('ko-KR', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              });
+              setJoinDate(formatted);
+            }
+          }
+        } catch (err) {
+          console.error('[ProfilePage] Firestore 가입일 조회 에러:', err);
+          // Firebase Auth의 생성 시간 사용 (폴백)
+          if (user?.metadata?.creationTime) {
+            const date = new Date(user.metadata.creationTime);
             const formatted = date.toLocaleDateString('ko-KR', {
               year: 'numeric',
               month: 'long',
@@ -78,31 +83,36 @@ export default function ProfilePage() {
           }
         }
 
-        // 활동 통계 가져오기 (병렬 실행)
-        const [postsResult, commentsResult, watchlistResult] = await Promise.all([
-          supabase
-            .from('posts')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', authProfile.id),
-          supabase
-            .from('comments')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', authProfile.id),
-          supabase
-            .from('watchlist')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', authProfile.id),
-        ]);
+        // 2. 활동 통계 가져오기 (Firestore)
+        try {
+          // 게시글 수 조회
+          const postsQuery = query(
+            collection(db, 'posts'),
+            where('userId', '==', authProfile.id)
+          );
+          const postsSnapshot = await getDocs(postsQuery);
 
-        setActivitySummary({
-          posts: postsResult.count || 0,
-          comments: commentsResult.count || 0,
-          watchlist: watchlistResult.count || 0,
-        });
+          // 관심종목 수 조회
+          const watchlistQuery = query(
+            collection(db, 'watchlist'),
+            where('userId', '==', authProfile.id)
+          );
+          const watchlistSnapshot = await getDocs(watchlistQuery);
+
+          // 댓글 수는 서브컬렉션이라 직접 조회 어려움, 0으로 표시
+          // (추후 별도 카운터 필드 도입 시 수정)
+          setActivitySummary({
+            posts: postsSnapshot.size,
+            comments: 0,
+            watchlist: watchlistSnapshot.size,
+          });
+        } catch (err) {
+          console.error('[ProfilePage] 활동 통계 조회 에러:', err);
+        }
       };
       fetchUserData();
     }
-  }, [authProfile?.id]);
+  }, [authProfile?.id, user]);
 
   // UI용 프로필 데이터 생성
   const userProfile: UserProfile = useMemo(() => ({

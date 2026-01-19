@@ -4,16 +4,19 @@
  * useWatchlist 커스텀 훅
  *
  * @description
- * 관심종목 관리 훅 - Supabase DB 연동 (로그인 사용자 전용)
+ * 관심종목 관리 훅 - Firestore DB 연동 (로그인 사용자 전용)
  *
  * 작동 방식:
- * - 로그인 사용자: Supabase DB에 저장 (계정 간 동기화)
+ * - 로그인 사용자: Firestore에 저장 (계정 간 동기화)
  * - 비로그인 사용자: 기능 사용 불가 (requiresLogin = true)
  *
- * 주요 기능:
- * - 관심종목 추가/제거/조회
- * - 로그인 시 Supabase에서 자동 불러오기
- * - 로그아웃 시 로컬 상태 초기화
+ * Firestore 컬렉션 구조:
+ * watchlist/{docId}
+ *   - userId: string (uid)
+ *   - ticker: string (종목코드)
+ *   - market: string (KR/US)
+ *   - stockName: string (종목명)
+ *   - createdAt: timestamp
  *
  * @usage
  * ```tsx
@@ -36,7 +39,19 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import {
+  watchlistCollection,
+  queryCollection,
+  timestampToString,
+  where,
+  orderBy,
+  addDoc,
+  deleteDoc,
+  query,
+  getDocs,
+  serverTimestamp,
+  type FirestoreWatchlistItem,
+} from '@/lib/firestore';
 import { useAuth } from '@/components/providers/AuthProvider';
 
 // ==================== 타입 정의 ====================
@@ -45,6 +60,8 @@ import { useAuth } from '@/components/providers/AuthProvider';
  * 관심종목 아이템 인터페이스
  */
 export interface WatchlistItem {
+  /** Firestore 문서 ID */
+  id?: string;
   /** 종목 티커 (예: "005930", "AAPL") */
   ticker: string;
   /** 종목명 (예: "삼성전자", "Apple Inc.") */
@@ -55,25 +72,13 @@ export interface WatchlistItem {
   addedAt?: string;
 }
 
-/**
- * Supabase watchlist 테이블 타입
- */
-interface WatchlistRow {
-  id: string;
-  user_id: string;
-  ticker: string;
-  market: string;
-  stock_name: string;
-  created_at: string;
-}
-
 // ==================== 유틸리티 함수 ====================
 
 /**
- * 시장 코드 변환 (DB → 클라이언트)
- * DB에서는 'KR', 'US' (대문자), 클라이언트에서는 'kr', 'us' (소문자)
+ * 시장 코드 변환 (Firestore → 클라이언트)
+ * Firestore에서는 'KR', 'US' (대문자), 클라이언트에서는 'kr', 'us' (소문자)
  */
-const dbMarketToClient = (market: string): 'kr' | 'us' | 'jp' | 'hk' => {
+const firestoreMarketToClient = (market: string): 'kr' | 'us' | 'jp' | 'hk' => {
   const map: Record<string, 'kr' | 'us' | 'jp' | 'hk'> = {
     'KR': 'kr',
     'US': 'us',
@@ -84,20 +89,21 @@ const dbMarketToClient = (market: string): 'kr' | 'us' | 'jp' | 'hk' => {
 };
 
 /**
- * 시장 코드 변환 (클라이언트 → DB)
+ * 시장 코드 변환 (클라이언트 → Firestore)
  */
-const clientMarketToDb = (market: 'kr' | 'us' | 'jp' | 'hk'): string => {
+const clientMarketToFirestore = (market: 'kr' | 'us' | 'jp' | 'hk'): string => {
   return market.toUpperCase();
 };
 
 /**
- * DB 행을 WatchlistItem으로 변환
+ * Firestore 문서를 WatchlistItem으로 변환
  */
-const rowToItem = (row: WatchlistRow): WatchlistItem => ({
-  ticker: row.ticker,
-  name: row.stock_name,
-  market: dbMarketToClient(row.market),
-  addedAt: row.created_at,
+const docToItem = (doc: FirestoreWatchlistItem & { id: string }): WatchlistItem => ({
+  id: doc.id,
+  ticker: doc.ticker,
+  name: doc.stockName,
+  market: firestoreMarketToClient(doc.market),
+  addedAt: timestampToString(doc.createdAt),
 });
 
 // ==================== 훅 ====================
@@ -125,21 +131,22 @@ export function useWatchlist() {
   const { user, isLoading: authLoading, isLoggedIn } = useAuth();
 
   // ========================================
-  // Supabase에서 관심종목 불러오기
+  // Firestore에서 관심종목 불러오기
   // ========================================
-  const fetchFromSupabase = useCallback(async (userId: string) => {
+  const fetchFromFirestore = useCallback(async (userId: string) => {
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('watchlist')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+      // Firestore에서 해당 사용자의 관심종목 조회
+      const items = await queryCollection<FirestoreWatchlistItem>(
+        watchlistCollection(),
+        [
+          where('userId', '==', userId),
+          orderBy('createdAt', 'desc'),
+        ]
+      );
 
-      if (error) throw error;
-
-      return (data as WatchlistRow[]).map(rowToItem);
-    } catch {
+      return items.map(docToItem);
+    } catch (err) {
+      console.error('[useWatchlist] Firestore 조회 에러:', err);
       return [];
     }
   }, []);
@@ -155,8 +162,8 @@ export function useWatchlist() {
       setIsLoading(true);
 
       if (user) {
-        // 로그인 상태: Supabase에서 불러오기
-        const items = await fetchFromSupabase(user.id);
+        // 로그인 상태: Firestore에서 불러오기
+        const items = await fetchFromFirestore(user.uid);
         setWatchlist(items);
       } else {
         // 비로그인 상태: 빈 배열로 초기화
@@ -168,12 +175,12 @@ export function useWatchlist() {
     };
 
     loadWatchlist();
-  }, [user, authLoading, fetchFromSupabase]);
+  }, [user, authLoading, fetchFromFirestore]);
 
   // ========================================
   // 관심종목 추가 (로그인 필수)
   // ========================================
-  const addToWatchlist = useCallback(async (item: Omit<WatchlistItem, 'addedAt'>): Promise<boolean> => {
+  const addToWatchlist = useCallback(async (item: Omit<WatchlistItem, 'addedAt' | 'id'>): Promise<boolean> => {
     // 비로그인 시 실패 반환
     if (!user) {
       return false;
@@ -185,30 +192,28 @@ export function useWatchlist() {
       return false;
     }
 
-    // 새 아이템 생성
-    const newItem: WatchlistItem = {
-      ...item,
-      addedAt: new Date().toISOString(),
-    };
-
-    // Supabase에 저장
     try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('watchlist')
-        .insert({
-          user_id: user.id,
-          ticker: item.ticker,
-          stock_name: item.name,
-          market: clientMarketToDb(item.market),
-        });
+      // Firestore에 추가
+      const docRef = await addDoc(watchlistCollection(), {
+        userId: user.uid,
+        ticker: item.ticker,
+        stockName: item.name,
+        market: clientMarketToFirestore(item.market),
+        createdAt: serverTimestamp(),
+      });
 
-      if (error) throw error;
+      // 새 아이템 생성
+      const newItem: WatchlistItem = {
+        id: docRef.id,
+        ...item,
+        addedAt: new Date().toISOString(),
+      };
 
       // 로컬 상태 업데이트
       setWatchlist((prev) => [newItem, ...prev]);
       return true;
-    } catch {
+    } catch (err) {
+      console.error('[useWatchlist] 추가 에러:', err);
       return false;
     }
   }, [watchlist, user]);
@@ -222,30 +227,50 @@ export function useWatchlist() {
       return false;
     }
 
-    // Supabase에서 삭제
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('watchlist')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('ticker', ticker);
+    // 해당 종목의 Firestore 문서 ID 찾기
+    const item = watchlist.find((w) => w.ticker === ticker);
+    if (!item?.id) {
+      // ID가 없으면 Firestore에서 직접 검색
+      try {
+        const q = query(
+          watchlistCollection(),
+          where('userId', '==', user.uid),
+          where('ticker', '==', ticker)
+        );
+        const snapshot = await getDocs(q);
 
-      if (error) throw error;
+        if (snapshot.empty) {
+          return false;
+        }
 
-      // 로컬 상태 업데이트
-      setWatchlist((prev) => prev.filter((w) => w.ticker !== ticker));
-      return true;
-    } catch {
-      return false;
+        // 찾은 문서 삭제
+        await deleteDoc(snapshot.docs[0].ref);
+      } catch (err) {
+        console.error('[useWatchlist] 삭제 에러:', err);
+        return false;
+      }
+    } else {
+      // ID가 있으면 직접 삭제
+      try {
+        const { doc } = await import('firebase/firestore');
+        const { db } = await import('@/lib/firebase');
+        await deleteDoc(doc(db, 'watchlist', item.id));
+      } catch (err) {
+        console.error('[useWatchlist] 삭제 에러:', err);
+        return false;
+      }
     }
-  }, [user]);
+
+    // 로컬 상태 업데이트
+    setWatchlist((prev) => prev.filter((w) => w.ticker !== ticker));
+    return true;
+  }, [user, watchlist]);
 
   // ========================================
   // 관심종목 토글 (추가/제거) - 로그인 필수
   // ========================================
   const toggleWatchlist = useCallback(
-    async (item: Omit<WatchlistItem, 'addedAt'>): Promise<boolean | null> => {
+    async (item: Omit<WatchlistItem, 'addedAt' | 'id'>): Promise<boolean | null> => {
       // 비로그인 시 null 반환 (로그인 필요 표시용)
       if (!user) {
         return null;
@@ -289,15 +314,19 @@ export function useWatchlist() {
   const clearWatchlist = useCallback(async () => {
     if (!user) return;
 
-    // Supabase에서 전체 삭제
     try {
-      const supabase = createClient();
-      await supabase
-        .from('watchlist')
-        .delete()
-        .eq('user_id', user.id);
-    } catch {
-      // 삭제 실패 시 무시
+      // Firestore에서 해당 사용자의 모든 관심종목 조회 후 삭제
+      const q = query(
+        watchlistCollection(),
+        where('userId', '==', user.uid)
+      );
+      const snapshot = await getDocs(q);
+
+      // 각 문서 삭제
+      const deletePromises = snapshot.docs.map((doc) => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+    } catch (err) {
+      console.error('[useWatchlist] 전체 삭제 에러:', err);
     }
 
     // 로컬 상태 초기화
@@ -305,16 +334,16 @@ export function useWatchlist() {
   }, [user]);
 
   // ========================================
-  // Supabase에서 다시 불러오기 (외부에서 호출용)
+  // Firestore에서 다시 불러오기 (외부에서 호출용)
   // ========================================
   const refetch = useCallback(async () => {
     if (!user) return;
 
     setIsLoading(true);
-    const items = await fetchFromSupabase(user.id);
+    const items = await fetchFromFirestore(user.uid);
     setWatchlist(items);
     setIsLoading(false);
-  }, [user, fetchFromSupabase]);
+  }, [user, fetchFromFirestore]);
 
   return {
     /** 전체 관심종목 목록 */
@@ -337,7 +366,7 @@ export function useWatchlist() {
     getWatchlistByMarket,
     /** 관심종목 전체 삭제 (로그인 필수) */
     clearWatchlist,
-    /** Supabase에서 다시 불러오기 */
+    /** Firestore에서 다시 불러오기 */
     refetch,
     /** 관심종목 개수 */
     count: watchlist.length,

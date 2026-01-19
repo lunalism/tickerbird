@@ -13,6 +13,7 @@
     "@supabase/supabase-js": "^2.87.1",
     "adm-zip": "^0.5.16",
     "cheerio": "^1.1.2",
+    "firebase": "^12.8.0",
     "iconv-lite": "^0.7.1",
     "next": "16.0.10",
     "react": "19.2.1",

@@ -1,22 +1,60 @@
 /**
- * 개별 게시글 API
+ * 개별 게시글 API (Firestore)
  *
  * GET /api/community/posts/[id] - 게시글 상세 조회
  * PATCH /api/community/posts/[id] - 게시글 수정
  * DELETE /api/community/posts/[id] - 게시글 삭제
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import {
-  PostRow,
+  postDoc,
+  likesCollection,
+  getDocument,
+  updateDocument,
+  deleteDocument,
+  timestampToString,
+  query,
+  where,
+  getDocs,
+  type FirestorePost,
+} from '@/lib/firestore';
+import {
   CommunityPost,
   UpdatePostRequest,
   CommunityApiResponse,
-  rowToPost,
+  CommunityCategory,
 } from '@/types/community';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
+}
+
+/**
+ * Firestore 문서를 CommunityPost로 변환
+ */
+function docToPost(
+  docData: FirestorePost & { id: string },
+  isLiked: boolean = false
+): CommunityPost {
+  return {
+    id: docData.id,
+    userId: docData.userId,
+    content: docData.content,
+    category: (docData.category || 'stock') as CommunityCategory,
+    tickers: docData.tickers || [],
+    hashtags: docData.hashtags || [],
+    likesCount: docData.likesCount || 0,
+    commentsCount: docData.commentsCount || 0,
+    repostsCount: docData.repostsCount || 0,
+    createdAt: timestampToString(docData.createdAt),
+    updatedAt: timestampToString(docData.updatedAt),
+    author: {
+      id: docData.userId,
+      name: docData.authorName || '사용자',
+      avatarUrl: docData.authorPhotoURL || null,
+    },
+    isLiked,
+  };
 }
 
 /**
@@ -29,25 +67,14 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const supabase = await createClient();
 
-    // 현재 사용자 정보 가져오기
-    const { data: { user } } = await supabase.auth.getUser();
+    // 현재 사용자 ID 가져오기 (좋아요 여부 확인용)
+    const userId = request.headers.get('x-user-id');
 
-    const { data: post, error } = await supabase
-      .from('posts')
-      .select(`
-        *,
-        profiles:user_id (
-          id,
-          name,
-          avatar_url
-        )
-      `)
-      .eq('id', id)
-      .single();
+    // 게시글 조회
+    const post = await getDocument<FirestorePost>(postDoc(id));
 
-    if (error || !post) {
+    if (!post) {
       return NextResponse.json<CommunityApiResponse<null>>(
         { success: false, error: '게시글을 찾을 수 없습니다.' },
         { status: 404 }
@@ -56,25 +83,23 @@ export async function GET(
 
     // 좋아요 여부 확인
     let isLiked = false;
-    if (user) {
-      const { data: like } = await supabase
-        .from('likes')
-        .select('id')
-        .eq('post_id', id)
-        .eq('user_id', user.id)
-        .single();
-
-      isLiked = !!like;
+    if (userId) {
+      const likesQuery = query(
+        likesCollection(id),
+        where('userId', '==', userId)
+      );
+      const likeSnapshot = await getDocs(likesQuery);
+      isLiked = !likeSnapshot.empty;
     }
 
-    const postData = rowToPost(post as PostRow, isLiked);
+    const postData = docToPost(post, isLiked);
 
     return NextResponse.json<CommunityApiResponse<CommunityPost>>({
       success: true,
       data: postData,
     });
   } catch (error) {
-    console.error('게시글 조회 에러:', error);
+    console.error('[Post API] 게시글 조회 에러:', error);
     return NextResponse.json<CommunityApiResponse<null>>(
       { success: false, error: '서버 오류가 발생했습니다.' },
       { status: 500 }
@@ -92,14 +117,31 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const supabase = await createClient();
 
-    // 인증 확인
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    // 요청 헤더에서 사용자 ID 가져오기
+    const userId = request.headers.get('x-user-id');
+    if (!userId) {
       return NextResponse.json<CommunityApiResponse<null>>(
         { success: false, error: '로그인이 필요합니다.' },
         { status: 401 }
+      );
+    }
+
+    // 게시글 조회
+    const post = await getDocument<FirestorePost>(postDoc(id));
+
+    if (!post) {
+      return NextResponse.json<CommunityApiResponse<null>>(
+        { success: false, error: '게시글을 찾을 수 없습니다.' },
+        { status: 404 }
+      );
+    }
+
+    // 본인 확인
+    if (post.userId !== userId) {
+      return NextResponse.json<CommunityApiResponse<null>>(
+        { success: false, error: '게시글 수정 권한이 없습니다.' },
+        { status: 403 }
       );
     }
 
@@ -136,46 +178,35 @@ export async function PATCH(
       );
     }
 
-    // 게시글 수정 (RLS가 본인 확인)
-    const { data: updatedPost, error } = await supabase
-      .from('posts')
-      .update(updateData)
-      .eq('id', id)
-      .eq('user_id', user.id) // 본인 확인
-      .select(`
-        *,
-        profiles:user_id (
-          id,
-          name,
-          avatar_url
-        )
-      `)
-      .single();
+    // Firestore 문서 업데이트
+    await updateDocument(postDoc(id), updateData);
 
-    if (error || !updatedPost) {
-      console.error('게시글 수정 에러:', error);
+    // 업데이트된 게시글 조회
+    const updatedPost = await getDocument<FirestorePost>(postDoc(id));
+
+    if (!updatedPost) {
       return NextResponse.json<CommunityApiResponse<null>>(
-        { success: false, error: '게시글 수정에 실패했습니다. 권한을 확인해주세요.' },
-        { status: 403 }
+        { success: false, error: '게시글 수정에 실패했습니다.' },
+        { status: 500 }
       );
     }
 
     // 좋아요 여부 확인
-    const { data: like } = await supabase
-      .from('likes')
-      .select('id')
-      .eq('post_id', id)
-      .eq('user_id', user.id)
-      .single();
+    const likesQuery = query(
+      likesCollection(id),
+      where('userId', '==', userId)
+    );
+    const likeSnapshot = await getDocs(likesQuery);
+    const isLiked = !likeSnapshot.empty;
 
-    const postData = rowToPost(updatedPost as PostRow, !!like);
+    const postData = docToPost(updatedPost, isLiked);
 
     return NextResponse.json<CommunityApiResponse<CommunityPost>>({
       success: true,
       data: postData,
     });
   } catch (error) {
-    console.error('게시글 수정 에러:', error);
+    console.error('[Post API] 게시글 수정 에러:', error);
     return NextResponse.json<CommunityApiResponse<null>>(
       { success: false, error: '서버 오류가 발생했습니다.' },
       { status: 500 }
@@ -193,38 +224,43 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const supabase = await createClient();
 
-    // 인증 확인
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    // 요청 헤더에서 사용자 ID 가져오기
+    const userId = request.headers.get('x-user-id');
+    if (!userId) {
       return NextResponse.json<CommunityApiResponse<null>>(
         { success: false, error: '로그인이 필요합니다.' },
         { status: 401 }
       );
     }
 
-    // 게시글 삭제 (RLS가 본인 확인)
-    const { error } = await supabase
-      .from('posts')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', user.id); // 본인 확인
+    // 게시글 조회
+    const post = await getDocument<FirestorePost>(postDoc(id));
 
-    if (error) {
-      console.error('게시글 삭제 에러:', error);
+    if (!post) {
       return NextResponse.json<CommunityApiResponse<null>>(
-        { success: false, error: '게시글 삭제에 실패했습니다.' },
-        { status: 500 }
+        { success: false, error: '게시글을 찾을 수 없습니다.' },
+        { status: 404 }
       );
     }
+
+    // 본인 확인
+    if (post.userId !== userId) {
+      return NextResponse.json<CommunityApiResponse<null>>(
+        { success: false, error: '게시글 삭제 권한이 없습니다.' },
+        { status: 403 }
+      );
+    }
+
+    // Firestore 문서 삭제 (서브컬렉션은 자동 삭제되지 않지만, 일단 메인 문서 삭제)
+    await deleteDocument(postDoc(id));
 
     return NextResponse.json<CommunityApiResponse<{ deleted: boolean }>>({
       success: true,
       data: { deleted: true },
     });
   } catch (error) {
-    console.error('게시글 삭제 에러:', error);
+    console.error('[Post API] 게시글 삭제 에러:', error);
     return NextResponse.json<CommunityApiResponse<null>>(
       { success: false, error: '서버 오류가 발생했습니다.' },
       { status: 500 }

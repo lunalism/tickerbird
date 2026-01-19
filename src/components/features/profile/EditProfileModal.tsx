@@ -9,12 +9,15 @@
  * 기능:
  * - 닉네임 수정 (2-20자, 한글/영문/숫자만 허용)
  * - 실시간 유효성 검사
- * - Supabase profiles 테이블 업데이트
+ * - Firestore users 컬렉션 업데이트
  * - 저장 완료 후 페이지 새로고침으로 상태 동기화
+ *
+ * Firebase Firestore 사용
  */
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { showSuccess, showError } from '@/lib/toast';
 
 /**
@@ -25,7 +28,7 @@ interface EditProfileModalProps {
   isOpen: boolean;
   /** 모달 닫기 핸들러 */
   onClose: () => void;
-  /** 사용자 ID (Supabase auth.users.id) */
+  /** 사용자 ID (Firebase Auth uid) */
   userId: string;
   /** 현재 닉네임 */
   currentName: string;
@@ -115,7 +118,7 @@ export function EditProfileModal({
   /**
    * 저장 버튼 클릭 핸들러
    * - 유효성 검사
-   * - Supabase profiles 테이블 업데이트
+   * - Firestore users 컬렉션 업데이트
    * - 성공 시 페이지 새로고침 (상태 동기화)
    */
   const handleSave = async () => {
@@ -130,20 +133,12 @@ export function EditProfileModal({
     setError(null);
 
     try {
-      const supabase = createClient();
-
-      // profiles 테이블 업데이트
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          name: name.trim(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', userId);
-
-      if (updateError) {
-        throw updateError;
-      }
+      // Firestore users/{uid} 문서 업데이트
+      const userDocRef = doc(db, 'users', userId);
+      await setDoc(userDocRef, {
+        name: name.trim(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true }); // merge: 기존 필드 유지하고 업데이트
 
       showSuccess('프로필이 수정되었습니다');
 
@@ -153,7 +148,8 @@ export function EditProfileModal({
       // 페이지 새로고침으로 AuthProvider 상태 갱신
       // (onClose 호출 없이 바로 새로고침)
       window.location.reload();
-    } catch {
+    } catch (err) {
+      console.error('[EditProfileModal] 프로필 수정 에러:', err);
       showError('프로필 수정에 실패했습니다');
       setIsSaving(false);
     }

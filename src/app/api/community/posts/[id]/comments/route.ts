@@ -1,18 +1,35 @@
 /**
- * 게시글 댓글 API
+ * 게시글 댓글 API (Firestore)
  *
  * GET /api/community/posts/[id]/comments - 댓글 목록 조회
  * POST /api/community/posts/[id]/comments - 새 댓글 작성
+ *
+ * Firestore 구조:
+ * posts/{postId}/comments/{commentId}
+ *   - userId: string
+ *   - authorName: string
+ *   - authorPhotoURL: string | null
+ *   - content: string
+ *   - createdAt: timestamp
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import {
-  CommentRow,
-  CommunityComment,
-  CreateCommentRequest,
-  CommunityApiResponse,
-  rowToComment,
-} from '@/types/community';
+  postDoc,
+  commentsCollection,
+  getDocument,
+  queryCollection,
+  timestampToString,
+  orderBy,
+  startAfter,
+  limit as firestoreLimit,
+  addDoc,
+  serverTimestamp,
+  updateDoc,
+  type FirestorePost,
+  type FirestoreComment,
+} from '@/lib/firestore';
+import { CommunityComment, CreateCommentRequest, CommunityApiResponse } from '@/types/community';
+import { increment } from 'firebase/firestore';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -25,6 +42,24 @@ interface CommentsListResponse {
 }
 
 /**
+ * Firestore 문서를 CommunityComment로 변환
+ */
+function docToComment(doc: FirestoreComment & { id: string }): CommunityComment {
+  return {
+    id: doc.id,
+    postId: '', // 서브컬렉션이므로 postId는 상위에서 제공
+    userId: doc.userId,
+    content: doc.content,
+    createdAt: timestampToString(doc.createdAt),
+    author: {
+      id: doc.userId,
+      name: doc.authorName || '사용자',
+      avatarUrl: doc.authorPhotoURL || null,
+    },
+  };
+}
+
+/**
  * GET /api/community/posts/[id]/comments
  * 댓글 목록 조회
  */
@@ -34,74 +69,60 @@ export async function GET(
 ) {
   try {
     const { id: postId } = await params;
-    const supabase = await createClient();
     const { searchParams } = new URL(request.url);
 
     const cursor = searchParams.get('cursor');
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
 
     // 게시글 존재 확인
-    const { data: post, error: postError } = await supabase
-      .from('posts')
-      .select('id')
-      .eq('id', postId)
-      .single();
+    const post = await getDocument<FirestorePost>(postDoc(postId));
 
-    if (postError || !post) {
+    if (!post) {
       return NextResponse.json<CommunityApiResponse<null>>(
         { success: false, error: '게시글을 찾을 수 없습니다.' },
         { status: 404 }
       );
     }
 
-    // 댓글 조회
-    let query = supabase
-      .from('comments')
-      .select(`
-        *,
-        profiles:user_id (
-          id,
-          name,
-          avatar_url
-        )
-      `)
-      .eq('post_id', postId)
-      .order('created_at', { ascending: true });
+    // 쿼리 조건 구성
+    const constraints = [
+      orderBy('createdAt', 'asc'),
+    ];
 
     if (cursor) {
-      query = query.gt('created_at', cursor);
+      const cursorDate = new Date(cursor);
+      constraints.push(startAfter(cursorDate));
     }
 
-    query = query.limit(limit + 1);
+    constraints.push(firestoreLimit(limit + 1));
 
-    const { data: rows, error } = await query;
+    // 댓글 조회
+    const comments = await queryCollection<FirestoreComment>(
+      commentsCollection(postId),
+      constraints
+    );
 
-    if (error) {
-      console.error('댓글 조회 에러:', error);
-      return NextResponse.json<CommunityApiResponse<null>>(
-        { success: false, error: '댓글을 불러오는데 실패했습니다.' },
-        { status: 500 }
-      );
-    }
+    const hasMore = comments.length > limit;
+    const commentsData = comments.slice(0, limit);
+    const communityComments: CommunityComment[] = commentsData.map((doc) => ({
+      ...docToComment(doc),
+      postId,
+    }));
 
-    const hasMore = rows && rows.length > limit;
-    const commentsData = (rows || []).slice(0, limit) as CommentRow[];
-    const comments: CommunityComment[] = commentsData.map(row => rowToComment(row));
-
-    const nextCursor = hasMore && comments.length > 0
-      ? comments[comments.length - 1].createdAt
+    const nextCursor = hasMore && communityComments.length > 0
+      ? communityComments[communityComments.length - 1].createdAt
       : undefined;
 
     return NextResponse.json<CommunityApiResponse<CommentsListResponse>>({
       success: true,
       data: {
-        comments,
+        comments: communityComments,
         hasMore,
         nextCursor,
       },
     });
   } catch (error) {
-    console.error('댓글 조회 에러:', error);
+    console.error('[Comments API] 댓글 조회 에러:', error);
     return NextResponse.json<CommunityApiResponse<null>>(
       { success: false, error: '서버 오류가 발생했습니다.' },
       { status: 500 }
@@ -119,11 +140,13 @@ export async function POST(
 ) {
   try {
     const { id: postId } = await params;
-    const supabase = await createClient();
 
-    // 인증 확인
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    // 요청 헤더에서 사용자 정보 가져오기
+    const userId = request.headers.get('x-user-id');
+    const userName = request.headers.get('x-user-name') || '사용자';
+    const userPhotoURL = request.headers.get('x-user-photo');
+
+    if (!userId) {
       return NextResponse.json<CommunityApiResponse<null>>(
         { success: false, error: '로그인이 필요합니다.' },
         { status: 401 }
@@ -131,13 +154,9 @@ export async function POST(
     }
 
     // 게시글 존재 확인
-    const { data: post, error: postError } = await supabase
-      .from('posts')
-      .select('id')
-      .eq('id', postId)
-      .single();
+    const post = await getDocument<FirestorePost>(postDoc(postId));
 
-    if (postError || !post) {
+    if (!post) {
       return NextResponse.json<CommunityApiResponse<null>>(
         { success: false, error: '게시글을 찾을 수 없습니다.' },
         { status: 404 }
@@ -162,40 +181,44 @@ export async function POST(
       );
     }
 
-    // 댓글 생성
-    const { data: newComment, error } = await supabase
-      .from('comments')
-      .insert({
-        post_id: postId,
-        user_id: user.id,
-        content: content.trim(),
-      })
-      .select(`
-        *,
-        profiles:user_id (
-          id,
-          name,
-          avatar_url
-        )
-      `)
-      .single();
+    // Firestore에 댓글 생성
+    const commentData: Omit<FirestoreComment, 'createdAt'> = {
+      userId,
+      authorName: decodeURIComponent(userName),
+      authorPhotoURL: userPhotoURL ? decodeURIComponent(userPhotoURL) : null,
+      content: content.trim(),
+    };
 
-    if (error) {
-      console.error('댓글 생성 에러:', error);
-      return NextResponse.json<CommunityApiResponse<null>>(
-        { success: false, error: '댓글 작성에 실패했습니다.' },
-        { status: 500 }
-      );
-    }
+    const docRef = await addDoc(commentsCollection(postId), {
+      ...commentData,
+      createdAt: serverTimestamp(),
+    });
 
-    const comment = rowToComment(newComment as CommentRow);
+    // 게시글의 commentsCount 증가
+    await updateDoc(postDoc(postId), {
+      commentsCount: increment(1),
+    });
+
+    // 생성된 댓글 데이터 반환
+    const createdComment: CommunityComment = {
+      id: docRef.id,
+      postId,
+      userId,
+      content: content.trim(),
+      createdAt: new Date().toISOString(),
+      author: {
+        id: userId,
+        name: decodeURIComponent(userName),
+        avatarUrl: userPhotoURL ? decodeURIComponent(userPhotoURL) : null,
+      },
+    };
 
     return NextResponse.json<CommunityApiResponse<CommunityComment>>(
-      { success: true, data: comment },
+      { success: true, data: createdComment },
       { status: 201 }
     );
   } catch (error) {
-    console.error('댓글 생성 에러:', error);
+    console.error('[Comments API] 댓글 생성 에러:', error);
     return NextResponse.json<CommunityApiResponse<null>>(
       { success: false, error: '서버 오류가 발생했습니다.' },
       { status: 500 }

@@ -1,5 +1,5 @@
 /**
- * 가격 알림 API 라우트
+ * 가격 알림 API 라우트 (Firestore)
  *
  * 가격 알림 목록 조회 및 새 알림 추가 API
  *
@@ -8,41 +8,73 @@
  * - POST /api/alerts: 새 알림 추가
  *
  * 인증:
- * - Supabase 세션 기반 인증 (쿠키)
- * - RLS 정책으로 본인 데이터만 접근 가능
+ * - x-user-id 헤더로 사용자 인증
+ *
+ * Firestore 구조:
+ * price_alerts/{alertId}
+ *   - userId: string
+ *   - ticker: string
+ *   - market: string (KR/US)
+ *   - stockName: string
+ *   - targetPrice: number
+ *   - direction: string (above/below)
+ *   - isActive: boolean
+ *   - isTriggered: boolean
+ *   - createdAt: timestamp
+ *   - triggeredAt: timestamp | null
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import {
-  PriceAlertRow,
-  rowToPriceAlert,
+  alertsCollection,
+  queryCollection,
+  timestampToString,
+  where,
+  orderBy,
+  addDoc,
+  serverTimestamp,
+  type FirestoreAlert,
+} from '@/lib/firestore';
+import {
+  PriceAlert,
   CreateAlertRequest,
   AlertMarket,
   AlertDirection,
 } from '@/types/priceAlert';
 
 /**
+ * Firestore 문서를 PriceAlert로 변환
+ */
+function docToAlert(doc: FirestoreAlert & { id: string }): PriceAlert {
+  return {
+    id: doc.id,
+    userId: doc.userId,
+    ticker: doc.ticker,
+    market: doc.market as AlertMarket,
+    stockName: doc.stockName,
+    targetPrice: doc.targetPrice,
+    direction: doc.direction as AlertDirection,
+    isActive: doc.isActive,
+    isTriggered: doc.isTriggered,
+    createdAt: timestampToString(doc.createdAt),
+    triggeredAt: doc.triggeredAt ? timestampToString(doc.triggeredAt) : undefined,
+  };
+}
+
+/**
  * GET /api/alerts
  *
  * 현재 로그인한 사용자의 가격 알림 목록 조회
- * RLS 정책으로 자동으로 본인 데이터만 조회됨
  *
  * @returns 알림 목록 또는 에러
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Supabase 클라이언트 생성 (서버 사이드)
-    const supabase = await createClient();
-
-    // 현재 로그인한 사용자 확인
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // 요청 헤더에서 사용자 ID 가져오기
+    const userId = request.headers.get('x-user-id');
 
     // 인증 에러 체크
-    if (authError || !user) {
+    if (!userId) {
       return NextResponse.json(
         { success: false, error: '로그인이 필요합니다' },
         { status: 401 }
@@ -50,27 +82,20 @@ export async function GET() {
     }
 
     // 알림 목록 조회 (최신순 정렬)
-    // RLS 정책으로 user_id = auth.uid() 조건이 자동 적용됨
-    const { data, error } = await supabase
-      .from('price_alerts')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const alerts = await queryCollection<FirestoreAlert>(
+      alertsCollection(),
+      [
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc'),
+      ]
+    );
 
-    // DB 에러 체크
-    if (error) {
-      console.error('알림 조회 에러:', error);
-      return NextResponse.json(
-        { success: false, error: '알림 목록을 불러오는데 실패했습니다' },
-        { status: 500 }
-      );
-    }
+    // Firestore 문서를 PriceAlert로 변환
+    const priceAlerts = alerts.map(docToAlert);
 
-    // snake_case -> camelCase 변환
-    const alerts = (data as PriceAlertRow[]).map(rowToPriceAlert);
-
-    return NextResponse.json({ success: true, data: alerts });
+    return NextResponse.json({ success: true, data: priceAlerts });
   } catch (error) {
-    console.error('알림 API 에러:', error);
+    console.error('[Alerts API] 알림 조회 에러:', error);
     return NextResponse.json(
       { success: false, error: '서버 에러가 발생했습니다' },
       { status: 500 }
@@ -88,17 +113,11 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Supabase 클라이언트 생성
-    const supabase = await createClient();
-
-    // 현재 로그인한 사용자 확인
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // 요청 헤더에서 사용자 ID 가져오기
+    const userId = request.headers.get('x-user-id');
 
     // 인증 에러 체크
-    if (authError || !user) {
+    if (!userId) {
       return NextResponse.json(
         { success: false, error: '로그인이 필요합니다' },
         { status: 401 }
@@ -140,37 +159,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 알림 추가
-    const { data, error } = await supabase
-      .from('price_alerts')
-      .insert({
-        user_id: user.id,
-        ticker: body.ticker,
-        market: body.market as AlertMarket,
-        stock_name: body.stockName,
-        target_price: body.targetPrice,
-        direction: body.direction as AlertDirection,
-        is_active: true,
-        is_triggered: false,
-      })
-      .select()
-      .single();
+    // Firestore에 알림 추가
+    const alertData = {
+      userId,
+      ticker: body.ticker,
+      market: body.market,
+      stockName: body.stockName,
+      targetPrice: body.targetPrice,
+      direction: body.direction,
+      isActive: true,
+      isTriggered: false,
+      createdAt: serverTimestamp(),
+      triggeredAt: null,
+    };
 
-    // DB 에러 체크
-    if (error) {
-      console.error('알림 추가 에러:', error);
-      return NextResponse.json(
-        { success: false, error: '알림 추가에 실패했습니다' },
-        { status: 500 }
-      );
-    }
+    const docRef = await addDoc(alertsCollection(), alertData);
 
     // 생성된 알림 반환
-    const alert = rowToPriceAlert(data as PriceAlertRow);
+    const createdAlert: PriceAlert = {
+      id: docRef.id,
+      userId,
+      ticker: body.ticker,
+      market: body.market as AlertMarket,
+      stockName: body.stockName,
+      targetPrice: body.targetPrice,
+      direction: body.direction as AlertDirection,
+      isActive: true,
+      isTriggered: false,
+      createdAt: new Date().toISOString(),
+      triggeredAt: undefined,
+    };
 
-    return NextResponse.json({ success: true, data: alert }, { status: 201 });
+    return NextResponse.json({ success: true, data: createdAlert }, { status: 201 });
   } catch (error) {
-    console.error('알림 API 에러:', error);
+    console.error('[Alerts API] 알림 추가 에러:', error);
     return NextResponse.json(
       { success: false, error: '서버 에러가 발생했습니다' },
       { status: 500 }

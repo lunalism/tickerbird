@@ -1,153 +1,170 @@
 /**
- * 커뮤니티 게시글 API
+ * 커뮤니티 게시글 API (Firestore)
  *
  * GET /api/community/posts - 게시글 목록 조회
  * POST /api/community/posts - 새 게시글 작성
+ *
+ * Firestore 컬렉션 구조:
+ * posts/{postId}
+ *   - userId: string
+ *   - authorName: string
+ *   - authorPhotoURL: string | null
+ *   - content: string
+ *   - category: string
+ *   - tickers: array
+ *   - hashtags: array
+ *   - likesCount: number
+ *   - commentsCount: number
+ *   - repostsCount: number
+ *   - createdAt: timestamp
+ *   - updatedAt: timestamp
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import {
-  PostRow,
+  postsCollection,
+  likesCollection,
+  queryCollection,
+  timestampToString,
+  where,
+  orderBy,
+  limit as firestoreLimit,
+  startAfter,
+  getDocs,
+  query,
+  addDoc,
+  serverTimestamp,
+  getDoc,
+  doc,
+  type FirestorePost,
+} from '@/lib/firestore';
+import { db, auth } from '@/lib/firebase';
+import {
   CommunityPost,
-  CreatePostRequest,
   CommunityApiResponse,
   PostsListResponse,
-  rowToPost,
   CommunityCategory,
+  CreatePostRequest,
 } from '@/types/community';
+
+/**
+ * Firestore 문서를 CommunityPost로 변환
+ */
+function docToPost(
+  docData: FirestorePost & { id: string },
+  isLiked: boolean = false
+): CommunityPost {
+  return {
+    id: docData.id,
+    userId: docData.userId,
+    content: docData.content,
+    category: (docData.category || 'stock') as CommunityCategory,
+    tickers: docData.tickers || [],
+    hashtags: docData.hashtags || [],
+    likesCount: docData.likesCount || 0,
+    commentsCount: docData.commentsCount || 0,
+    repostsCount: docData.repostsCount || 0,
+    createdAt: timestampToString(docData.createdAt),
+    updatedAt: timestampToString(docData.updatedAt),
+    author: {
+      id: docData.userId,
+      name: docData.authorName || '사용자',
+      avatarUrl: docData.authorPhotoURL || null,
+    },
+    isLiked,
+  };
+}
 
 /**
  * GET /api/community/posts
  * 게시글 목록 조회
  *
  * Query params:
- * - category: 카테고리 필터 (all, stock, strategy, qna, following)
+ * - category: 카테고리 필터 (all, stock, strategy, qna)
  * - sort: 정렬 (latest, popular)
- * - cursor: 페이지네이션 커서 (게시글 ID)
+ * - cursor: 페이지네이션 커서 (createdAt ISO 문자열)
  * - limit: 조회 개수 (기본 20)
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
     const { searchParams } = new URL(request.url);
 
     const category = (searchParams.get('category') || 'all') as CommunityCategory;
     const sort = searchParams.get('sort') || 'latest';
     const cursor = searchParams.get('cursor');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
+    const limitNum = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
 
-    // 현재 사용자 정보 가져오기 (좋아요 여부 확인용)
-    const { data: { user } } = await supabase.auth.getUser();
+    // 현재 사용자 ID 가져오기 (좋아요 여부 확인용)
+    // API Route에서는 auth.currentUser가 null일 수 있으므로 헤더에서 userId를 받아옴
+    const userId = request.headers.get('x-user-id');
 
-    // 쿼리 빌드
-    let query = supabase
-      .from('posts')
-      .select(`
-        *,
-        profiles:user_id (
-          id,
-          name,
-          avatar_url
-        )
-      `);
+    // 쿼리 조건 구성
+    const constraints = [];
 
     // 카테고리 필터
     if (category !== 'all' && category !== 'following') {
-      query = query.eq('category', category);
-    }
-
-    // 팔로잉 필터 (로그인 사용자만)
-    if (category === 'following' && user) {
-      // 팔로우하는 사용자들의 ID 가져오기
-      const { data: follows } = await supabase
-        .from('follows')
-        .select('following_id')
-        .eq('follower_id', user.id);
-
-      const followingIds = follows?.map(f => f.following_id) || [];
-
-      if (followingIds.length > 0) {
-        query = query.in('user_id', followingIds);
-      } else {
-        // 팔로잉이 없으면 빈 결과 반환
-        return NextResponse.json<CommunityApiResponse<PostsListResponse>>({
-          success: true,
-          data: {
-            posts: [],
-            hasMore: false,
-          },
-        });
-      }
+      constraints.push(where('category', '==', category));
     }
 
     // 정렬
     if (sort === 'popular') {
-      query = query.order('likes_count', { ascending: false });
+      constraints.push(orderBy('likesCount', 'desc'));
     }
-    query = query.order('created_at', { ascending: false });
+    constraints.push(orderBy('createdAt', 'desc'));
 
-    // 페이지네이션
+    // 커서 기반 페이지네이션
     if (cursor) {
-      query = query.lt('created_at', cursor);
+      // 커서 문서 가져오기
+      const cursorDate = new Date(cursor);
+      constraints.push(startAfter(cursorDate));
     }
 
-    query = query.limit(limit + 1); // +1 for hasMore check
+    // 개수 제한 (+1 for hasMore check)
+    constraints.push(firestoreLimit(limitNum + 1));
 
-    const { data: rows, error } = await query;
-
-    if (error) {
-      // 테이블이 없는 경우 빈 결과 반환 (42P01 = undefined_table)
-      if (error.code === '42P01' || error.message?.includes('does not exist')) {
-        console.log('posts 테이블이 아직 생성되지 않았습니다. 마이그레이션을 실행해주세요.');
-        return NextResponse.json<CommunityApiResponse<PostsListResponse>>({
-          success: true,
-          data: {
-            posts: [],
-            hasMore: false,
-          },
-        });
-      }
-      console.error('게시글 조회 에러:', error);
-      return NextResponse.json<CommunityApiResponse<null>>(
-        { success: false, error: '게시글을 불러오는데 실패했습니다.' },
-        { status: 500 }
-      );
-    }
+    // Firestore 쿼리 실행
+    const posts = await queryCollection<FirestorePost>(
+      postsCollection(),
+      constraints
+    );
 
     // 좋아요 여부 조회 (로그인 사용자만)
-    let likedPostIds: Set<string> = new Set();
-    if (user && rows && rows.length > 0) {
-      const postIds = rows.map(r => r.id);
-      const { data: likes } = await supabase
-        .from('likes')
-        .select('post_id')
-        .eq('user_id', user.id)
-        .in('post_id', postIds);
-
-      likedPostIds = new Set(likes?.map(l => l.post_id) || []);
+    const likedPostIds = new Set<string>();
+    if (userId && posts.length > 0) {
+      // 각 게시글의 likes 서브컬렉션에서 현재 사용자의 좋아요 확인
+      const likeChecks = posts.slice(0, limitNum).map(async (post) => {
+        const likesQuery = query(
+          likesCollection(post.id),
+          where('userId', '==', userId)
+        );
+        const likeSnapshot = await getDocs(likesQuery);
+        if (!likeSnapshot.empty) {
+          likedPostIds.add(post.id);
+        }
+      });
+      await Promise.all(likeChecks);
     }
 
     // hasMore 체크 및 결과 변환
-    const hasMore = rows && rows.length > limit;
-    const postsData = (rows || []).slice(0, limit) as PostRow[];
-    const posts: CommunityPost[] = postsData.map(row =>
-      rowToPost(row, likedPostIds.has(row.id))
+    const hasMore = posts.length > limitNum;
+    const postsData = posts.slice(0, limitNum);
+    const communityPosts: CommunityPost[] = postsData.map((post) =>
+      docToPost(post, likedPostIds.has(post.id))
     );
 
-    const nextCursor = hasMore && posts.length > 0
-      ? posts[posts.length - 1].createdAt
+    const nextCursor = hasMore && communityPosts.length > 0
+      ? communityPosts[communityPosts.length - 1].createdAt
       : undefined;
 
     return NextResponse.json<CommunityApiResponse<PostsListResponse>>({
       success: true,
       data: {
-        posts,
+        posts: communityPosts,
         hasMore,
         nextCursor,
       },
     });
   } catch (error) {
-    console.error('게시글 조회 에러:', error);
+    console.error('[Posts API] 게시글 조회 에러:', error);
     // 예외 발생 시에도 빈 결과 반환 (페이지 렌더링을 방해하지 않도록)
     return NextResponse.json<CommunityApiResponse<PostsListResponse>>({
       success: true,
@@ -165,11 +182,12 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    // 요청 헤더에서 사용자 정보 가져오기
+    const userId = request.headers.get('x-user-id');
+    const userName = request.headers.get('x-user-name') || '사용자';
+    const userPhotoURL = request.headers.get('x-user-photo');
 
-    // 인증 확인
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    if (!userId) {
       return NextResponse.json<CommunityApiResponse<null>>(
         { success: false, error: '로그인이 필요합니다.' },
         { status: 401 }
@@ -194,72 +212,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 게시글 생성
-    const { data: newPost, error } = await supabase
-      .from('posts')
-      .insert({
-        user_id: user.id,
-        content: content.trim(),
-        category,
-        tickers,
-        hashtags,
-      })
-      .select(`
-        *,
-        profiles:user_id (
-          id,
-          name,
-          avatar_url
-        )
-      `)
-      .single();
+    // Firestore에 게시글 생성
+    const postData: Omit<FirestorePost, 'createdAt' | 'updatedAt'> = {
+      userId,
+      authorName: decodeURIComponent(userName),
+      authorPhotoURL: userPhotoURL ? decodeURIComponent(userPhotoURL) : null,
+      content: content.trim(),
+      category,
+      tickers,
+      hashtags,
+      likesCount: 0,
+      commentsCount: 0,
+      repostsCount: 0,
+    };
 
-    if (error) {
-      console.error('게시글 생성 에러:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-      });
+    const docRef = await addDoc(postsCollection(), {
+      ...postData,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
 
-      // 테이블이 없는 경우
-      if (error.code === '42P01' || error.message?.includes('does not exist')) {
-        return NextResponse.json<CommunityApiResponse<null>>(
-          { success: false, error: '커뮤니티 테이블이 아직 생성되지 않았습니다. 관리자에게 문의하세요.' },
-          { status: 503 }
-        );
-      }
-
-      // RLS 정책 위반
-      if (error.code === '42501') {
-        return NextResponse.json<CommunityApiResponse<null>>(
-          { success: false, error: '게시글 작성 권한이 없습니다.' },
-          { status: 403 }
-        );
-      }
-
-      // FK 제약조건 위반 (user_id가 profiles에 없음)
-      if (error.code === '23503') {
-        return NextResponse.json<CommunityApiResponse<null>>(
-          { success: false, error: '프로필 정보를 찾을 수 없습니다. 다시 로그인해주세요.' },
-          { status: 400 }
-        );
-      }
-
-      return NextResponse.json<CommunityApiResponse<null>>(
-        { success: false, error: `게시글 작성에 실패했습니다: ${error.message}` },
-        { status: 500 }
-      );
-    }
-
-    const post = rowToPost(newPost as PostRow, false);
+    // 생성된 게시글 데이터 반환
+    const createdPost: CommunityPost = {
+      id: docRef.id,
+      userId,
+      content: content.trim(),
+      category: category as CommunityCategory,
+      tickers,
+      hashtags,
+      likesCount: 0,
+      commentsCount: 0,
+      repostsCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      author: {
+        id: userId,
+        name: decodeURIComponent(userName),
+        avatarUrl: userPhotoURL ? decodeURIComponent(userPhotoURL) : null,
+      },
+      isLiked: false,
+    };
 
     return NextResponse.json<CommunityApiResponse<CommunityPost>>(
-      { success: true, data: post },
+      { success: true, data: createdPost },
       { status: 201 }
     );
   } catch (error) {
-    console.error('게시글 생성 에러:', error);
+    console.error('[Posts API] 게시글 생성 에러:', error);
     return NextResponse.json<CommunityApiResponse<null>>(
       { success: false, error: '서버 오류가 발생했습니다.' },
       { status: 500 }
