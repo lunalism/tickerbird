@@ -52,6 +52,17 @@ export function useCommunity(options: UseCommunityOptions = {}) {
   /**
    * API 요청 시 사용할 인증 헤더 생성
    * Firebase Auth 사용자 정보를 헤더에 포함
+   *
+   * 사용자 이름 우선순위:
+   * 1. userProfile.nickname (AlphaBoard 닉네임)
+   * 2. userProfile.displayName (프로필에서 가져온 이름)
+   * 3. user.displayName (Firebase Auth의 Google 이름)
+   * 4. user.email의 @ 앞부분
+   * 5. '사용자' (기본값)
+   *
+   * 프로필 이미지 우선순위:
+   * 1. userProfile.avatarUrl
+   * 2. user.photoURL (Firebase Auth의 Google 프로필 사진)
    */
   const getAuthHeaders = useCallback((): HeadersInit => {
     const headers: HeadersInit = {
@@ -61,14 +72,22 @@ export function useCommunity(options: UseCommunityOptions = {}) {
     // 로그인된 사용자인 경우 헤더에 사용자 정보 추가
     if (user?.uid) {
       headers['x-user-id'] = user.uid;
-    }
-    if (userProfile?.nickname || userProfile?.displayName) {
-      // 닉네임 우선, 없으면 displayName 사용
-      const name = userProfile.nickname || userProfile.displayName;
-      headers['x-user-name'] = encodeURIComponent(name);
-    }
-    if (userProfile?.avatarUrl) {
-      headers['x-user-photo'] = encodeURIComponent(userProfile.avatarUrl);
+
+      // 사용자 이름 설정 (우선순위에 따라 fallback)
+      // nickname이 빈 문자열('')인 경우도 falsy로 처리됨
+      const userName =
+        (userProfile?.nickname && userProfile.nickname.trim()) ||
+        (userProfile?.displayName && userProfile.displayName.trim()) ||
+        user.displayName ||
+        user.email?.split('@')[0] ||
+        '사용자';
+      headers['x-user-name'] = encodeURIComponent(userName);
+
+      // 프로필 이미지 설정 (userProfile → user.photoURL 순서)
+      const photoUrl = userProfile?.avatarUrl || user.photoURL;
+      if (photoUrl) {
+        headers['x-user-photo'] = encodeURIComponent(photoUrl);
+      }
     }
 
     return headers;
@@ -286,6 +305,7 @@ export function useComments(postId: string) {
 
   /**
    * API 요청 시 사용할 인증 헤더 생성
+   * (useCommunity의 getAuthHeaders와 동일한 로직)
    */
   const getAuthHeaders = useCallback((): HeadersInit => {
     const headers: HeadersInit = {
@@ -294,13 +314,21 @@ export function useComments(postId: string) {
 
     if (user?.uid) {
       headers['x-user-id'] = user.uid;
-    }
-    if (userProfile?.nickname || userProfile?.displayName) {
-      const name = userProfile.nickname || userProfile.displayName;
-      headers['x-user-name'] = encodeURIComponent(name);
-    }
-    if (userProfile?.avatarUrl) {
-      headers['x-user-photo'] = encodeURIComponent(userProfile.avatarUrl);
+
+      // 사용자 이름 설정 (우선순위에 따라 fallback)
+      const userName =
+        (userProfile?.nickname && userProfile.nickname.trim()) ||
+        (userProfile?.displayName && userProfile.displayName.trim()) ||
+        user.displayName ||
+        user.email?.split('@')[0] ||
+        '사용자';
+      headers['x-user-name'] = encodeURIComponent(userName);
+
+      // 프로필 이미지 설정
+      const photoUrl = userProfile?.avatarUrl || user.photoURL;
+      if (photoUrl) {
+        headers['x-user-photo'] = encodeURIComponent(photoUrl);
+      }
     }
 
     return headers;
