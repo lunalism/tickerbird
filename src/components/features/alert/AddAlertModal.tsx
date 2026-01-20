@@ -45,6 +45,9 @@ interface AddAlertModalProps {
   market: AlertMarket;
   // 현재가 (기본값 설정용)
   currentPrice: number;
+  // 알림 추가 성공 시 콜백 (선택)
+  // 부모 컴포넌트에서 알림 상태를 즉시 업데이트할 때 사용
+  onSuccess?: () => void;
 }
 
 /**
@@ -57,6 +60,7 @@ export function AddAlertModal({
   stockName,
   market,
   currentPrice,
+  onSuccess,
 }: AddAlertModalProps) {
   // 알림 관리 훅
   const { addAlert } = useAlerts();
@@ -129,6 +133,8 @@ export function AddAlertModal({
 
     if (result.success) {
       showSuccess('알림이 추가되었습니다');
+      // 성공 콜백 호출 (부모 컴포넌트에서 알림 상태 업데이트)
+      onSuccess?.();
       onClose();
     } else {
       setError(result.error || '알림 추가에 실패했습니다');

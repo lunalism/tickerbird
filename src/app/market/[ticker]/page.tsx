@@ -332,9 +332,12 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
     });
   }, [isLoggedIn, isAuthLoading, isTestMode, ticker]);
 
-  // 알림 관리
-  const { hasAlertForTicker } = useAlerts();
+  // 알림 관리 - 삭제와 새로고침 함수도 가져오기
+  const { hasAlertForTicker, getAlertsForTicker, deleteAlert, refetch: refetchAlerts } = useAlerts();
   const hasAlert = hasAlertForTicker(ticker);
+
+  // 알림 삭제 중 상태
+  const [isDeletingAlert, setIsDeletingAlert] = useState(false);
 
   // 가격 알림 체크 훅
   const { checkSingleAlert } = usePriceAlertCheck();
@@ -345,23 +348,53 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
    * 동작:
    * - 비로그인 → 로그인 페이지로 이동
    * - 로그인 + 알림 없음 → 알림 추가 모달 열기
-   * - 로그인 + 알림 있음 → 알림 관리 페이지로 이동
+   * - 로그인 + 알림 있음 → 삭제 확인 후 알림 삭제
    */
-  const handleAlertClick = () => {
+  const handleAlertClick = async () => {
     if (!isLoggedIn) {
       showError('로그인이 필요합니다');
       router.push('/login');
       return;
     }
 
-    // 알림이 있으면 알림 관리 페이지로 이동
+    // 알림이 있으면 삭제 확인
     if (hasAlert) {
-      router.push('/alerts');
+      const alerts = getAlertsForTicker(ticker);
+      if (alerts.length === 0) return;
+
+      // 삭제 확인 대화상자
+      const stockName = stockInfo?.name || stock?.stockName || ticker;
+      const confirmed = confirm(`${stockName}의 가격 알림을 삭제하시겠습니까?`);
+      if (!confirmed) return;
+
+      // 알림 삭제 (해당 종목의 모든 알림)
+      setIsDeletingAlert(true);
+      try {
+        for (const alert of alerts) {
+          const result = await deleteAlert(alert.id);
+          if (result.success) {
+            showSuccess('알림이 삭제되었습니다');
+          } else {
+            showError(result.error || '알림 삭제에 실패했습니다');
+          }
+        }
+      } finally {
+        setIsDeletingAlert(false);
+      }
       return;
     }
 
     // 알림이 없으면 알림 추가 모달 열기
     setIsAlertModalOpen(true);
+  };
+
+  /**
+   * 알림 추가 성공 시 콜백
+   * 알림 목록 새로고침하여 🔔 아이콘 상태 즉시 반영
+   */
+  const handleAlertSuccess = () => {
+    console.log('[KoreanAssetDetailPage] 알림 추가 성공 - 목록 새로고침');
+    refetchAlerts();
   };
 
   // ========================================
@@ -559,6 +592,7 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
         stockName={stockInfo?.name || stock.stockName || ticker}
         market="KR"
         currentPrice={stock.currentPrice}
+        onSuccess={handleAlertSuccess}
       />
 
       {/* 메인 콘텐츠 - 사이드바 영역 제외 */}
@@ -780,9 +814,12 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
     });
   }, [isLoggedIn, isAuthLoading, isTestMode, ticker]);
 
-  // 알림 관리
-  const { hasAlertForTicker } = useAlerts();
+  // 알림 관리 - 삭제와 새로고침 함수도 가져오기
+  const { hasAlertForTicker, getAlertsForTicker, deleteAlert, refetch: refetchAlerts } = useAlerts();
   const hasAlert = hasAlertForTicker(ticker);
+
+  // 알림 삭제 중 상태
+  const [isDeletingAlert, setIsDeletingAlert] = useState(false);
 
   // 가격 알림 체크 훅
   const { checkSingleAlert } = usePriceAlertCheck();
@@ -793,23 +830,53 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
    * 동작:
    * - 비로그인 → 로그인 페이지로 이동
    * - 로그인 + 알림 없음 → 알림 추가 모달 열기
-   * - 로그인 + 알림 있음 → 알림 관리 페이지로 이동
+   * - 로그인 + 알림 있음 → 삭제 확인 후 알림 삭제
    */
-  const handleAlertClick = () => {
+  const handleAlertClick = async () => {
     if (!isLoggedIn) {
       showError('로그인이 필요합니다');
       router.push('/login');
       return;
     }
 
-    // 알림이 있으면 알림 관리 페이지로 이동
+    // 알림이 있으면 삭제 확인
     if (hasAlert) {
-      router.push('/alerts');
+      const alerts = getAlertsForTicker(ticker);
+      if (alerts.length === 0) return;
+
+      // 삭제 확인 대화상자
+      const stockName = stock?.name || ticker;
+      const confirmed = confirm(`${stockName}의 가격 알림을 삭제하시겠습니까?`);
+      if (!confirmed) return;
+
+      // 알림 삭제 (해당 종목의 모든 알림)
+      setIsDeletingAlert(true);
+      try {
+        for (const alert of alerts) {
+          const result = await deleteAlert(alert.id);
+          if (result.success) {
+            showSuccess('알림이 삭제되었습니다');
+          } else {
+            showError(result.error || '알림 삭제에 실패했습니다');
+          }
+        }
+      } finally {
+        setIsDeletingAlert(false);
+      }
       return;
     }
 
     // 알림이 없으면 알림 추가 모달 열기
     setIsAlertModalOpen(true);
+  };
+
+  /**
+   * 알림 추가 성공 시 콜백
+   * 알림 목록 새로고침하여 🔔 아이콘 상태 즉시 반영
+   */
+  const handleAlertSuccess = () => {
+    console.log('[USAssetDetailPage] 알림 추가 성공 - 목록 새로고침');
+    refetchAlerts();
   };
 
   // ========================================
@@ -1019,6 +1086,7 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
         stockName={stock.name}
         market="US"
         currentPrice={stock.currentPrice}
+        onSuccess={handleAlertSuccess}
       />
 
       {/* 메인 콘텐츠 - 사이드바 영역 제외 */}
