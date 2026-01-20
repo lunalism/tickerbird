@@ -2,11 +2,11 @@
  * PriceAlertProvider - 실시간 가격 알림 체크 Provider
  *
  * 앱 전체에서 백그라운드로 가격 알림을 체크하는 Provider입니다.
- * 30초마다 활성화된 알림의 목표가 도달 여부를 확인하고,
+ * 10초마다 활성화된 알림의 목표가 도달 여부를 확인하고,
  * 조건 충족 시 토스트 알림을 발동합니다.
  *
  * 주요 기능:
- * - 30초마다 활성 알림 폴링 (setInterval)
+ * - 10초마다 활성 알림 폴링 (setInterval)
  * - 브라우저 탭 비활성화 시 폴링 중지 (배터리/성능 절약)
  * - 탭 활성화 시 즉시 체크 + 폴링 재개
  * - 중복 알림 방지 (이미 발동된 알림은 재발동 안함)
@@ -40,9 +40,9 @@ import { PriceAlert, AlertMarket } from '@/types/priceAlert';
 
 /**
  * 폴링 간격 (밀리초)
- * 30초 = 30000ms
+ * 10초 = 10000ms
  */
-const POLLING_INTERVAL = 30000;
+const POLLING_INTERVAL = 10000;
 
 /**
  * PriceAlertProvider Props
@@ -323,7 +323,7 @@ export function PriceAlertProvider({ children }: PriceAlertProviderProps) {
       clearInterval(intervalRef.current);
     }
 
-    console.log('[PriceAlertProvider] ⏰ 폴링 시작 (30초 간격)');
+    console.log('[PriceAlertProvider] ⏰ 폴링 시작 (10초 간격)');
 
     // 30초마다 알림 체크
     intervalRef.current = setInterval(() => {
