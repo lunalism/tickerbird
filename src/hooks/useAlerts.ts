@@ -23,6 +23,7 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import {
   PriceAlert,
   CreateAlertRequest,
+  UpdateAlertRequest,
   AlertListResponse,
   AlertApiResponse,
 } from '@/types/priceAlert';
@@ -41,6 +42,8 @@ interface UseAlertsReturn {
   refetch: () => Promise<void>;
   // 새 알림 추가
   addAlert: (request: CreateAlertRequest) => Promise<{ success: boolean; error?: string }>;
+  // 알림 수정 (목표가, 방향 변경)
+  updateAlert: (id: string, request: UpdateAlertRequest) => Promise<{ success: boolean; error?: string }>;
   // 알림 활성화/비활성화 토글
   toggleAlert: (id: string, isActive: boolean) => Promise<{ success: boolean; error?: string }>;
   // 알림 삭제
@@ -189,6 +192,60 @@ export function useAlerts(): UseAlertsReturn {
   );
 
   /**
+   * 알림 수정 (목표가, 방향 변경)
+   *
+   * 목표가나 방향을 변경하면 서버에서 자동으로 isTriggered가 false로 리셋됨
+   * 이는 조건이 변경되었으므로 다시 체크해야 하기 때문
+   *
+   * @param id 알림 ID
+   * @param request 수정 요청 데이터 (targetPrice, direction)
+   * @returns 성공 여부
+   */
+  const updateAlert = useCallback(
+    async (id: string, request: UpdateAlertRequest): Promise<{ success: boolean; error?: string }> => {
+      console.log('[useAlerts] updateAlert 호출:', { id, request });
+
+      // Auth 로딩 중이면 대기 필요
+      if (isAuthLoading) {
+        return { success: false, error: '인증 상태 확인 중입니다. 잠시 후 다시 시도해주세요.' };
+      }
+
+      if (!isLoggedIn) {
+        return { success: false, error: '로그인이 필요합니다' };
+      }
+
+      try {
+        const response = await fetch(`/api/alerts/${id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(userProfile?.id ? { 'x-user-id': userProfile.id } : {}),
+          },
+          body: JSON.stringify(request),
+        });
+
+        const result: AlertApiResponse = await response.json();
+
+        if (result.success && result.data) {
+          console.log('[useAlerts] 알림 수정 성공:', result.data);
+          // 목록에서 해당 알림 업데이트
+          setAlerts((prev) =>
+            prev.map((alert) => (alert.id === id ? result.data! : alert))
+          );
+          return { success: true };
+        }
+
+        console.log('[useAlerts] 알림 수정 실패:', result.error);
+        return { success: false, error: result.error || '알림 수정에 실패했습니다' };
+      } catch (err) {
+        console.error('[useAlerts] 알림 수정 에러:', err);
+        return { success: false, error: '네트워크 에러가 발생했습니다' };
+      }
+    },
+    [isLoggedIn, isAuthLoading, userProfile?.id]
+  );
+
+  /**
    * 알림 활성화/비활성화 토글
    *
    * @param id 알림 ID
@@ -305,6 +362,7 @@ export function useAlerts(): UseAlertsReturn {
     error,
     refetch: fetchAlerts,
     addAlert,
+    updateAlert,
     toggleAlert,
     deleteAlert,
     hasAlertForTicker,

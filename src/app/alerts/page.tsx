@@ -24,6 +24,7 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import { useAlerts } from '@/hooks';
 import { PriceAlert } from '@/types/priceAlert';
 import { showSuccess, showError } from '@/lib/toast';
+import { EditAlertModal } from '@/components/features/alert/EditAlertModal';
 
 /**
  * 탭 타입 정의
@@ -75,17 +76,20 @@ function Spinner({ className = 'h-3.5 w-3.5' }: { className?: string }) {
 /**
  * 알림 카드 컴포넌트
  *
- * 개별 알림 정보를 표시하고 토글/삭제 버튼 제공
+ * 개별 알림 정보를 표시하고 수정/토글/삭제 버튼 제공
  */
 function AlertCard({
   alert,
   onToggle,
   onDelete,
+  onEdit,
   showToggle = true,
 }: {
   alert: PriceAlert;
   onToggle: (id: string, isActive: boolean) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  /** 수정 버튼 클릭 핸들러 */
+  onEdit: (alert: PriceAlert) => void;
   /** 토글 버튼 표시 여부 (발동된 알림은 숨김) */
   showToggle?: boolean;
 }) {
@@ -254,7 +258,7 @@ function AlertCard({
           </span>
         </div>
 
-        {/* 메타 정보 및 삭제 버튼 */}
+        {/* 메타 정보 및 수정/삭제 버튼 */}
         <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
           <div className="text-xs text-gray-500 dark:text-gray-400">
             {alert.isTriggered && alert.triggeredAt ? (
@@ -277,25 +281,36 @@ function AlertCard({
               </span>
             )}
           </div>
-          <button
-            onClick={handleDelete}
-            disabled={isDeleting}
-            className={`flex items-center gap-1 text-xs transition-colors ${
-              isDeleting
-                ? 'text-red-400 dark:text-red-500 cursor-not-allowed'
-                : 'text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300'
-            }`}
-          >
-            {isDeleting ? (
-              <>
-                {/* 삭제 중: 로딩 스피너 표시 */}
-                <Spinner />
-                <span>삭제 중</span>
-              </>
-            ) : (
-              '삭제'
-            )}
-          </button>
+          {/* 수정/삭제 버튼 */}
+          <div className="flex items-center gap-3">
+            {/* 수정 버튼 */}
+            <button
+              onClick={() => onEdit(alert)}
+              className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+            >
+              수정
+            </button>
+            {/* 삭제 버튼 */}
+            <button
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className={`flex items-center gap-1 text-xs transition-colors ${
+                isDeleting
+                  ? 'text-red-400 dark:text-red-500 cursor-not-allowed'
+                  : 'text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300'
+              }`}
+            >
+              {isDeleting ? (
+                <>
+                  {/* 삭제 중: 로딩 스피너 표시 */}
+                  <Spinner />
+                  <span>삭제 중</span>
+                </>
+              ) : (
+                '삭제'
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -417,6 +432,10 @@ export default function AlertsPage() {
   const [activeMenu, setActiveMenu] = useState('alerts');
   const [activeTab, setActiveTab] = useState<AlertTab>('active');
 
+  // 수정 모달 상태
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingAlert, setEditingAlert] = useState<PriceAlert | null>(null);
+
   /**
    * 인증 상태 - useAuth() 훅 사용
    *
@@ -470,6 +489,24 @@ export default function AlertsPage() {
     } else {
       showError(result.error || '알림 삭제에 실패했습니다');
     }
+  };
+
+  /**
+   * 알림 수정 모달 열기 핸들러
+   */
+  const handleEdit = (alert: PriceAlert) => {
+    setEditingAlert(alert);
+    setIsEditModalOpen(true);
+  };
+
+  /**
+   * 알림 수정 성공 핸들러
+   * 모달에서 저장 성공 시 호출되며, 목록은 useAlerts 훅에서 자동 업데이트됨
+   */
+  const handleEditSuccess = () => {
+    console.log('[AlertsPage] 알림 수정 성공');
+    // useAlerts 훅의 updateAlert에서 로컬 상태를 업데이트하므로
+    // 별도의 refetch 없이 목록이 즉시 반영됨
   };
 
   // 알림 분류
@@ -640,6 +677,7 @@ export default function AlertsPage() {
                       alert={alert}
                       onToggle={handleToggle}
                       onDelete={handleDelete}
+                      onEdit={handleEdit}
                       // 발동된 알림은 토글 버튼 숨김
                       showToggle={!alert.isTriggered}
                     />
@@ -659,6 +697,17 @@ export default function AlertsPage() {
           )}
         </div>
       </main>
+
+      {/* 알림 수정 모달 */}
+      <EditAlertModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingAlert(null);
+        }}
+        alert={editingAlert}
+        onSuccess={handleEditSuccess}
+      />
     </div>
   );
 }

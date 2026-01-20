@@ -133,12 +133,17 @@ export async function PATCH(
     }
     if (body.targetPrice !== undefined) {
       updateData.targetPrice = body.targetPrice;
-      // 목표가 변경 시 트리거 상태 초기화
+      // 목표가 변경 시 트리거 상태 초기화 (중요!)
+      // 목표가가 바뀌면 다시 조건을 체크해야 하므로 isTriggered를 false로 리셋
       updateData.isTriggered = false;
       updateData.triggeredAt = null;
     }
     if (body.direction !== undefined) {
       updateData.direction = body.direction;
+      // 방향 변경 시에도 트리거 상태 초기화 (중요!)
+      // 이상→이하 또는 이하→이상으로 바뀌면 조건이 달라지므로 리셋
+      updateData.isTriggered = false;
+      updateData.triggeredAt = null;
     }
 
     // Firestore 문서 업데이트
