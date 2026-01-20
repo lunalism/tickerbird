@@ -30,9 +30,10 @@ import { ChartPeriod, AssetDetail, RelatedNews } from '@/types/market';
 import { useKoreanStockPrice, useUSStockPrice, KOREAN_STOCKS, useWatchlist, useRecentlyViewed, useAlerts, usePriceAlertCheck } from '@/hooks';
 import { showSuccess, showError } from '@/lib/toast';
 import { MarketType } from '@/types/recentlyViewed';
-import { useAuthStore } from '@/stores';
+import { useAuth } from '@/components/providers/AuthProvider';
 import { AddAlertModal } from '@/components/features/alert/AddAlertModal';
 import { AlertMarket } from '@/types/priceAlert';
+import { Sidebar, BottomNav } from '@/components/layout';
 
 // 차트 기간 탭 정의
 const chartPeriods: { id: ChartPeriod; label: string }[] = [
@@ -293,11 +294,14 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
   const router = useRouter();
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('1M');
 
+  // 사이드바 메뉴 상태 (market으로 고정)
+  const [activeMenu, setActiveMenu] = useState('market');
+
   // 알림 모달 상태
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
 
   // 한국 종목 실시간 데이터
-  const { stock, isLoading, error, refetch } = useKoreanStockPrice(ticker);
+  const { stock, isLoading: isStockLoading, error, refetch } = useKoreanStockPrice(ticker);
   const stockInfo = getKoreanStockInfo(ticker);
   const news = getRelatedNews(ticker);
 
@@ -308,8 +312,25 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
   // 최근 본 종목 관리
   const { addToRecentlyViewed } = useRecentlyViewed();
 
-  // 인증 상태
-  const { isLoggedIn } = useAuthStore();
+  /**
+   * 인증 상태 - useAuth() 훅 사용
+   *
+   * useAuthStore 대신 useAuth()를 사용하는 이유:
+   * - useAuth()는 Firebase Auth 상태와 테스트 모드를 모두 고려하여 isLoggedIn 계산
+   * - isLoggedIn = !!user || (isTestMode && isTestLoggedIn)
+   * - Sidebar와 동일한 방식으로 로그인 상태 체크
+   */
+  const { isLoggedIn, isLoading: isAuthLoading, isTestMode } = useAuth();
+
+  // 디버그 로그: 인증 상태 확인
+  useEffect(() => {
+    console.log('[KoreanAssetDetailPage] 인증 상태:', {
+      isLoggedIn,
+      isAuthLoading,
+      isTestMode,
+      ticker,
+    });
+  }, [isLoggedIn, isAuthLoading, isTestMode, ticker]);
 
   // 알림 관리
   const { hasAlertForTicker } = useAlerts();
@@ -337,7 +358,7 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
   // ========================================
   useEffect(() => {
     // 데이터 로딩이 완료되고 종목 정보가 있을 때만 기록
-    if (!isLoading && stock) {
+    if (!isStockLoading && stock) {
       const stockName = stockInfo?.name || stock.stockName || ticker;
       addToRecentlyViewed({
         ticker,
@@ -345,19 +366,20 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
         name: stockName,
       });
     }
-  }, [ticker, stock, isLoading, stockInfo, addToRecentlyViewed]);
+  }, [ticker, stock, isStockLoading, stockInfo, addToRecentlyViewed]);
 
   // ========================================
   // 가격 알림 체크
   // 종목 데이터 로드 완료 시 해당 종목의 알림 조건 체크
+  // Auth 로딩이 완료된 후에만 체크
   // ========================================
   useEffect(() => {
-    // 로그인 상태이고, 데이터 로딩 완료 시 알림 체크
-    if (isLoggedIn && !isLoading && stock) {
+    // 로그인 상태이고, Auth 및 데이터 로딩 완료 시 알림 체크
+    if (!isAuthLoading && isLoggedIn && !isStockLoading && stock) {
       console.log('[KoreanAssetDetailPage] 가격 알림 체크:', ticker, stock.currentPrice);
       checkSingleAlert(ticker, stock.currentPrice, 'KR');
     }
-  }, [isLoggedIn, isLoading, stock, ticker, checkSingleAlert]);
+  }, [isAuthLoading, isLoggedIn, isStockLoading, stock, ticker, checkSingleAlert]);
 
   // 관심종목 토글 핸들러 (Supabase 연동, 로그인 필수)
   const handleToggleWatchlist = async () => {
@@ -378,14 +400,21 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
     }
   };
 
-  // 로딩 중
-  if (isLoading) {
+  // 로딩 중 (종목 데이터 로딩)
+  if (isStockLoading) {
     return (
-      <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-500 dark:text-gray-400">종목 정보를 불러오는 중...</p>
-        </div>
+      <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900">
+        {/* 사이드바 - 데스크톱 */}
+        <Sidebar activeMenu={activeMenu} onMenuChange={setActiveMenu} />
+        {/* 하단 네비게이션 - 모바일 */}
+        <BottomNav activeMenu={activeMenu} onMenuChange={setActiveMenu} />
+        {/* 로딩 UI */}
+        <main className="md:pl-[72px] lg:pl-60 transition-all duration-300 flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400">종목 정보를 불러오는 중...</p>
+          </div>
+        </main>
       </div>
     );
   }
@@ -393,25 +422,32 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
   // 에러 발생
   if (error || !stock) {
     return (
-      <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-500 dark:text-gray-400 mb-2">{error || '종목을 찾을 수 없습니다'}</p>
-          <p className="text-sm text-gray-400 dark:text-gray-500">종목코드: {ticker}</p>
-          <div className="flex gap-2 justify-center mt-4">
-            <button
-              onClick={() => refetch()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              다시 시도
-            </button>
-            <button
-              onClick={() => router.back()}
-              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-            >
-              뒤로 가기
-            </button>
+      <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900">
+        {/* 사이드바 - 데스크톱 */}
+        <Sidebar activeMenu={activeMenu} onMenuChange={setActiveMenu} />
+        {/* 하단 네비게이션 - 모바일 */}
+        <BottomNav activeMenu={activeMenu} onMenuChange={setActiveMenu} />
+        {/* 에러 UI */}
+        <main className="md:pl-[72px] lg:pl-60 transition-all duration-300 flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <p className="text-gray-500 dark:text-gray-400 mb-2">{error || '종목을 찾을 수 없습니다'}</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500">종목코드: {ticker}</p>
+            <div className="flex gap-2 justify-center mt-4">
+              <button
+                onClick={() => refetch()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                다시 시도
+              </button>
+              <button
+                onClick={() => router.back()}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                뒤로 가기
+              </button>
+            </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
@@ -434,8 +470,14 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900">
-      {/* 헤더 */}
-      <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      {/* 사이드바 - 데스크톱 */}
+      <Sidebar activeMenu={activeMenu} onMenuChange={setActiveMenu} />
+
+      {/* 하단 네비게이션 - 모바일 */}
+      <BottomNav activeMenu={activeMenu} onMenuChange={setActiveMenu} />
+
+      {/* 헤더 - 사이드바 영역 제외 */}
+      <header className="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 md:pl-[72px] lg:pl-60 transition-all duration-300">
         <div className="max-w-[1200px] mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             {/* 뒤로가기 버튼 */}
@@ -466,11 +508,11 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
                   isInWatchlist={inWatchlist}
                   onToggle={handleToggleWatchlist}
                 />
-                {/* 알림 버튼 */}
+                {/* 알림 버튼 - Auth 로딩 완료 후에만 정확한 상태 표시 */}
                 <AlertButton
                   hasAlert={hasAlert}
                   onClick={handleAlertClick}
-                  isLoggedIn={isLoggedIn}
+                  isLoggedIn={!isAuthLoading && isLoggedIn}
                 />
               </div>
             </div>
@@ -507,8 +549,9 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
         currentPrice={stock.currentPrice}
       />
 
-      {/* 메인 콘텐츠 */}
-      <main className="max-w-[1200px] mx-auto px-4 py-6">
+      {/* 메인 콘텐츠 - 사이드바 영역 제외 */}
+      <main className="md:pl-[72px] lg:pl-60 transition-all duration-300">
+        <div className="max-w-[1200px] mx-auto px-4 py-6 pb-24 md:pb-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 왼쪽: 차트 + 관련 뉴스 */}
           <div className="lg:col-span-2 space-y-6">
@@ -670,6 +713,7 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
             )}
           </div>
         </div>
+        </div>
       </main>
     </div>
   );
@@ -687,11 +731,14 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
   const router = useRouter();
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('1M');
 
+  // 사이드바 메뉴 상태 (market으로 고정)
+  const [activeMenu, setActiveMenu] = useState('market');
+
   // 알림 모달 상태
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
 
   // 미국 주식 실시간 데이터 조회
-  const { stock, isLoading, error, refetch } = useUSStockPrice(ticker);
+  const { stock, isLoading: isStockLoading, error, refetch } = useUSStockPrice(ticker);
   const news = getRelatedNews(ticker);
 
   // 관심종목 관리
@@ -701,8 +748,25 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
   // 최근 본 종목 관리
   const { addToRecentlyViewed } = useRecentlyViewed();
 
-  // 인증 상태
-  const { isLoggedIn } = useAuthStore();
+  /**
+   * 인증 상태 - useAuth() 훅 사용
+   *
+   * useAuthStore 대신 useAuth()를 사용하는 이유:
+   * - useAuth()는 Firebase Auth 상태와 테스트 모드를 모두 고려하여 isLoggedIn 계산
+   * - isLoggedIn = !!user || (isTestMode && isTestLoggedIn)
+   * - Sidebar와 동일한 방식으로 로그인 상태 체크
+   */
+  const { isLoggedIn, isLoading: isAuthLoading, isTestMode } = useAuth();
+
+  // 디버그 로그: 인증 상태 확인
+  useEffect(() => {
+    console.log('[USAssetDetailPage] 인증 상태:', {
+      isLoggedIn,
+      isAuthLoading,
+      isTestMode,
+      ticker,
+    });
+  }, [isLoggedIn, isAuthLoading, isTestMode, ticker]);
 
   // 알림 관리
   const { hasAlertForTicker } = useAlerts();
@@ -729,26 +793,27 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
   // ========================================
   useEffect(() => {
     // 데이터 로딩이 완료되고 종목 정보가 있을 때만 기록
-    if (!isLoading && stock) {
+    if (!isStockLoading && stock) {
       addToRecentlyViewed({
         ticker,
         market: 'us' as MarketType,
         name: stock.name,
       });
     }
-  }, [ticker, stock, isLoading, addToRecentlyViewed]);
+  }, [ticker, stock, isStockLoading, addToRecentlyViewed]);
 
   // ========================================
   // 가격 알림 체크
   // 종목 데이터 로드 완료 시 해당 종목의 알림 조건 체크
+  // Auth 로딩이 완료된 후에만 체크
   // ========================================
   useEffect(() => {
-    // 로그인 상태이고, 데이터 로딩 완료 시 알림 체크
-    if (isLoggedIn && !isLoading && stock) {
+    // 로그인 상태이고, Auth 및 데이터 로딩 완료 시 알림 체크
+    if (!isAuthLoading && isLoggedIn && !isStockLoading && stock) {
       console.log('[USAssetDetailPage] 가격 알림 체크:', ticker, stock.currentPrice);
       checkSingleAlert(ticker, stock.currentPrice, 'US');
     }
-  }, [isLoggedIn, isLoading, stock, ticker, checkSingleAlert]);
+  }, [isAuthLoading, isLoggedIn, isStockLoading, stock, ticker, checkSingleAlert]);
 
   /**
    * 관심종목 토글 핸들러 (Supabase 연동, 로그인 필수)
@@ -771,14 +836,21 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
     }
   };
 
-  // 로딩 상태
-  if (isLoading) {
+  // 로딩 상태 (종목 데이터 로딩)
+  if (isStockLoading) {
     return (
-      <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-500 dark:text-gray-400">종목 정보를 불러오는 중...</p>
-        </div>
+      <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900">
+        {/* 사이드바 - 데스크톱 */}
+        <Sidebar activeMenu={activeMenu} onMenuChange={setActiveMenu} />
+        {/* 하단 네비게이션 - 모바일 */}
+        <BottomNav activeMenu={activeMenu} onMenuChange={setActiveMenu} />
+        {/* 로딩 UI */}
+        <main className="md:pl-[72px] lg:pl-60 transition-all duration-300 flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400">종목 정보를 불러오는 중...</p>
+          </div>
+        </main>
       </div>
     );
   }
@@ -786,25 +858,32 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
   // 에러 또는 데이터 없음 상태
   if (error || !stock) {
     return (
-      <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-500 dark:text-gray-400 mb-2">{error || '종목을 찾을 수 없습니다'}</p>
-          <p className="text-sm text-gray-400 dark:text-gray-500">종목코드: {ticker}</p>
-          <div className="flex gap-2 justify-center mt-4">
-            <button
-              onClick={() => refetch()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              다시 시도
-            </button>
-            <button
-              onClick={() => router.back()}
-              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-            >
-              뒤로 가기
-            </button>
+      <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900">
+        {/* 사이드바 - 데스크톱 */}
+        <Sidebar activeMenu={activeMenu} onMenuChange={setActiveMenu} />
+        {/* 하단 네비게이션 - 모바일 */}
+        <BottomNav activeMenu={activeMenu} onMenuChange={setActiveMenu} />
+        {/* 에러 UI */}
+        <main className="md:pl-[72px] lg:pl-60 transition-all duration-300 flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <p className="text-gray-500 dark:text-gray-400 mb-2">{error || '종목을 찾을 수 없습니다'}</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500">종목코드: {ticker}</p>
+            <div className="flex gap-2 justify-center mt-4">
+              <button
+                onClick={() => refetch()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                다시 시도
+              </button>
+              <button
+                onClick={() => router.back()}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                뒤로 가기
+              </button>
+            </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
@@ -828,8 +907,14 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900">
-      {/* 헤더 */}
-      <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      {/* 사이드바 - 데스크톱 */}
+      <Sidebar activeMenu={activeMenu} onMenuChange={setActiveMenu} />
+
+      {/* 하단 네비게이션 - 모바일 */}
+      <BottomNav activeMenu={activeMenu} onMenuChange={setActiveMenu} />
+
+      {/* 헤더 - 사이드바 영역 제외 */}
+      <header className="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 md:pl-[72px] lg:pl-60 transition-all duration-300">
         <div className="max-w-[1200px] mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             {/* 뒤로가기 버튼 */}
@@ -866,11 +951,11 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
                   isInWatchlist={inWatchlist}
                   onToggle={handleToggleWatchlist}
                 />
-                {/* 알림 버튼 */}
+                {/* 알림 버튼 - Auth 로딩 완료 후에만 정확한 상태 표시 */}
                 <AlertButton
                   hasAlert={hasAlert}
                   onClick={handleAlertClick}
-                  isLoggedIn={isLoggedIn}
+                  isLoggedIn={!isAuthLoading && isLoggedIn}
                 />
               </div>
             </div>
@@ -911,8 +996,9 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
         currentPrice={stock.currentPrice}
       />
 
-      {/* 메인 콘텐츠 */}
-      <main className="max-w-[1200px] mx-auto px-4 py-6">
+      {/* 메인 콘텐츠 - 사이드바 영역 제외 */}
+      <main className="md:pl-[72px] lg:pl-60 transition-all duration-300">
+        <div className="max-w-[1200px] mx-auto px-4 py-6 pb-24 md:pb-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 왼쪽: 차트 + 관련 뉴스 */}
           <div className="lg:col-span-2 space-y-6">
@@ -1029,6 +1115,7 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
               </div>
             </section>
           </div>
+        </div>
         </div>
       </main>
     </div>
