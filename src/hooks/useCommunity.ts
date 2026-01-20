@@ -2,6 +2,7 @@
  * 커뮤니티 훅
  *
  * 게시글 CRUD, 좋아요, 댓글 기능을 관리합니다.
+ * Firebase Auth 연동을 위해 useAuth() 훅 사용
  */
 import { useState, useCallback, useEffect } from 'react';
 import {
@@ -14,6 +15,7 @@ import {
   CommunityApiResponse,
   PostsListResponse,
 } from '@/types/community';
+import { useAuth } from '@/components/providers/AuthProvider';
 
 interface UseCommunityOptions {
   category?: CommunityCategory;
@@ -29,9 +31,17 @@ interface CommentsListResponse {
 
 /**
  * 커뮤니티 게시글 관리 훅
+ *
+ * useAuth() 훅을 사용하여 Firebase Auth 사용자 정보를 가져옴
+ * API 호출 시 x-user-id, x-user-name, x-user-photo 헤더에 사용자 정보 전달
  */
 export function useCommunity(options: UseCommunityOptions = {}) {
   const { category = 'all', sort = 'latest', autoFetch = true } = options;
+
+  // AuthProvider의 useAuth 훅으로 사용자 정보 가져오기
+  // user: Firebase Auth User 객체 (uid 포함)
+  // userProfile: 앱 내부 프로필 (nickname, avatarUrl 포함)
+  const { user, userProfile } = useAuth();
 
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -40,7 +50,34 @@ export function useCommunity(options: UseCommunityOptions = {}) {
   const [nextCursor, setNextCursor] = useState<string | undefined>();
 
   /**
+   * API 요청 시 사용할 인증 헤더 생성
+   * Firebase Auth 사용자 정보를 헤더에 포함
+   */
+  const getAuthHeaders = useCallback((): HeadersInit => {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    // 로그인된 사용자인 경우 헤더에 사용자 정보 추가
+    if (user?.uid) {
+      headers['x-user-id'] = user.uid;
+    }
+    if (userProfile?.nickname || userProfile?.displayName) {
+      // 닉네임 우선, 없으면 displayName 사용
+      const name = userProfile.nickname || userProfile.displayName;
+      headers['x-user-name'] = encodeURIComponent(name);
+    }
+    if (userProfile?.avatarUrl) {
+      headers['x-user-photo'] = encodeURIComponent(userProfile.avatarUrl);
+    }
+
+    return headers;
+  }, [user, userProfile]);
+
+  /**
    * 게시글 목록 조회
+   *
+   * 로그인 사용자인 경우 인증 헤더 포함 (좋아요 여부 확인용)
    */
   const fetchPosts = useCallback(async (reset: boolean = true) => {
     setIsLoading(true);
@@ -57,7 +94,10 @@ export function useCommunity(options: UseCommunityOptions = {}) {
         params.set('cursor', nextCursor);
       }
 
-      const response = await fetch(`/api/community/posts?${params}`);
+      // 인증 헤더 포함 (좋아요 여부 확인용)
+      const response = await fetch(`/api/community/posts?${params}`, {
+        headers: getAuthHeaders(),
+      });
       const result: CommunityApiResponse<PostsListResponse> = await response.json();
 
       if (!result.success || !result.data) {
@@ -79,7 +119,7 @@ export function useCommunity(options: UseCommunityOptions = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [category, sort, nextCursor]);
+  }, [category, sort, nextCursor, getAuthHeaders]);
 
   /**
    * 더 많은 게시글 로드 (무한 스크롤)
@@ -100,12 +140,17 @@ export function useCommunity(options: UseCommunityOptions = {}) {
 
   /**
    * 새 게시글 작성
+   *
+   * getAuthHeaders()로 사용자 정보를 헤더에 포함하여 API 호출
+   * 로그인되지 않은 경우 API에서 401 에러 반환
+   *
    * @throws Error 게시글 작성 실패 시 에러 throw
    */
   const createPost = useCallback(async (data: CreatePostRequest): Promise<CommunityPost> => {
+    // 인증 헤더 포함하여 API 호출
     const response = await fetch('/api/community/posts', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
 
@@ -124,15 +169,18 @@ export function useCommunity(options: UseCommunityOptions = {}) {
     setPosts(prev => [result.data!, ...prev]);
 
     return result.data;
-  }, []);
+  }, [getAuthHeaders]);
 
   /**
    * 게시글 삭제
+   *
+   * 인증 헤더 포함하여 API 호출 (본인 게시글만 삭제 가능)
    */
   const deletePost = useCallback(async (postId: string): Promise<boolean> => {
     try {
       const response = await fetch(`/api/community/posts/${postId}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
       });
 
       const result: CommunityApiResponse<{ deleted: boolean }> = await response.json();
@@ -149,15 +197,18 @@ export function useCommunity(options: UseCommunityOptions = {}) {
       setError(err instanceof Error ? err.message : '게시글 삭제에 실패했습니다.');
       return false;
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   /**
    * 좋아요 토글
+   *
+   * 인증 헤더 포함하여 API 호출 (로그인 필요)
    */
   const toggleLike = useCallback(async (postId: string): Promise<boolean> => {
     try {
       const response = await fetch(`/api/community/posts/${postId}/like`, {
         method: 'POST',
+        headers: getAuthHeaders(),
       });
 
       const result: CommunityApiResponse<{ liked: boolean; likesCount: number }> = await response.json();
@@ -184,7 +235,7 @@ export function useCommunity(options: UseCommunityOptions = {}) {
       setError(err instanceof Error ? err.message : '좋아요 처리에 실패했습니다.');
       return false;
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   /**
    * 카테고리나 정렬이 변경되면 다시 로드
@@ -219,13 +270,41 @@ export function useCommunity(options: UseCommunityOptions = {}) {
 
 /**
  * 게시글 댓글 관리 훅
+ *
+ * useAuth() 훅을 사용하여 Firebase Auth 사용자 정보를 가져옴
+ * 댓글 작성 시 인증 헤더 포함
  */
 export function useComments(postId: string) {
+  // AuthProvider의 useAuth 훅으로 사용자 정보 가져오기
+  const { user, userProfile } = useAuth();
+
   const [comments, setComments] = useState<CommunityComment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | undefined>();
+
+  /**
+   * API 요청 시 사용할 인증 헤더 생성
+   */
+  const getAuthHeaders = useCallback((): HeadersInit => {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    if (user?.uid) {
+      headers['x-user-id'] = user.uid;
+    }
+    if (userProfile?.nickname || userProfile?.displayName) {
+      const name = userProfile.nickname || userProfile.displayName;
+      headers['x-user-name'] = encodeURIComponent(name);
+    }
+    if (userProfile?.avatarUrl) {
+      headers['x-user-photo'] = encodeURIComponent(userProfile.avatarUrl);
+    }
+
+    return headers;
+  }, [user, userProfile]);
 
   /**
    * 댓글 목록 조회
@@ -278,14 +357,17 @@ export function useComments(postId: string) {
 
   /**
    * 새 댓글 작성
+   *
+   * 인증 헤더 포함하여 API 호출 (로그인 필요)
    */
   const createComment = useCallback(async (data: CreateCommentRequest): Promise<CommunityComment | null> => {
     if (!postId) return null;
 
     try {
+      // 인증 헤더 포함하여 API 호출
       const response = await fetch(`/api/community/posts/${postId}/comments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
       });
 
@@ -303,7 +385,7 @@ export function useComments(postId: string) {
       setError(err instanceof Error ? err.message : '댓글 작성에 실패했습니다.');
       return null;
     }
-  }, [postId]);
+  }, [postId, getAuthHeaders]);
 
   /**
    * postId가 변경되면 댓글 다시 로드
