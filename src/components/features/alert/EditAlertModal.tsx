@@ -39,6 +39,10 @@ interface EditAlertModalProps {
   alert: PriceAlert | null;
   // 수정 성공 시 콜백
   onSuccess?: () => void;
+  // 삭제 버튼 표시 여부 (기본값: false)
+  showDelete?: boolean;
+  // 삭제 성공 시 콜백
+  onDelete?: () => void;
 }
 
 /**
@@ -80,9 +84,14 @@ export function EditAlertModal({
   onClose,
   alert,
   onSuccess,
+  showDelete = false,
+  onDelete,
 }: EditAlertModalProps) {
   // 알림 관리 훅
-  const { updateAlert } = useAlerts();
+  const { updateAlert, deleteAlert } = useAlerts();
+
+  // 삭제 중 상태
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // 입력 상태
   const [targetPrice, setTargetPrice] = useState<string>('');
@@ -181,6 +190,35 @@ export function EditAlertModal({
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/[^0-9.]/g, '');
     setTargetPrice(value);
+  };
+
+  /**
+   * 알림 삭제 핸들러
+   * 삭제 확인 후 API 호출
+   */
+  const handleDelete = async () => {
+    // 알림 데이터가 없으면 중단
+    if (!alert) return;
+
+    // 삭제 확인
+    const confirmed = confirm(`${alert.stockName}의 가격 알림을 삭제하시겠습니까?`);
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+
+    // 알림 삭제 API 호출
+    const result = await deleteAlert(alert.id);
+
+    setIsDeleting(false);
+
+    if (result.success) {
+      showSuccess('알림이 삭제되었습니다');
+      // 삭제 성공 콜백 호출 (부모 컴포넌트에서 아이콘 상태 업데이트)
+      onDelete?.();
+      onClose();
+    } else {
+      showError(result.error || '알림 삭제에 실패했습니다');
+    }
   };
 
   // 모달이 닫혀있거나 알림 데이터가 없으면 렌더링하지 않음
@@ -357,31 +395,56 @@ export function EditAlertModal({
           </div>
 
           {/* 푸터 (버튼) */}
-          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700/30 flex gap-3">
-            {/* 취소 버튼 */}
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              취소
-            </button>
-            {/* 저장 버튼 */}
-            <button
-              type="submit"
-              disabled={isSubmitting || !targetPrice}
-              className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isSubmitting ? (
-                // 저장 중: 로딩 스피너 표시
-                <span className="flex items-center justify-center gap-2">
-                  <Spinner />
-                  저장 중...
-                </span>
-              ) : (
-                '저장'
-              )}
-            </button>
+          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700/30 flex items-center justify-between">
+            {/* 삭제 버튼 (showDelete=true일 때만 표시) */}
+            {showDelete ? (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isDeleting || isSubmitting}
+                className="px-4 py-3 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isDeleting ? (
+                  // 삭제 중: 로딩 스피너 표시
+                  <span className="flex items-center gap-2">
+                    <Spinner />
+                    삭제 중...
+                  </span>
+                ) : (
+                  '삭제'
+                )}
+              </button>
+            ) : (
+              // 삭제 버튼 없을 때 빈 공간
+              <div />
+            )}
+            {/* 취소/저장 버튼 */}
+            <div className="flex gap-3">
+              {/* 취소 버튼 */}
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                취소
+              </button>
+              {/* 저장 버튼 */}
+              <button
+                type="submit"
+                disabled={isSubmitting || isDeleting || !targetPrice}
+                className="px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isSubmitting ? (
+                  // 저장 중: 로딩 스피너 표시
+                  <span className="flex items-center justify-center gap-2">
+                    <Spinner />
+                    저장 중...
+                  </span>
+                ) : (
+                  '저장'
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>

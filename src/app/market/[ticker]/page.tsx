@@ -32,7 +32,8 @@ import { showSuccess, showError } from '@/lib/toast';
 import { MarketType } from '@/types/recentlyViewed';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { AddAlertModal } from '@/components/features/alert/AddAlertModal';
-import { AlertMarket } from '@/types/priceAlert';
+import { EditAlertModal } from '@/components/features/alert/EditAlertModal';
+import { AlertMarket, PriceAlert } from '@/types/priceAlert';
 import { Sidebar, BottomNav } from '@/components/layout';
 
 // 차트 기간 탭 정의
@@ -297,8 +298,12 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
   // 사이드바 메뉴 상태 (market으로 고정)
   const [activeMenu, setActiveMenu] = useState('market');
 
-  // 알림 모달 상태
+  // 알림 추가 모달 상태
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+
+  // 알림 수정 모달 상태
+  const [isEditAlertModalOpen, setIsEditAlertModalOpen] = useState(false);
+  const [editingAlert, setEditingAlert] = useState<PriceAlert | null>(null);
 
   // 한국 종목 실시간 데이터
   const { stock, isLoading: isStockLoading, error, refetch } = useKoreanStockPrice(ticker);
@@ -333,11 +338,8 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
   }, [isLoggedIn, isAuthLoading, isTestMode, ticker]);
 
   // 알림 관리 - 삭제와 새로고침 함수도 가져오기
-  const { hasAlertForTicker, getAlertsForTicker, deleteAlert, refetch: refetchAlerts } = useAlerts();
+  const { hasAlertForTicker, getAlertsForTicker, refetch: refetchAlerts } = useAlerts();
   const hasAlert = hasAlertForTicker(ticker);
-
-  // 알림 삭제 중 상태
-  const [isDeletingAlert, setIsDeletingAlert] = useState(false);
 
   // 가격 알림 체크 훅
   const { checkSingleAlert } = usePriceAlertCheck();
@@ -348,39 +350,23 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
    * 동작:
    * - 비로그인 → 로그인 페이지로 이동
    * - 로그인 + 알림 없음 → 알림 추가 모달 열기
-   * - 로그인 + 알림 있음 → 삭제 확인 후 알림 삭제
+   * - 로그인 + 알림 있음 → 알림 수정 모달 열기
    */
-  const handleAlertClick = async () => {
+  const handleAlertClick = () => {
     if (!isLoggedIn) {
       showError('로그인이 필요합니다');
       router.push('/login');
       return;
     }
 
-    // 알림이 있으면 삭제 확인
+    // 알림이 있으면 수정 모달 열기
     if (hasAlert) {
       const alerts = getAlertsForTicker(ticker);
       if (alerts.length === 0) return;
 
-      // 삭제 확인 대화상자
-      const stockName = stockInfo?.name || stock?.stockName || ticker;
-      const confirmed = confirm(`${stockName}의 가격 알림을 삭제하시겠습니까?`);
-      if (!confirmed) return;
-
-      // 알림 삭제 (해당 종목의 모든 알림)
-      setIsDeletingAlert(true);
-      try {
-        for (const alert of alerts) {
-          const result = await deleteAlert(alert.id);
-          if (result.success) {
-            showSuccess('알림이 삭제되었습니다');
-          } else {
-            showError(result.error || '알림 삭제에 실패했습니다');
-          }
-        }
-      } finally {
-        setIsDeletingAlert(false);
-      }
+      // 첫 번째 알림을 수정 대상으로 설정
+      setEditingAlert(alerts[0]);
+      setIsEditAlertModalOpen(true);
       return;
     }
 
@@ -394,6 +380,15 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
    */
   const handleAlertSuccess = () => {
     console.log('[KoreanAssetDetailPage] 알림 추가 성공 - 목록 새로고침');
+    refetchAlerts();
+  };
+
+  /**
+   * 알림 수정 모달에서 삭제 성공 시 콜백
+   * 알림 목록 새로고침하여 🔔 아이콘 비활성 상태로 변경
+   */
+  const handleAlertDelete = () => {
+    console.log('[KoreanAssetDetailPage] 알림 삭제 성공 - 목록 새로고침');
     refetchAlerts();
   };
 
@@ -595,6 +590,19 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
         onSuccess={handleAlertSuccess}
       />
 
+      {/* 알림 수정 모달 (삭제 버튼 포함) */}
+      <EditAlertModal
+        isOpen={isEditAlertModalOpen}
+        onClose={() => {
+          setIsEditAlertModalOpen(false);
+          setEditingAlert(null);
+        }}
+        alert={editingAlert}
+        onSuccess={handleAlertSuccess}
+        showDelete={true}
+        onDelete={handleAlertDelete}
+      />
+
       {/* 메인 콘텐츠 - 사이드바 영역 제외 */}
       <main className="md:pl-[72px] lg:pl-60 transition-all duration-300">
         <div className="max-w-[1200px] mx-auto px-4 py-6 pb-24 md:pb-6">
@@ -780,8 +788,12 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
   // 사이드바 메뉴 상태 (market으로 고정)
   const [activeMenu, setActiveMenu] = useState('market');
 
-  // 알림 모달 상태
+  // 알림 추가 모달 상태
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+
+  // 알림 수정 모달 상태
+  const [isEditAlertModalOpen, setIsEditAlertModalOpen] = useState(false);
+  const [editingAlert, setEditingAlert] = useState<PriceAlert | null>(null);
 
   // 미국 주식 실시간 데이터 조회
   const { stock, isLoading: isStockLoading, error, refetch } = useUSStockPrice(ticker);
@@ -815,11 +827,8 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
   }, [isLoggedIn, isAuthLoading, isTestMode, ticker]);
 
   // 알림 관리 - 삭제와 새로고침 함수도 가져오기
-  const { hasAlertForTicker, getAlertsForTicker, deleteAlert, refetch: refetchAlerts } = useAlerts();
+  const { hasAlertForTicker, getAlertsForTicker, refetch: refetchAlerts } = useAlerts();
   const hasAlert = hasAlertForTicker(ticker);
-
-  // 알림 삭제 중 상태
-  const [isDeletingAlert, setIsDeletingAlert] = useState(false);
 
   // 가격 알림 체크 훅
   const { checkSingleAlert } = usePriceAlertCheck();
@@ -830,39 +839,23 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
    * 동작:
    * - 비로그인 → 로그인 페이지로 이동
    * - 로그인 + 알림 없음 → 알림 추가 모달 열기
-   * - 로그인 + 알림 있음 → 삭제 확인 후 알림 삭제
+   * - 로그인 + 알림 있음 → 알림 수정 모달 열기
    */
-  const handleAlertClick = async () => {
+  const handleAlertClick = () => {
     if (!isLoggedIn) {
       showError('로그인이 필요합니다');
       router.push('/login');
       return;
     }
 
-    // 알림이 있으면 삭제 확인
+    // 알림이 있으면 수정 모달 열기
     if (hasAlert) {
       const alerts = getAlertsForTicker(ticker);
       if (alerts.length === 0) return;
 
-      // 삭제 확인 대화상자
-      const stockName = stock?.name || ticker;
-      const confirmed = confirm(`${stockName}의 가격 알림을 삭제하시겠습니까?`);
-      if (!confirmed) return;
-
-      // 알림 삭제 (해당 종목의 모든 알림)
-      setIsDeletingAlert(true);
-      try {
-        for (const alert of alerts) {
-          const result = await deleteAlert(alert.id);
-          if (result.success) {
-            showSuccess('알림이 삭제되었습니다');
-          } else {
-            showError(result.error || '알림 삭제에 실패했습니다');
-          }
-        }
-      } finally {
-        setIsDeletingAlert(false);
-      }
+      // 첫 번째 알림을 수정 대상으로 설정
+      setEditingAlert(alerts[0]);
+      setIsEditAlertModalOpen(true);
       return;
     }
 
@@ -876,6 +869,15 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
    */
   const handleAlertSuccess = () => {
     console.log('[USAssetDetailPage] 알림 추가 성공 - 목록 새로고침');
+    refetchAlerts();
+  };
+
+  /**
+   * 알림 수정 모달에서 삭제 성공 시 콜백
+   * 알림 목록 새로고침하여 🔔 아이콘 비활성 상태로 변경
+   */
+  const handleAlertDelete = () => {
+    console.log('[USAssetDetailPage] 알림 삭제 성공 - 목록 새로고침');
     refetchAlerts();
   };
 
@@ -1087,6 +1089,19 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
         market="US"
         currentPrice={stock.currentPrice}
         onSuccess={handleAlertSuccess}
+      />
+
+      {/* 알림 수정 모달 (삭제 버튼 포함) */}
+      <EditAlertModal
+        isOpen={isEditAlertModalOpen}
+        onClose={() => {
+          setIsEditAlertModalOpen(false);
+          setEditingAlert(null);
+        }}
+        alert={editingAlert}
+        onSuccess={handleAlertSuccess}
+        showDelete={true}
+        onDelete={handleAlertDelete}
       />
 
       {/* 메인 콘텐츠 - 사이드바 영역 제외 */}
