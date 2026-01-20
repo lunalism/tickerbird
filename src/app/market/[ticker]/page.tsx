@@ -341,7 +341,11 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
 
   /**
    * 알림 버튼 클릭 핸들러
-   * 로그인 상태에 따라 모달 열기 또는 로그인 페이지로 이동
+   *
+   * 동작:
+   * - 비로그인 → 로그인 페이지로 이동
+   * - 로그인 + 알림 없음 → 알림 추가 모달 열기
+   * - 로그인 + 알림 있음 → 알림 관리 페이지로 이동
    */
   const handleAlertClick = () => {
     if (!isLoggedIn) {
@@ -349,6 +353,14 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
       router.push('/login');
       return;
     }
+
+    // 알림이 있으면 알림 관리 페이지로 이동
+    if (hasAlert) {
+      router.push('/alerts');
+      return;
+    }
+
+    // 알림이 없으면 알림 추가 모달 열기
     setIsAlertModalOpen(true);
   };
 
@@ -777,6 +789,11 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
 
   /**
    * 알림 버튼 클릭 핸들러
+   *
+   * 동작:
+   * - 비로그인 → 로그인 페이지로 이동
+   * - 로그인 + 알림 없음 → 알림 추가 모달 열기
+   * - 로그인 + 알림 있음 → 알림 관리 페이지로 이동
    */
   const handleAlertClick = () => {
     if (!isLoggedIn) {
@@ -784,6 +801,14 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
       router.push('/login');
       return;
     }
+
+    // 알림이 있으면 알림 관리 페이지로 이동
+    if (hasAlert) {
+      router.push('/alerts');
+      return;
+    }
+
+    // 알림이 없으면 알림 추가 모달 열기
     setIsAlertModalOpen(true);
   };
 

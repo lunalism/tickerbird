@@ -51,8 +51,8 @@ function AlertCard({
   showToggle = true,
 }: {
   alert: PriceAlert;
-  onToggle: (id: string, isActive: boolean) => void;
-  onDelete: (id: string) => void;
+  onToggle: (id: string, isActive: boolean) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
   /** 토글 버튼 표시 여부 (발동된 알림은 숨김) */
   showToggle?: boolean;
 }) {
@@ -71,19 +71,25 @@ function AlertCard({
       ? `/market/${alert.ticker}?market=kr`
       : `/market/${alert.ticker}?market=us`;
 
-  // 토글 핸들러
+  // 토글 핸들러 - 비동기 작업 완료까지 대기
   const handleToggle = async () => {
     setIsToggling(true);
-    onToggle(alert.id, !alert.isActive);
-    setIsToggling(false);
+    try {
+      await onToggle(alert.id, !alert.isActive);
+    } finally {
+      setIsToggling(false);
+    }
   };
 
-  // 삭제 핸들러
+  // 삭제 핸들러 - 비동기 작업 완료까지 대기
   const handleDelete = async () => {
     if (!confirm('정말 이 알림을 삭제하시겠습니까?')) return;
     setIsDeleting(true);
-    onDelete(alert.id);
-    setIsDeleting(false);
+    try {
+      await onDelete(alert.id);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // 발동 시간 포맷팅
