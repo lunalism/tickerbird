@@ -247,7 +247,9 @@ export interface FirestorePost {
   authorPhotoURL: string | null;
   content: string;
   category: string;
-  tickers: string[];
+  tickers: string[];           // 종목 코드 배열 ["005930", "AAPL", "TSLA"]
+  markets: string[];           // 시장 코드 배열 ["KR", "US"]
+  tickerNames: string[];       // 종목명 배열 ["삼성전자", "Apple", "Tesla"]
   hashtags: string[];
   likesCount: number;
   commentsCount: number;

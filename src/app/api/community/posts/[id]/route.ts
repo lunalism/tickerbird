@@ -31,6 +31,7 @@ interface RouteParams {
 
 /**
  * Firestore 문서를 CommunityPost로 변환
+ * 기존 게시글 호환성: markets, tickerNames 필드가 없는 경우 빈 배열로 처리
  */
 function docToPost(
   docData: FirestorePost & { id: string },
@@ -42,6 +43,8 @@ function docToPost(
     content: docData.content,
     category: (docData.category || 'stock') as CommunityCategory,
     tickers: docData.tickers || [],
+    markets: docData.markets || [],           // 기존 글 호환 - 없으면 빈 배열
+    tickerNames: docData.tickerNames || [],   // 기존 글 호환 - 없으면 빈 배열
     hashtags: docData.hashtags || [],
     likesCount: docData.likesCount || 0,
     commentsCount: docData.commentsCount || 0,
@@ -146,7 +149,8 @@ export async function PATCH(
     }
 
     const body: UpdatePostRequest = await request.json();
-    const { content, category, tickers, hashtags } = body;
+    // 종목 태그 관련 필드 추가: markets (시장 코드), tickerNames (종목명)
+    const { content, category, tickers, markets, tickerNames, hashtags } = body;
 
     // 유효성 검사
     if (content !== undefined) {
@@ -165,10 +169,13 @@ export async function PATCH(
     }
 
     // 업데이트할 필드 구성
+    // 종목 태그 관련: tickers, markets, tickerNames
     const updateData: Record<string, unknown> = {};
     if (content !== undefined) updateData.content = content.trim();
     if (category !== undefined) updateData.category = category;
     if (tickers !== undefined) updateData.tickers = tickers;
+    if (markets !== undefined) updateData.markets = markets;           // 시장 코드 배열
+    if (tickerNames !== undefined) updateData.tickerNames = tickerNames; // 종목명 배열
     if (hashtags !== undefined) updateData.hashtags = hashtags;
 
     if (Object.keys(updateData).length === 0) {

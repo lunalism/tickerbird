@@ -108,7 +108,9 @@ export interface PostRow {
   user_id: string;
   content: string;
   category: string;
-  tickers: string[];
+  tickers: string[];          // 종목 코드 배열 ["005930", "AAPL", "TSLA"]
+  markets: string[];          // 시장 코드 배열 ["KR", "US"]
+  ticker_names: string[];     // 종목명 배열 ["삼성전자", "Apple", "Tesla"] (snake_case - DB용)
   hashtags: string[];
   likes_count: number;
   comments_count: number;
@@ -168,7 +170,9 @@ export interface CommunityPost {
   userId: string;
   content: string;
   category: CommunityCategory;
-  tickers: string[];
+  tickers: string[];          // 종목 코드 배열 (optional - 기존 글 호환)
+  markets: string[];          // 시장 코드 배열 (optional - 기존 글 호환)
+  tickerNames: string[];      // 종목명 배열 (optional - 기존 글 호환)
   hashtags: string[];
   likesCount: number;
   commentsCount: number;
@@ -208,7 +212,9 @@ export interface CommunityComment {
 export interface CreatePostRequest {
   content: string;
   category?: CommunityCategory;
-  tickers?: string[];
+  tickers?: string[];         // 종목 코드 배열
+  markets?: string[];         // 시장 코드 배열
+  tickerNames?: string[];     // 종목명 배열
   hashtags?: string[];
 }
 
@@ -218,7 +224,9 @@ export interface CreatePostRequest {
 export interface UpdatePostRequest {
   content?: string;
   category?: CommunityCategory;
-  tickers?: string[];
+  tickers?: string[];         // 종목 코드 배열
+  markets?: string[];         // 시장 코드 배열
+  tickerNames?: string[];     // 종목명 배열
   hashtags?: string[];
 }
 
@@ -253,6 +261,7 @@ export interface PostsListResponse {
 
 /**
  * PostRow를 CommunityPost로 변환
+ * 기존 게시글 호환성: tickers, markets, tickerNames 필드가 없는 경우 빈 배열로 처리
  */
 export function rowToPost(row: PostRow, isLiked: boolean = false): CommunityPost {
   return {
@@ -261,6 +270,8 @@ export function rowToPost(row: PostRow, isLiked: boolean = false): CommunityPost
     content: row.content,
     category: row.category as CommunityCategory,
     tickers: row.tickers || [],
+    markets: row.markets || [],           // 기존 글 호환 - 없으면 빈 배열
+    tickerNames: row.ticker_names || [],  // 기존 글 호환 - 없으면 빈 배열
     hashtags: row.hashtags || [],
     likesCount: row.likes_count,
     commentsCount: row.comments_count,

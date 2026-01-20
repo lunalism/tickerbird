@@ -11,7 +11,9 @@
  *   - authorPhotoURL: string | null
  *   - content: string
  *   - category: string
- *   - tickers: array
+ *   - tickers: string[]         - 종목 코드 배열 ["005930", "AAPL", "TSLA"]
+ *   - markets: string[]         - 시장 코드 배열 ["KR", "US"]
+ *   - tickerNames: string[]     - 종목명 배열 ["삼성전자", "Apple", "Tesla"]
  *   - hashtags: array
  *   - likesCount: number
  *   - commentsCount: number
@@ -48,6 +50,7 @@ import {
 
 /**
  * Firestore 문서를 CommunityPost로 변환
+ * 기존 게시글 호환성: markets, tickerNames 필드가 없는 경우 빈 배열로 처리
  */
 function docToPost(
   docData: FirestorePost & { id: string },
@@ -59,6 +62,8 @@ function docToPost(
     content: docData.content,
     category: (docData.category || 'stock') as CommunityCategory,
     tickers: docData.tickers || [],
+    markets: docData.markets || [],           // 기존 글 호환 - 없으면 빈 배열
+    tickerNames: docData.tickerNames || [],   // 기존 글 호환 - 없으면 빈 배열
     hashtags: docData.hashtags || [],
     likesCount: docData.likesCount || 0,
     commentsCount: docData.commentsCount || 0,
@@ -83,6 +88,7 @@ function docToPost(
  * - sort: 정렬 (latest, popular)
  * - cursor: 페이지네이션 커서 (createdAt ISO 문자열)
  * - limit: 조회 개수 (기본 20)
+ * - ticker: 종목 코드 필터 (특정 종목 관련 게시글만 조회)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -92,6 +98,8 @@ export async function GET(request: NextRequest) {
     const sort = searchParams.get('sort') || 'latest';
     const cursor = searchParams.get('cursor');
     const limitNum = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
+    // 종목별 게시글 조회를 위한 ticker 파라미터
+    const ticker = searchParams.get('ticker');
 
     // 현재 사용자 ID 가져오기 (좋아요 여부 확인용)
     // API Route에서는 auth.currentUser가 null일 수 있으므로 헤더에서 userId를 받아옴
@@ -99,6 +107,12 @@ export async function GET(request: NextRequest) {
 
     // 쿼리 조건 구성
     const constraints = [];
+
+    // 종목 필터 (array-contains 사용)
+    // 특정 종목의 게시글만 조회할 때 사용
+    if (ticker) {
+      constraints.push(where('tickers', 'array-contains', ticker));
+    }
 
     // 카테고리 필터
     if (category !== 'all' && category !== 'following') {
@@ -195,7 +209,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body: CreatePostRequest = await request.json();
-    const { content, category = 'stock', tickers = [], hashtags = [] } = body;
+    // 종목 태그 관련 필드 추가: markets (시장 코드), tickerNames (종목명)
+    const { content, category = 'stock', tickers = [], markets = [], tickerNames = [], hashtags = [] } = body;
 
     // 유효성 검사
     if (!content || content.trim().length === 0) {
@@ -213,6 +228,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Firestore에 게시글 생성
+    // 종목 태그: tickers (종목 코드), markets (시장), tickerNames (종목명)
     const postData: Omit<FirestorePost, 'createdAt' | 'updatedAt'> = {
       userId,
       authorName: decodeURIComponent(userName),
@@ -220,6 +236,8 @@ export async function POST(request: NextRequest) {
       content: content.trim(),
       category,
       tickers,
+      markets,           // 시장 코드 배열 ["KR", "US"]
+      tickerNames,       // 종목명 배열 ["삼성전자", "Apple", "Tesla"]
       hashtags,
       likesCount: 0,
       commentsCount: 0,
@@ -239,6 +257,8 @@ export async function POST(request: NextRequest) {
       content: content.trim(),
       category: category as CommunityCategory,
       tickers,
+      markets,           // 시장 코드 배열
+      tickerNames,       // 종목명 배열
       hashtags,
       likesCount: 0,
       commentsCount: 0,
