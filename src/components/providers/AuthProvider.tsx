@@ -34,6 +34,7 @@ import {
 import { auth, db } from '@/lib/firebase';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { OnboardingModal } from '@/components/features/onboarding';
+import { debug } from '@/lib/debug';
 
 /**
  * 사용자 프로필 타입 (앱 내부용)
@@ -206,7 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!userDoc.exists()) {
         // 문서가 없으면 신규 사용자 → Firestore에 기본 정보 저장
-        console.log('[AuthProvider] 신규 사용자 - Firestore에 프로필 생성');
+        debug.log('[AuthProvider] 신규 사용자 - Firestore에 프로필 생성');
         const initialData: FirestoreUserData = {
           email: firebaseUser.email || '',
           displayName: firebaseUser.displayName || '',
@@ -232,14 +233,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!isOnboardingComplete) {
         // 온보딩 미완료
-        console.log('[AuthProvider] 온보딩 필요 - nickname 또는 onboardingCompleted 없음');
+        debug.log('[AuthProvider] 온보딩 필요 - nickname 또는 onboardingCompleted 없음');
         setNeedsOnboarding(true);
         setUserProfile(createUserProfile(firebaseUser, userData));
         return true;
       }
 
       // 기존 사용자 - 온보딩 완료됨
-      console.log('[AuthProvider] 기존 사용자:', userData.nickname);
+      debug.log('[AuthProvider] 기존 사용자:', userData.nickname);
       setNeedsOnboarding(false);
       setUserProfile(createUserProfile(firebaseUser, userData));
       return false;
@@ -261,10 +262,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const handleSignInWithGoogle = useCallback(async () => {
     try {
-      console.log('[AuthProvider] Google 로그인 시작...');
+      debug.log('[AuthProvider] Google 로그인 시작...');
       await signInWithPopup(auth, googleProvider);
       // 성공 시 onAuthStateChanged가 자동으로 호출됨
-      console.log('[AuthProvider] Google 로그인 성공');
+      debug.log('[AuthProvider] Google 로그인 성공');
     } catch (err) {
       console.error('[AuthProvider] Google 로그인 에러:', err);
       throw err; // 호출한 곳에서 에러 처리하도록 전파
@@ -279,19 +280,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const handleSignOut = useCallback(async () => {
     try {
-      console.log('[AuthProvider] 로그아웃 시작...');
+      debug.log('[AuthProvider] 로그아웃 시작...');
 
       // 테스트 모드면 테스트 로그아웃
       if (isTestMode) {
         testLogout();
-        console.log('[AuthProvider] 테스트 모드 로그아웃 완료');
+        debug.log('[AuthProvider] 테스트 모드 로그아웃 완료');
         return;
       }
 
       // Firebase 로그아웃
       await firebaseSignOut(auth);
       // 성공 시 onAuthStateChanged가 자동으로 호출됨
-      console.log('[AuthProvider] 로그아웃 완료');
+      debug.log('[AuthProvider] 로그아웃 완료');
     } catch (err) {
       console.error('[AuthProvider] 로그아웃 에러:', err);
       throw err;
@@ -317,7 +318,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         onboardingCompleted: true,
       } : null);
       setNeedsOnboarding(false);
-      console.log('[AuthProvider] 테스트 모드 온보딩 완료:', nickname, avatarId);
+      debug.log('[AuthProvider] 테스트 모드 온보딩 완료:', nickname, avatarId);
       return;
     }
 
@@ -343,7 +344,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         avatarId,
         onboardingCompleted: true,
       } : null);
-      console.log('[AuthProvider] 온보딩 완료:', nickname, avatarId);
+      debug.log('[AuthProvider] 온보딩 완료:', nickname, avatarId);
     } catch (err) {
       console.error('[AuthProvider] 온보딩 완료 에러:', err);
       throw err;
@@ -361,7 +362,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 테스트 모드에서는 Firestore 업데이트 스킵
     if (isTestMode) {
       setUserProfile(prev => prev ? { ...prev, nickname } : null);
-      console.log('[AuthProvider] 테스트 모드 닉네임 업데이트:', nickname);
+      debug.log('[AuthProvider] 테스트 모드 닉네임 업데이트:', nickname);
       return;
     }
 
@@ -379,7 +380,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // 상태 업데이트
       setUserProfile(prev => prev ? { ...prev, nickname } : null);
-      console.log('[AuthProvider] 닉네임 업데이트 완료:', nickname);
+      debug.log('[AuthProvider] 닉네임 업데이트 완료:', nickname);
     } catch (err) {
       console.error('[AuthProvider] 닉네임 업데이트 에러:', err);
       throw err;
@@ -397,7 +398,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 테스트 모드에서는 Firestore 업데이트 스킵
     if (isTestMode) {
       setUserProfile(prev => prev ? { ...prev, avatarId } : null);
-      console.log('[AuthProvider] 테스트 모드 아바타 업데이트:', avatarId);
+      debug.log('[AuthProvider] 테스트 모드 아바타 업데이트:', avatarId);
       return;
     }
 
@@ -415,7 +416,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // 상태 업데이트
       setUserProfile(prev => prev ? { ...prev, avatarId } : null);
-      console.log('[AuthProvider] 아바타 업데이트 완료:', avatarId);
+      debug.log('[AuthProvider] 아바타 업데이트 완료:', avatarId);
     } catch (err) {
       console.error('[AuthProvider] 아바타 업데이트 에러:', err);
       throw err;
@@ -437,11 +438,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * 앱 시작 시, 로그인/로그아웃 시 자동으로 호출됨
    */
   useEffect(() => {
-    console.log('[AuthProvider] Auth 상태 감지 시작...');
+    debug.log('[AuthProvider] Auth 상태 감지 시작...');
 
     // onAuthStateChanged 구독
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log('[AuthProvider] Auth 상태 변경:', firebaseUser?.email || '로그아웃');
+      debug.log('[AuthProvider] Auth 상태 변경:', firebaseUser?.email || '로그아웃');
 
       if (firebaseUser) {
         // 로그인 상태
@@ -464,7 +465,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // 클린업: 구독 해제
     return () => {
-      console.log('[AuthProvider] Auth 상태 감지 해제');
+      debug.log('[AuthProvider] Auth 상태 감지 해제');
       unsubscribe();
     };
   }, [checkUserProfile, isTestMode]);
@@ -477,7 +478,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isTestMode && isTestLoggedIn && testUser) {
       // 테스트 모드로 로그인됨 - 테스트 유저 프로필 설정
-      console.log('[AuthProvider] 테스트 모드 로그인 감지:', testUser.name);
+      debug.log('[AuthProvider] 테스트 모드 로그인 감지:', testUser.name);
       setUserProfile({
         id: testUser.id,
         email: testUser.email,

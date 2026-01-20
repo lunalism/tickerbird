@@ -36,6 +36,7 @@ import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from './AuthProvider';
 import { useAlerts } from '@/hooks/useAlerts';
+import { debug } from '@/lib/debug';
 import { PriceAlert, AlertMarket } from '@/types/priceAlert';
 
 /**
@@ -113,7 +114,7 @@ export function PriceAlertProvider({ children }: PriceAlertProviderProps) {
     // 토스트 설명 텍스트
     const description = `${alert.stockName} ${formatPrice(currentPrice, alert.market as AlertMarket)} (목표: ${formatPrice(alert.targetPrice, alert.market as AlertMarket)} ${directionText})`;
 
-    console.log('[PriceAlertProvider] 🔔 알림 토스트 표시:', {
+    debug.log('[PriceAlertProvider] 🔔 알림 토스트 표시:', {
       stockName: alert.stockName,
       ticker: alert.ticker,
       currentPrice,
@@ -143,7 +144,7 @@ export function PriceAlertProvider({ children }: PriceAlertProviderProps) {
   const triggerAlertInFirestore = useCallback(async (alertId: string) => {
     // 테스트 모드에서는 Firestore 업데이트 스킵
     if (isTestMode) {
-      console.log('[PriceAlertProvider] 테스트 모드 - Firestore 업데이트 스킵:', alertId);
+      debug.log('[PriceAlertProvider] 테스트 모드 - Firestore 업데이트 스킵:', alertId);
       return;
     }
 
@@ -155,7 +156,7 @@ export function PriceAlertProvider({ children }: PriceAlertProviderProps) {
         triggeredAt: serverTimestamp(),
       });
 
-      console.log('[PriceAlertProvider] ✅ Firestore 업데이트 완료:', alertId);
+      debug.log('[PriceAlertProvider] ✅ Firestore 업데이트 완료:', alertId);
     } catch (err) {
       // 에러 발생해도 조용히 실패 (토스트는 이미 표시됨)
       console.error('[PriceAlertProvider] ❌ Firestore 업데이트 실패:', alertId, err);
@@ -205,19 +206,19 @@ export function PriceAlertProvider({ children }: PriceAlertProviderProps) {
   const checkAllAlerts = useCallback(async () => {
     // 중복 실행 방지
     if (isCheckingRef.current) {
-      console.log('[PriceAlertProvider] 이미 체크 중 - 스킵');
+      debug.log('[PriceAlertProvider] 이미 체크 중 - 스킵');
       return;
     }
 
     // Auth 로딩 중에는 체크하지 않음
     if (isAuthLoading) {
-      console.log('[PriceAlertProvider] Auth 로딩 중 - 스킵');
+      debug.log('[PriceAlertProvider] Auth 로딩 중 - 스킵');
       return;
     }
 
     // 비로그인 상태에서는 체크하지 않음
     if (!isLoggedIn) {
-      console.log('[PriceAlertProvider] 비로그인 상태 - 스킵');
+      debug.log('[PriceAlertProvider] 비로그인 상태 - 스킵');
       return;
     }
 
@@ -230,7 +231,7 @@ export function PriceAlertProvider({ children }: PriceAlertProviderProps) {
 
     // 활성 알림이 없으면 시세 조회 안함
     if (activeAlerts.length === 0) {
-      console.log('[PriceAlertProvider] 활성 알림 없음 - 시세 조회 스킵');
+      debug.log('[PriceAlertProvider] 활성 알림 없음 - 시세 조회 스킵');
       return;
     }
 
@@ -273,7 +274,7 @@ export function PriceAlertProvider({ children }: PriceAlertProviderProps) {
             : currentPrice <= alert.targetPrice;
 
           if (isTriggered) {
-            console.log('[PriceAlertProvider] 🎯 알림 발동 조건 충족:', {
+            debug.log('[PriceAlertProvider] 🎯 알림 발동 조건 충족:', {
               ticker: alert.ticker,
               stockName: alert.stockName,
               currentPrice,
@@ -303,7 +304,7 @@ export function PriceAlertProvider({ children }: PriceAlertProviderProps) {
         console.log(`[PriceAlertProvider] ✅ ${triggeredAlerts.length}개 알림 발동 완료`);
         await refetchAlerts();
       } else {
-        console.log('[PriceAlertProvider] ✅ 알림 체크 완료 - 발동된 알림 없음');
+        debug.log('[PriceAlertProvider] ✅ 알림 체크 완료 - 발동된 알림 없음');
       }
 
     } catch (err) {
@@ -323,7 +324,7 @@ export function PriceAlertProvider({ children }: PriceAlertProviderProps) {
       clearInterval(intervalRef.current);
     }
 
-    console.log('[PriceAlertProvider] ⏰ 폴링 시작 (10초 간격)');
+    debug.log('[PriceAlertProvider] ⏰ 폴링 시작 (10초 간격)');
 
     // 30초마다 알림 체크
     intervalRef.current = setInterval(() => {
@@ -338,7 +339,7 @@ export function PriceAlertProvider({ children }: PriceAlertProviderProps) {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
-      console.log('[PriceAlertProvider] ⏸️ 폴링 중지');
+      debug.log('[PriceAlertProvider] ⏸️ 폴링 중지');
     }
   }, []);
 
@@ -357,12 +358,12 @@ export function PriceAlertProvider({ children }: PriceAlertProviderProps) {
 
     if (isLoggedIn) {
       // 로그인 상태: 즉시 1회 체크 + 폴링 시작
-      console.log('[PriceAlertProvider] 🟢 로그인 감지 - 알림 체크 시작');
+      debug.log('[PriceAlertProvider] 🟢 로그인 감지 - 알림 체크 시작');
       checkAllAlerts(); // 즉시 1회 체크
       startPolling();
     } else {
       // 로그아웃 상태: 폴링 중지
-      console.log('[PriceAlertProvider] 🔴 로그아웃 감지 - 폴링 중지');
+      debug.log('[PriceAlertProvider] 🔴 로그아웃 감지 - 폴링 중지');
       stopPolling();
       // 세션 내 발동 기록 초기화
       triggeredAlertIdsRef.current.clear();
@@ -389,11 +390,11 @@ export function PriceAlertProvider({ children }: PriceAlertProviderProps) {
     const handleVisibilityChange = () => {
       if (document.hidden) {
         // 탭 비활성화: 폴링 중지
-        console.log('[PriceAlertProvider] 👁️ 탭 비활성화 - 폴링 일시 중지');
+        debug.log('[PriceAlertProvider] 👁️ 탭 비활성화 - 폴링 일시 중지');
         stopPolling();
       } else {
         // 탭 활성화: 즉시 체크 + 폴링 재개
-        console.log('[PriceAlertProvider] 👁️ 탭 활성화 - 즉시 체크 + 폴링 재개');
+        debug.log('[PriceAlertProvider] 👁️ 탭 활성화 - 즉시 체크 + 폴링 재개');
         checkAllAlerts(); // 즉시 1회 체크
         startPolling();
       }

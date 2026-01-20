@@ -25,14 +25,23 @@
 // ==================== 시장 타입 ====================
 
 /**
- * 시장 구분 타입
+ * 시장 구분 타입 (최근 본 종목용)
  *
  * @property 'kr' - 한국 시장 (KOSPI, KOSDAQ)
  * @property 'us' - 미국 시장 (NYSE, NASDAQ, AMEX)
  * @property 'jp' - 일본 시장
  * @property 'hk' - 홍콩 시장
+ *
+ * @note market.ts의 MarketType과 구분하기 위해 별도 이름 사용
+ *       market.ts MarketType = 'country' | 'global' (1차 탭용)
+ *       recentlyViewed.ts RecentlyViewedMarket = 'kr' | 'us' | 'jp' | 'hk' (시장 구분용)
  */
-export type MarketType = 'kr' | 'us' | 'jp' | 'hk';
+export type RecentlyViewedMarket = 'kr' | 'us' | 'jp' | 'hk';
+
+/**
+ * @deprecated MarketType은 market.ts와 충돌. RecentlyViewedMarket 사용 권장
+ */
+export type MarketType = RecentlyViewedMarket;
 
 // ==================== 최근 본 종목 인터페이스 ====================
 
@@ -68,7 +77,7 @@ export interface RecentlyViewedStock {
    *
    * @example 'kr', 'us', 'jp', 'hk'
    */
-  market: MarketType;
+  market: RecentlyViewedMarket;
 
   /**
    * 종목명 (사용자 표시용)

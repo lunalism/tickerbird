@@ -38,6 +38,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { debug } from '@/lib/debug';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useAlerts } from './useAlerts';
 import { PriceAlert, AlertMarket } from '@/types/priceAlert';
@@ -120,7 +121,7 @@ export function usePriceAlertCheck(): UsePriceAlertCheckReturn {
 
   // 디버그 로그: 인증 상태 확인
   useEffect(() => {
-    console.log('[usePriceAlertCheck] 인증 상태:', {
+    debug.log('[usePriceAlertCheck] 인증 상태:', {
       isLoggedIn,
       isAuthLoading,
       isTestMode,
@@ -163,7 +164,7 @@ export function usePriceAlertCheck(): UsePriceAlertCheckReturn {
     // 토스트 설명 텍스트
     const description = `${alert.stockName} ${formatPrice(currentPrice, alert.market as AlertMarket)} (목표: ${formatPrice(alert.targetPrice, alert.market as AlertMarket)} ${directionText})`;
 
-    console.log('[PriceAlertCheck] 🔔 알림 토스트 표시:', {
+    debug.log('[PriceAlertCheck] 🔔 알림 토스트 표시:', {
       stockName: alert.stockName,
       ticker: alert.ticker,
       currentPrice,
@@ -196,7 +197,7 @@ export function usePriceAlertCheck(): UsePriceAlertCheckReturn {
   const triggerAlertInFirestore = useCallback(async (alertId: string) => {
     // 테스트 모드에서는 Firestore 업데이트 스킵
     if (isTestMode) {
-      console.log('[PriceAlertCheck] 테스트 모드 - Firestore 업데이트 스킵:', alertId);
+      debug.log('[PriceAlertCheck] 테스트 모드 - Firestore 업데이트 스킵:', alertId);
       return;
     }
 
@@ -208,7 +209,7 @@ export function usePriceAlertCheck(): UsePriceAlertCheckReturn {
         triggeredAt: serverTimestamp(),
       });
 
-      console.log('[PriceAlertCheck] ✅ Firestore 업데이트 완료:', alertId);
+      debug.log('[PriceAlertCheck] ✅ Firestore 업데이트 완료:', alertId);
     } catch (err) {
       console.error('[PriceAlertCheck] ❌ Firestore 업데이트 실패:', alertId, err);
       // 에러가 발생해도 토스트는 이미 표시됐으므로 계속 진행
@@ -244,31 +245,31 @@ export function usePriceAlertCheck(): UsePriceAlertCheckReturn {
   const checkPriceAlerts = useCallback(async (prices: PriceData[]) => {
     // Auth 로딩 중에는 체크하지 않음
     if (isAuthLoading) {
-      console.log('[PriceAlertCheck] Auth 로딩 중 - 체크 스킵');
+      debug.log('[PriceAlertCheck] Auth 로딩 중 - 체크 스킵');
       return;
     }
 
     // 비로그인 상태에서는 체크하지 않음
     if (!isLoggedIn) {
-      console.log('[PriceAlertCheck] 비로그인 상태 - 체크 스킵');
+      debug.log('[PriceAlertCheck] 비로그인 상태 - 체크 스킵');
       return;
     }
 
     // 알림이 없으면 체크하지 않음
     if (alerts.length === 0) {
-      console.log('[PriceAlertCheck] 활성 알림 없음 - 체크 스킵');
+      debug.log('[PriceAlertCheck] 활성 알림 없음 - 체크 스킵');
       return;
     }
 
     // 시세 데이터가 없으면 체크하지 않음
     if (prices.length === 0) {
-      console.log('[PriceAlertCheck] 시세 데이터 없음 - 체크 스킵');
+      debug.log('[PriceAlertCheck] 시세 데이터 없음 - 체크 스킵');
       return;
     }
 
     setIsChecking(true);
 
-    console.log('[PriceAlertCheck] 알림 체크 시작:', {
+    debug.log('[PriceAlertCheck] 알림 체크 시작:', {
       alertCount: alerts.length,
       priceCount: prices.length,
     });
@@ -316,7 +317,7 @@ export function usePriceAlertCheck(): UsePriceAlertCheckReturn {
         const isTriggered = checkAlertCondition(alert, priceData.price);
 
         if (isTriggered) {
-          console.log('[PriceAlertCheck] 🎯 알림 발동 조건 충족:', {
+          debug.log('[PriceAlertCheck] 🎯 알림 발동 조건 충족:', {
             ticker: alert.ticker,
             stockName: alert.stockName,
             currentPrice: priceData.price,
@@ -345,7 +346,7 @@ export function usePriceAlertCheck(): UsePriceAlertCheckReturn {
 
       // 발동된 알림이 있으면 알림 목록 새로고침
       if (triggeredAlerts.length > 0) {
-        console.log('[PriceAlertCheck] 발동된 알림 수:', triggeredAlerts.length);
+        debug.log('[PriceAlertCheck] 발동된 알림 수:', triggeredAlerts.length);
         // 알림 목록 갱신 (발동된 알림 상태 반영)
         await refetch();
       }

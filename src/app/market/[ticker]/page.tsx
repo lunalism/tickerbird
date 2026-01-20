@@ -29,7 +29,8 @@ import { getAssetDetail, getRelatedNews } from '@/constants';
 import { ChartPeriod, AssetDetail, RelatedNews } from '@/types/market';
 import { useKoreanStockPrice, useUSStockPrice, KOREAN_STOCKS, useWatchlist, useRecentlyViewed, useAlerts, usePriceAlertCheck } from '@/hooks';
 import { showSuccess, showError } from '@/lib/toast';
-import { MarketType } from '@/types/recentlyViewed';
+import { debug } from '@/lib/debug';
+import { RecentlyViewedMarket } from '@/types/recentlyViewed';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { AddAlertModal } from '@/components/features/alert/AddAlertModal';
 import { EditAlertModal } from '@/components/features/alert/EditAlertModal';
@@ -329,7 +330,7 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
 
   // 디버그 로그: 인증 상태 확인
   useEffect(() => {
-    console.log('[KoreanAssetDetailPage] 인증 상태:', {
+    debug.log('[KoreanAssetDetailPage] 인증 상태:', {
       isLoggedIn,
       isAuthLoading,
       isTestMode,
@@ -379,7 +380,7 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
    * 알림 목록 새로고침하여 🔔 아이콘 상태 즉시 반영
    */
   const handleAlertSuccess = () => {
-    console.log('[KoreanAssetDetailPage] 알림 추가 성공 - 목록 새로고침');
+    debug.log('[KoreanAssetDetailPage] 알림 추가 성공 - 목록 새로고침');
     refetchAlerts();
   };
 
@@ -388,7 +389,7 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
    * 알림 목록 새로고침하여 🔔 아이콘 비활성 상태로 변경
    */
   const handleAlertDelete = () => {
-    console.log('[KoreanAssetDetailPage] 알림 삭제 성공 - 목록 새로고침');
+    debug.log('[KoreanAssetDetailPage] 알림 삭제 성공 - 목록 새로고침');
     refetchAlerts();
   };
 
@@ -402,7 +403,7 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
       const stockName = stockInfo?.name || stock.stockName || ticker;
       addToRecentlyViewed({
         ticker,
-        market: 'kr' as MarketType,
+        market: 'kr' as RecentlyViewedMarket,
         name: stockName,
       });
     }
@@ -416,7 +417,7 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
   useEffect(() => {
     // 로그인 상태이고, Auth 및 데이터 로딩 완료 시 알림 체크
     if (!isAuthLoading && isLoggedIn && !isStockLoading && stock) {
-      console.log('[KoreanAssetDetailPage] 가격 알림 체크:', ticker, stock.currentPrice);
+      debug.log('[KoreanAssetDetailPage] 가격 알림 체크:', ticker, stock.currentPrice);
       checkSingleAlert(ticker, stock.currentPrice, 'KR');
     }
   }, [isAuthLoading, isLoggedIn, isStockLoading, stock, ticker, checkSingleAlert]);
@@ -885,7 +886,7 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
 
   // 디버그 로그: 인증 상태 확인
   useEffect(() => {
-    console.log('[USAssetDetailPage] 인증 상태:', {
+    debug.log('[USAssetDetailPage] 인증 상태:', {
       isLoggedIn,
       isAuthLoading,
       isTestMode,
@@ -935,7 +936,7 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
    * 알림 목록 새로고침하여 🔔 아이콘 상태 즉시 반영
    */
   const handleAlertSuccess = () => {
-    console.log('[USAssetDetailPage] 알림 추가 성공 - 목록 새로고침');
+    debug.log('[USAssetDetailPage] 알림 추가 성공 - 목록 새로고침');
     refetchAlerts();
   };
 
@@ -944,7 +945,7 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
    * 알림 목록 새로고침하여 🔔 아이콘 비활성 상태로 변경
    */
   const handleAlertDelete = () => {
-    console.log('[USAssetDetailPage] 알림 삭제 성공 - 목록 새로고침');
+    debug.log('[USAssetDetailPage] 알림 삭제 성공 - 목록 새로고침');
     refetchAlerts();
   };
 
@@ -957,7 +958,7 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
     if (!isStockLoading && stock) {
       addToRecentlyViewed({
         ticker,
-        market: 'us' as MarketType,
+        market: 'us' as RecentlyViewedMarket,
         name: stock.name,
       });
     }
@@ -971,7 +972,7 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
   useEffect(() => {
     // 로그인 상태이고, Auth 및 데이터 로딩 완료 시 알림 체크
     if (!isAuthLoading && isLoggedIn && !isStockLoading && stock) {
-      console.log('[USAssetDetailPage] 가격 알림 체크:', ticker, stock.currentPrice);
+      debug.log('[USAssetDetailPage] 가격 알림 체크:', ticker, stock.currentPrice);
       checkSingleAlert(ticker, stock.currentPrice, 'US');
     }
   }, [isAuthLoading, isLoggedIn, isStockLoading, stock, ticker, checkSingleAlert]);

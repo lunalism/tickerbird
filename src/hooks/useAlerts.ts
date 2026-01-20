@@ -20,6 +20,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { debug } from '@/lib/debug';
 import {
   PriceAlert,
   CreateAlertRequest,
@@ -82,7 +83,7 @@ export function useAlerts(): UseAlertsReturn {
 
   // 디버그 로그: 인증 상태 확인
   useEffect(() => {
-    console.log('[useAlerts] 인증 상태:', {
+    debug.log('[useAlerts] 인증 상태:', {
       isLoggedIn,
       isAuthLoading,
       isTestMode,
@@ -98,19 +99,19 @@ export function useAlerts(): UseAlertsReturn {
   const fetchAlerts = useCallback(async () => {
     // Auth 로딩 중에는 대기
     if (isAuthLoading) {
-      console.log('[useAlerts] Auth 로딩 중 - 알림 조회 대기');
+      debug.log('[useAlerts] Auth 로딩 중 - 알림 조회 대기');
       return;
     }
 
     // 비로그인 상태에서는 조회하지 않음
     if (!isLoggedIn) {
-      console.log('[useAlerts] 비로그인 상태 - 알림 목록 초기화');
+      debug.log('[useAlerts] 비로그인 상태 - 알림 목록 초기화');
       setAlerts([]);
       setIsLoading(false);
       return;
     }
 
-    console.log('[useAlerts] 알림 목록 조회 시작');
+    debug.log('[useAlerts] 알림 목록 조회 시작');
     setIsLoading(true);
     setError(null);
 
@@ -121,7 +122,7 @@ export function useAlerts(): UseAlertsReturn {
       const result: AlertListResponse = await response.json();
 
       if (result.success && result.data) {
-        console.log('[useAlerts] 알림 목록 조회 성공:', result.data.length, '개');
+        debug.log('[useAlerts] 알림 목록 조회 성공:', result.data.length, '개');
         setAlerts(result.data);
       } else {
         setError(result.error || '알림 목록을 불러오는데 실패했습니다');
@@ -149,16 +150,16 @@ export function useAlerts(): UseAlertsReturn {
    */
   const addAlert = useCallback(
     async (request: CreateAlertRequest): Promise<{ success: boolean; error?: string }> => {
-      console.log('[useAlerts] addAlert 호출:', { isLoggedIn, isAuthLoading, request });
+      debug.log('[useAlerts] addAlert 호출:', { isLoggedIn, isAuthLoading, request });
 
       // Auth 로딩 중이면 대기 필요
       if (isAuthLoading) {
-        console.log('[useAlerts] Auth 로딩 중 - 알림 추가 대기');
+        debug.log('[useAlerts] Auth 로딩 중 - 알림 추가 대기');
         return { success: false, error: '인증 상태 확인 중입니다. 잠시 후 다시 시도해주세요.' };
       }
 
       if (!isLoggedIn) {
-        console.log('[useAlerts] 비로그인 상태 - 알림 추가 실패');
+        debug.log('[useAlerts] 비로그인 상태 - 알림 추가 실패');
         return { success: false, error: '로그인이 필요합니다' };
       }
 
@@ -175,13 +176,13 @@ export function useAlerts(): UseAlertsReturn {
         const result: AlertApiResponse = await response.json();
 
         if (result.success && result.data) {
-          console.log('[useAlerts] 알림 추가 성공:', result.data);
+          debug.log('[useAlerts] 알림 추가 성공:', result.data);
           // 새 알림을 목록 맨 앞에 추가
           setAlerts((prev) => [result.data!, ...prev]);
           return { success: true };
         }
 
-        console.log('[useAlerts] 알림 추가 실패:', result.error);
+        debug.log('[useAlerts] 알림 추가 실패:', result.error);
         return { success: false, error: result.error || '알림 추가에 실패했습니다' };
       } catch (err) {
         console.error('[useAlerts] 알림 추가 에러:', err);
@@ -203,7 +204,7 @@ export function useAlerts(): UseAlertsReturn {
    */
   const updateAlert = useCallback(
     async (id: string, request: UpdateAlertRequest): Promise<{ success: boolean; error?: string }> => {
-      console.log('[useAlerts] updateAlert 호출:', { id, request });
+      debug.log('[useAlerts] updateAlert 호출:', { id, request });
 
       // Auth 로딩 중이면 대기 필요
       if (isAuthLoading) {
@@ -227,7 +228,7 @@ export function useAlerts(): UseAlertsReturn {
         const result: AlertApiResponse = await response.json();
 
         if (result.success && result.data) {
-          console.log('[useAlerts] 알림 수정 성공:', result.data);
+          debug.log('[useAlerts] 알림 수정 성공:', result.data);
           // 목록에서 해당 알림 업데이트
           setAlerts((prev) =>
             prev.map((alert) => (alert.id === id ? result.data! : alert))
@@ -235,7 +236,7 @@ export function useAlerts(): UseAlertsReturn {
           return { success: true };
         }
 
-        console.log('[useAlerts] 알림 수정 실패:', result.error);
+        debug.log('[useAlerts] 알림 수정 실패:', result.error);
         return { success: false, error: result.error || '알림 수정에 실패했습니다' };
       } catch (err) {
         console.error('[useAlerts] 알림 수정 에러:', err);

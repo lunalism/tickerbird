@@ -19,9 +19,10 @@
  * - /market?type=global&category=crypto
  */
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { MarketRegion, MarketCategory, MarketType } from '@/types';
+import { debug } from '@/lib/debug';
 import { Sidebar, BottomNav } from '@/components/layout';
 import { MobileSearchHeader, GlobalSearch } from '@/components/features/search';
 import {
@@ -251,7 +252,7 @@ function MarketContent() {
         market: 'KR' as const,
       }));
 
-      console.log('[MarketPage] 한국 시장 가격 알림 체크:', priceDataList.length, '종목');
+      debug.log('[MarketPage] 한국 시장 가격 알림 체크:', priceDataList.length, '종목');
       checkPriceAlerts(priceDataList);
     }
 
@@ -263,7 +264,7 @@ function MarketContent() {
         market: 'US' as const,
       }));
 
-      console.log('[MarketPage] 미국 시장 가격 알림 체크:', priceDataList.length, '종목');
+      debug.log('[MarketPage] 미국 시장 가격 알림 체크:', priceDataList.length, '종목');
       checkPriceAlerts(priceDataList);
     }
   }, [
@@ -276,178 +277,208 @@ function MarketContent() {
     checkPriceAlerts,
   ]);
 
-  // ========== 데이터 변환 ==========
+  // ========== 데이터 변환 (useMemo로 최적화) ==========
 
   // 미국 지수 데이터를 MarketIndex 형식으로 변환
   // useUSIndices 훅에서 가져온 데이터를 UI에 맞게 변환
   // - isEstimated: ETF 기반 추정치 여부 (SPX는 실제 데이터, CCMP/INDU는 ETF 추정)
-  const usMarketIndices = usIndices.length > 0
-    ? usIndices.map((idx) => ({
-        id: idx.indexCode.toLowerCase(),
-        name: idx.indexName,
-        value: idx.currentValue,
-        change: idx.change,
-        changePercent: idx.changePercent,
-        chartData: [idx.currentValue], // 차트 데이터는 추후 확장 가능
-        isEstimated: idx.isEstimated,  // ETF 기반 추정치 여부
-      }))
-    : marketIndices['us']; // API 실패 시 목업 데이터 폴백
+  const usMarketIndices = useMemo(() =>
+    usIndices.length > 0
+      ? usIndices.map((idx) => ({
+          id: idx.indexCode.toLowerCase(),
+          name: idx.indexName,
+          value: idx.currentValue,
+          change: idx.change,
+          changePercent: idx.changePercent,
+          chartData: [idx.currentValue], // 차트 데이터는 추후 확장 가능
+          isEstimated: idx.isEstimated,  // ETF 기반 추정치 여부
+        }))
+      : marketIndices['us'], // API 실패 시 목업 데이터 폴백
+    [usIndices]
+  );
 
   // 미국 주식 데이터를 Stock 형식으로 변환
   // useUSStocks 훅에서 가져온 데이터를 UI에 맞게 변환 (상위 10개)
-  const usPopularStocks = usStockPrices.length > 0
-    ? usStockPrices.slice(0, 10).map((stock, idx) => ({
-        rank: idx + 1,
-        name: stock.name,
-        ticker: stock.symbol,
-        price: stock.currentPrice,
-        change: stock.change,
-        changePercent: stock.changePercent,
-        volume: formatVolumeForDisplay(stock.volume),
-        domain: '', // 도메인 정보 없음
-      }))
-    : popularStocks['us']; // API 실패 시 목업 데이터 폴백
+  const usPopularStocks = useMemo(() =>
+    usStockPrices.length > 0
+      ? usStockPrices.slice(0, 10).map((stock, idx) => ({
+          rank: idx + 1,
+          name: stock.name,
+          ticker: stock.symbol,
+          price: stock.currentPrice,
+          change: stock.change,
+          changePercent: stock.changePercent,
+          volume: formatVolumeForDisplay(stock.volume),
+          domain: '', // 도메인 정보 없음
+        }))
+      : popularStocks['us'], // API 실패 시 목업 데이터 폴백
+    [usStockPrices]
+  );
 
   // 미국 등락률 TOP 데이터 (API 데이터에서 정렬)
   // 상승 TOP: changePercent 내림차순 정렬 후 상위 5개
-  const usGainers = usStockPrices.length > 0
-    ? [...usStockPrices]
-        .filter(s => s.changePercent > 0)
-        .sort((a, b) => b.changePercent - a.changePercent)
-        .slice(0, 5)
-        .map(stock => ({
-          name: stock.name,
-          ticker: stock.symbol,
-          changePercent: stock.changePercent,
-        }))
-    : topGainers['us'];
+  const usGainers = useMemo(() =>
+    usStockPrices.length > 0
+      ? [...usStockPrices]
+          .filter(s => s.changePercent > 0)
+          .sort((a, b) => b.changePercent - a.changePercent)
+          .slice(0, 5)
+          .map(stock => ({
+            name: stock.name,
+            ticker: stock.symbol,
+            changePercent: stock.changePercent,
+          }))
+      : topGainers['us'],
+    [usStockPrices]
+  );
 
   // 하락 TOP: changePercent 오름차순 정렬 후 상위 5개
-  const usLosers = usStockPrices.length > 0
-    ? [...usStockPrices]
-        .filter(s => s.changePercent < 0)
-        .sort((a, b) => a.changePercent - b.changePercent)
-        .slice(0, 5)
-        .map(stock => ({
-          name: stock.name,
-          ticker: stock.symbol,
-          changePercent: stock.changePercent,
-        }))
-    : topLosers['us'];
+  const usLosers = useMemo(() =>
+    usStockPrices.length > 0
+      ? [...usStockPrices]
+          .filter(s => s.changePercent < 0)
+          .sort((a, b) => a.changePercent - b.changePercent)
+          .slice(0, 5)
+          .map(stock => ({
+            name: stock.name,
+            ticker: stock.symbol,
+            changePercent: stock.changePercent,
+          }))
+      : topLosers['us'],
+    [usStockPrices]
+  );
 
   // ========== 미국 거래량/거래대금 TOP 5 데이터 ==========
   // VolumeMovers 컴포넌트에서 사용하는 형식으로 변환
 
   // 거래량 TOP 5: volume 기준 내림차순 정렬
-  const usVolumeTop5 = usStockPrices.length > 0
-    ? [...usStockPrices]
-        .sort((a, b) => b.volume - a.volume)
-        .slice(0, 5)
-        .map(stock => ({
-          name: stock.name,
-          ticker: stock.symbol,
-          changePercent: stock.changePercent,
-          volume: stock.volume,
-          tradingValue: stock.tradingValue,
-        }))
-    : [];
+  const usVolumeTop5 = useMemo(() =>
+    usStockPrices.length > 0
+      ? [...usStockPrices]
+          .sort((a, b) => b.volume - a.volume)
+          .slice(0, 5)
+          .map(stock => ({
+            name: stock.name,
+            ticker: stock.symbol,
+            changePercent: stock.changePercent,
+            volume: stock.volume,
+            tradingValue: stock.tradingValue,
+          }))
+      : [],
+    [usStockPrices]
+  );
 
   // 거래대금 TOP 5: tradingValue 기준 내림차순 정렬
-  const usTradingValueTop5 = usStockPrices.length > 0
-    ? [...usStockPrices]
-        .sort((a, b) => b.tradingValue - a.tradingValue)
-        .slice(0, 5)
-        .map(stock => ({
-          name: stock.name,
-          ticker: stock.symbol,
-          changePercent: stock.changePercent,
-          volume: stock.volume,
-          tradingValue: stock.tradingValue,
-        }))
-    : [];
+  const usTradingValueTop5 = useMemo(() =>
+    usStockPrices.length > 0
+      ? [...usStockPrices]
+          .sort((a, b) => b.tradingValue - a.tradingValue)
+          .slice(0, 5)
+          .map(stock => ({
+            name: stock.name,
+            ticker: stock.symbol,
+            changePercent: stock.changePercent,
+            volume: stock.volume,
+            tradingValue: stock.tradingValue,
+          }))
+      : [],
+    [usStockPrices]
+  );
 
   // 현재 국가의 지수 데이터
   // 한국: 한국투자증권 국내지수 API
   // 미국: 한국투자증권 해외지수 API
   // 기타: 목업 데이터
-  const currentIndices = activeMarket === 'kr'
-    ? koreanIndices
-    : activeMarket === 'us'
-      ? usMarketIndices
-      : marketIndices[activeMarket];
+  const currentIndices = useMemo(() =>
+    activeMarket === 'kr'
+      ? koreanIndices
+      : activeMarket === 'us'
+        ? usMarketIndices
+        : marketIndices[activeMarket],
+    [activeMarket, koreanIndices, usMarketIndices]
+  );
 
   // 현재 국가의 인기 종목
   // 한국: 거래량순위 API 데이터
   // 미국: 해외주식 시세 API 데이터 (상위 10개)
   // 기타: 목업 데이터
-  const currentStocks = activeMarket === 'kr' && volumeRankingData.length > 0
-    ? volumeRankingData.slice(0, 10).map((item, idx) => ({
-        rank: idx + 1,
-        name: item.name,
-        ticker: item.symbol,
-        price: item.currentPrice,
-        change: item.change,
-        changePercent: item.changePercent,
-        volume: formatVolumeForDisplay(item.volume),
-        domain: '', // 도메인 정보 없음
-      }))
-    : activeMarket === 'kr'
-      ? koreanStocks // 거래량순위 실패 시 기존 데이터 폴백
-      : activeMarket === 'us'
-        ? usPopularStocks // 미국: 해외주식 시세 API
-        : popularStocks[activeMarket];
+  const currentStocks = useMemo(() =>
+    activeMarket === 'kr' && volumeRankingData.length > 0
+      ? volumeRankingData.slice(0, 10).map((item, idx) => ({
+          rank: idx + 1,
+          name: item.name,
+          ticker: item.symbol,
+          price: item.currentPrice,
+          change: item.change,
+          changePercent: item.changePercent,
+          volume: formatVolumeForDisplay(item.volume),
+          domain: '', // 도메인 정보 없음
+        }))
+      : activeMarket === 'kr'
+        ? koreanStocks // 거래량순위 실패 시 기존 데이터 폴백
+        : activeMarket === 'us'
+          ? usPopularStocks // 미국: 해외주식 시세 API
+          : popularStocks[activeMarket],
+    [activeMarket, volumeRankingData, koreanStocks, usPopularStocks]
+  );
 
-  // ========== 등락률 TOP 계산 ==========
+  // ========== 등락률 TOP 계산 (useMemo로 최적화) ==========
   // 한국 시장: 등락률순위 API 데이터 사용
   // 미국 시장: 해외주식 시세 API 데이터에서 계산
   // 그 외 시장: 목업 데이터 사용
 
-  const currentGainers = activeMarket === 'kr' && gainersRankingData.length > 0
-    ? gainersRankingData
-        .filter(item => item.symbol) // symbol이 있는 항목만 필터
-        .slice(0, 5)
-        .map(item => ({
-          name: item.name,
-          ticker: item.symbol,
-          changePercent: item.changePercent,
-        }))
-    : activeMarket === 'kr' && koreanStocks.length > 0
-      // 등락률순위 API 실패 시 기존 데이터 폴백
-      ? koreanStocks
-          .filter(stock => stock.changePercent > 0)
+  const currentGainers = useMemo(() =>
+    activeMarket === 'kr' && gainersRankingData.length > 0
+      ? gainersRankingData
+          .filter(item => item.symbol) // symbol이 있는 항목만 필터
           .slice(0, 5)
-          .map(stock => ({
-            name: stock.name,
-            ticker: stock.ticker,
-            changePercent: stock.changePercent,
+          .map(item => ({
+            name: item.name,
+            ticker: item.symbol,
+            changePercent: item.changePercent,
           }))
-      : activeMarket === 'us'
-        ? usGainers // 미국: 해외주식 시세 API에서 계산
-        : topGainers[activeMarket];
+      : activeMarket === 'kr' && koreanStocks.length > 0
+        // 등락률순위 API 실패 시 기존 데이터 폴백
+        ? koreanStocks
+            .filter(stock => stock.changePercent > 0)
+            .slice(0, 5)
+            .map(stock => ({
+              name: stock.name,
+              ticker: stock.ticker,
+              changePercent: stock.changePercent,
+            }))
+        : activeMarket === 'us'
+          ? usGainers // 미국: 해외주식 시세 API에서 계산
+          : topGainers[activeMarket],
+    [activeMarket, gainersRankingData, koreanStocks, usGainers]
+  );
 
-  const currentLosers = activeMarket === 'kr' && losersRankingData.length > 0
-    ? losersRankingData
-        .filter(item => item.symbol) // symbol이 있는 항목만 필터
-        .slice(0, 5)
-        .map(item => ({
-          name: item.name,
-          ticker: item.symbol,
-          changePercent: item.changePercent,
-        }))
-    : activeMarket === 'kr' && koreanStocks.length > 0
-      // 등락률순위 API 실패 시 기존 데이터 폴백
-      ? koreanStocks
-          .filter(stock => stock.changePercent < 0)
-          .sort((a, b) => a.changePercent - b.changePercent)
+  const currentLosers = useMemo(() =>
+    activeMarket === 'kr' && losersRankingData.length > 0
+      ? losersRankingData
+          .filter(item => item.symbol) // symbol이 있는 항목만 필터
           .slice(0, 5)
-          .map(stock => ({
-            name: stock.name,
-            ticker: stock.ticker,
-            changePercent: stock.changePercent,
+          .map(item => ({
+            name: item.name,
+            ticker: item.symbol,
+            changePercent: item.changePercent,
           }))
-      : activeMarket === 'us'
-        ? usLosers // 미국: 해외주식 시세 API에서 계산
-        : topLosers[activeMarket];
+      : activeMarket === 'kr' && koreanStocks.length > 0
+        // 등락률순위 API 실패 시 기존 데이터 폴백
+        ? koreanStocks
+            .filter(stock => stock.changePercent < 0)
+            .sort((a, b) => a.changePercent - b.changePercent)
+            .slice(0, 5)
+            .map(stock => ({
+              name: stock.name,
+              ticker: stock.ticker,
+              changePercent: stock.changePercent,
+            }))
+        : activeMarket === 'us'
+          ? usLosers // 미국: 해외주식 시세 API에서 계산
+          : topLosers[activeMarket],
+    [activeMarket, losersRankingData, koreanStocks, usLosers]
+  );
 
   // 한국 시장 로딩/에러 상태
   const isKoreanDataLoading = activeMarket === 'kr' && (

@@ -186,12 +186,20 @@ export function useCommunity(options: UseCommunityOptions = {}) {
     }
   }, []);
 
-  // 카테고리나 정렬이 변경되면 다시 로드
+  /**
+   * 카테고리나 정렬이 변경되면 다시 로드
+   *
+   * fetchPosts를 의존성 배열에 포함하지 않는 이유:
+   * - fetchPosts는 nextCursor에 의존하므로 매 렌더링마다 새로 생성됨
+   * - 이 useEffect는 category/sort 변경 시에만 reset=true로 호출해야 함
+   * - reset=true일 때 nextCursor는 사용되지 않으므로 의존성 불필요
+   */
   useEffect(() => {
     if (autoFetch) {
       setNextCursor(undefined);
       fetchPosts(true);
     }
+  // fetchPosts는 nextCursor 의존성으로 인해 안정적이지 않음 - 의도적 제외
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, sort, autoFetch]);
 
@@ -297,12 +305,20 @@ export function useComments(postId: string) {
     }
   }, [postId]);
 
-  // postId가 변경되면 댓글 다시 로드
+  /**
+   * postId가 변경되면 댓글 다시 로드
+   *
+   * fetchComments를 의존성 배열에 포함하지 않는 이유:
+   * - fetchComments는 nextCursor에 의존하므로 매 렌더링마다 새로 생성됨
+   * - 이 useEffect는 postId 변경 시에만 reset=true로 호출해야 함
+   * - reset=true일 때 nextCursor는 사용되지 않으므로 의존성 불필요
+   */
   useEffect(() => {
     if (postId) {
       setNextCursor(undefined);
       fetchComments(true);
     }
+  // fetchComments는 nextCursor 의존성으로 인해 안정적이지 않음 - 의도적 제외
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId]);
 
