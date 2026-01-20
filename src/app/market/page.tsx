@@ -52,7 +52,11 @@ import {
   // 미국 시장 훅
   useUSIndices,
   useUSStocks,
+  // 가격 알림 체크 훅
+  usePriceAlertCheck,
+  type PriceData,
 } from '@/hooks';
+import { useAuthStore } from '@/stores';
 
 /**
  * 거래량 포맷팅 (표시용)
@@ -218,6 +222,59 @@ function MarketContent() {
     error: usStocksError,
     refetch: refetchUSStocks
   } = useUSStocks();
+
+  // ========== 가격 알림 체크 ==========
+
+  // 인증 상태 (알림 체크용)
+  const { isLoggedIn } = useAuthStore();
+
+  // 가격 알림 체크 훅
+  const { checkPriceAlerts } = usePriceAlertCheck();
+
+  /**
+   * 시세 데이터 로드 완료 시 가격 알림 체크
+   *
+   * 한국 종목: 거래량 순위 API 데이터 사용
+   * 미국 종목: 해외주식 시세 API 데이터 사용
+   *
+   * 로그인 상태일 때만 체크 실행
+   */
+  useEffect(() => {
+    // 비로그인 상태에서는 체크하지 않음
+    if (!isLoggedIn) return;
+
+    // 한국 시장 데이터가 로드되면 알림 체크
+    if (activeMarket === 'kr' && volumeRankingData.length > 0 && !isVolumeRankingLoading) {
+      const priceDataList: PriceData[] = volumeRankingData.map(stock => ({
+        ticker: stock.symbol,
+        price: stock.currentPrice,
+        market: 'KR' as const,
+      }));
+
+      console.log('[MarketPage] 한국 시장 가격 알림 체크:', priceDataList.length, '종목');
+      checkPriceAlerts(priceDataList);
+    }
+
+    // 미국 시장 데이터가 로드되면 알림 체크
+    if (activeMarket === 'us' && usStockPrices.length > 0 && !isUSStocksLoading) {
+      const priceDataList: PriceData[] = usStockPrices.map(stock => ({
+        ticker: stock.symbol,
+        price: stock.currentPrice,
+        market: 'US' as const,
+      }));
+
+      console.log('[MarketPage] 미국 시장 가격 알림 체크:', priceDataList.length, '종목');
+      checkPriceAlerts(priceDataList);
+    }
+  }, [
+    isLoggedIn,
+    activeMarket,
+    volumeRankingData,
+    isVolumeRankingLoading,
+    usStockPrices,
+    isUSStocksLoading,
+    checkPriceAlerts,
+  ]);
 
   // ========== 데이터 변환 ==========
 

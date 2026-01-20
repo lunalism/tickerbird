@@ -4,7 +4,10 @@
  * 사용자가 설정한 가격 알림 목록을 표시하고 관리하는 페이지
  *
  * 기능:
- * - 알림 목록 조회
+ * - 알림 목록 조회 (탭으로 분류)
+ *   - 활성 알림: 발동 대기 중인 알림
+ *   - 발동된 알림: 조건 충족되어 발동된 알림
+ *   - 비활성 알림: 사용자가 비활성화한 알림
  * - 알림 활성화/비활성화 토글
  * - 알림 삭제
  * - 종목 상세 페이지로 이동
@@ -14,13 +17,27 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Sidebar, BottomNav } from '@/components/layout';
 import { useAuthStore } from '@/stores';
 import { useAlerts } from '@/hooks';
 import { PriceAlert } from '@/types/priceAlert';
 import { showSuccess, showError } from '@/lib/toast';
+
+/**
+ * 탭 타입 정의
+ */
+type AlertTab = 'active' | 'triggered' | 'inactive';
+
+/**
+ * 탭 정보
+ */
+const TABS: { id: AlertTab; label: string; description: string }[] = [
+  { id: 'active', label: '활성', description: '발동 대기 중' },
+  { id: 'triggered', label: '발동됨', description: '목표가 도달' },
+  { id: 'inactive', label: '비활성', description: '일시 중지' },
+];
 
 /**
  * 알림 카드 컴포넌트
@@ -31,10 +48,13 @@ function AlertCard({
   alert,
   onToggle,
   onDelete,
+  showToggle = true,
 }: {
   alert: PriceAlert;
   onToggle: (id: string, isActive: boolean) => void;
   onDelete: (id: string) => void;
+  /** 토글 버튼 표시 여부 (발동된 알림은 숨김) */
+  showToggle?: boolean;
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
@@ -66,10 +86,23 @@ function AlertCard({
     setIsDeleting(false);
   };
 
+  // 발동 시간 포맷팅
+  const formatTriggeredAt = (triggeredAt?: string) => {
+    if (!triggeredAt) return null;
+    const date = new Date(triggeredAt);
+    return date.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   return (
     <div
       className={`bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-opacity ${
-        !alert.isActive ? 'opacity-60' : ''
+        !alert.isActive && !alert.isTriggered ? 'opacity-60' : ''
       }`}
     >
       <div className="p-4">
@@ -91,10 +124,13 @@ function AlertCard({
               <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                 {alert.ticker}
               </span>
-              {/* 트리거 상태 */}
+              {/* 발동됨 배지 */}
               {alert.isTriggered && (
-                <span className="px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 rounded">
-                  발생됨
+                <span className="px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 rounded flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  발동됨
                 </span>
               )}
             </div>
@@ -104,21 +140,23 @@ function AlertCard({
             </h3>
           </Link>
 
-          {/* 토글 버튼 */}
-          <button
-            onClick={handleToggle}
-            disabled={isToggling}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
-              alert.isActive ? 'bg-blue-600 dark:bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-            } ${isToggling ? 'opacity-50 cursor-wait' : ''}`}
-            title={alert.isActive ? '알림 끄기' : '알림 켜기'}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                alert.isActive ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
+          {/* 토글 버튼 (발동된 알림에서는 숨김) */}
+          {showToggle && (
+            <button
+              onClick={handleToggle}
+              disabled={isToggling}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
+                alert.isActive ? 'bg-blue-600 dark:bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+              } ${isToggling ? 'opacity-50 cursor-wait' : ''}`}
+              title={alert.isActive ? '알림 끄기' : '알림 켜기'}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  alert.isActive ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          )}
         </div>
 
         {/* 알림 조건 */}
@@ -177,16 +215,29 @@ function AlertCard({
           </span>
         </div>
 
-        {/* 생성일 및 삭제 버튼 */}
+        {/* 메타 정보 및 삭제 버튼 */}
         <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            {new Date(alert.createdAt).toLocaleDateString('ko-KR', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-            })}{' '}
-            설정
-          </span>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            {alert.isTriggered && alert.triggeredAt ? (
+              // 발동된 알림: 발동 시간 표시
+              <span className="flex items-center gap-1">
+                <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {formatTriggeredAt(alert.triggeredAt)} 발동
+              </span>
+            ) : (
+              // 일반 알림: 생성 시간 표시
+              <span>
+                {new Date(alert.createdAt).toLocaleDateString('ko-KR', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                })}{' '}
+                설정
+              </span>
+            )}
+          </div>
           <button
             onClick={handleDelete}
             disabled={isDeleting}
@@ -201,10 +252,119 @@ function AlertCard({
 }
 
 /**
+ * 빈 상태 컴포넌트
+ */
+function EmptyState({
+  tab,
+  isLoggedIn,
+}: {
+  tab: AlertTab;
+  isLoggedIn: boolean;
+}) {
+  // 비로그인 상태
+  if (!isLoggedIn) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center border border-gray-200 dark:border-gray-700">
+        <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg
+            className="w-8 h-8 text-blue-600 dark:text-blue-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+            />
+          </svg>
+        </div>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          로그인이 필요합니다
+        </h2>
+        <p className="text-gray-500 dark:text-gray-400 mb-4">
+          가격 알림 기능을 사용하려면 로그인해주세요
+        </p>
+        <Link
+          href="/login"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+        >
+          로그인하기
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </Link>
+      </div>
+    );
+  }
+
+  // 탭별 빈 상태 메시지
+  const emptyMessages = {
+    active: {
+      icon: '🔔',
+      title: '활성 알림이 없습니다',
+      description: '종목 상세 페이지에서 새 알림을 추가해보세요',
+      showAction: true,
+    },
+    triggered: {
+      icon: '✅',
+      title: '발동된 알림이 없습니다',
+      description: '목표가에 도달하면 여기에 표시됩니다',
+      showAction: false,
+    },
+    inactive: {
+      icon: '⏸️',
+      title: '비활성 알림이 없습니다',
+      description: '알림을 비활성화하면 여기에 표시됩니다',
+      showAction: false,
+    },
+  };
+
+  const message = emptyMessages[tab];
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center border border-gray-200 dark:border-gray-700">
+      <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+        <span className="text-3xl">{message.icon}</span>
+      </div>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+        {message.title}
+      </h2>
+      <p className="text-gray-500 dark:text-gray-400 mb-4">
+        {message.description}
+      </p>
+      {message.showAction && (
+        <Link
+          href="/market"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+        >
+          시세 보러 가기
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/**
  * 가격 알림 목록 페이지
  */
 export default function AlertsPage() {
   const [activeMenu, setActiveMenu] = useState('alerts');
+  const [activeTab, setActiveTab] = useState<AlertTab>('active');
 
   // 인증 상태
   const { isLoggedIn } = useAuthStore();
@@ -236,9 +396,55 @@ export default function AlertsPage() {
     }
   };
 
-  // 활성/비활성 알림 분리
-  const activeAlerts = alerts.filter((a) => a.isActive);
-  const inactiveAlerts = alerts.filter((a) => !a.isActive);
+  // 알림 분류
+  // useMemo로 불필요한 재계산 방지
+  const { activeAlerts, triggeredAlerts, inactiveAlerts } = useMemo(() => {
+    const active: PriceAlert[] = [];
+    const triggered: PriceAlert[] = [];
+    const inactive: PriceAlert[] = [];
+
+    for (const alert of alerts) {
+      if (alert.isTriggered) {
+        // 발동된 알림 (isTriggered = true)
+        triggered.push(alert);
+      } else if (alert.isActive) {
+        // 활성 알림 (isActive = true, isTriggered = false)
+        active.push(alert);
+      } else {
+        // 비활성 알림 (isActive = false, isTriggered = false)
+        inactive.push(alert);
+      }
+    }
+
+    // 발동된 알림은 발동 시간 기준 내림차순 정렬
+    triggered.sort((a, b) => {
+      if (!a.triggeredAt || !b.triggeredAt) return 0;
+      return new Date(b.triggeredAt).getTime() - new Date(a.triggeredAt).getTime();
+    });
+
+    return { activeAlerts: active, triggeredAlerts: triggered, inactiveAlerts: inactive };
+  }, [alerts]);
+
+  // 현재 탭의 알림 목록
+  const currentAlerts = useMemo(() => {
+    switch (activeTab) {
+      case 'active':
+        return activeAlerts;
+      case 'triggered':
+        return triggeredAlerts;
+      case 'inactive':
+        return inactiveAlerts;
+      default:
+        return [];
+    }
+  }, [activeTab, activeAlerts, triggeredAlerts, inactiveAlerts]);
+
+  // 탭별 알림 개수
+  const tabCounts = useMemo(() => ({
+    active: activeAlerts.length,
+    triggered: triggeredAlerts.length,
+    inactive: inactiveAlerts.length,
+  }), [activeAlerts.length, triggeredAlerts.length, inactiveAlerts.length]);
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900">
@@ -284,45 +490,7 @@ export default function AlertsPage() {
           </div>
 
           {/* 비로그인 상태 */}
-          {!isLoggedIn && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center border border-gray-200 dark:border-gray-700">
-              <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg
-                  className="w-8 h-8 text-blue-600 dark:text-blue-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                  />
-                </svg>
-              </div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                로그인이 필요합니다
-              </h2>
-              <p className="text-gray-500 dark:text-gray-400 mb-4">
-                가격 알림 기능을 사용하려면 로그인해주세요
-              </p>
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
-              >
-                로그인하기
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </Link>
-            </div>
-          )}
+          {!isLoggedIn && <EmptyState tab={activeTab} isLoggedIn={false} />}
 
           {/* 로딩 상태 */}
           {isLoggedIn && isLoading && (
@@ -347,85 +515,66 @@ export default function AlertsPage() {
           {/* 알림 목록 */}
           {isLoggedIn && !isLoading && !error && (
             <>
-              {/* 알림이 없는 경우 */}
-              {alerts.length === 0 && (
-                <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center border border-gray-200 dark:border-gray-700">
-                  <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg
-                      className="w-8 h-8 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+              {/* 탭 네비게이션 */}
+              <div className="mb-6">
+                <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+                  {TABS.map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                        activeTab === tab.id
+                          ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                      }`}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                      />
-                    </svg>
-                  </div>
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                    설정된 알림이 없습니다
-                  </h2>
-                  <p className="text-gray-500 dark:text-gray-400 mb-4">
-                    종목 상세 페이지에서 알림을 추가해보세요
-                  </p>
-                  <Link
-                    href="/market"
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
-                  >
-                    시세 보러 가기
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </Link>
+                      <span>{tab.label}</span>
+                      {/* 알림 개수 배지 */}
+                      {tabCounts[tab.id] > 0 && (
+                        <span
+                          className={`ml-1.5 px-1.5 py-0.5 text-xs rounded-full ${
+                            activeTab === tab.id
+                              ? tab.id === 'triggered'
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                : tab.id === 'active'
+                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                : 'bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-300'
+                              : 'bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-300'
+                          }`}
+                        >
+                          {tabCounts[tab.id]}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 현재 탭의 알림 목록 */}
+              {currentAlerts.length === 0 ? (
+                <EmptyState tab={activeTab} isLoggedIn={true} />
+              ) : (
+                <div className="space-y-3">
+                  {currentAlerts.map((alert) => (
+                    <AlertCard
+                      key={alert.id}
+                      alert={alert}
+                      onToggle={handleToggle}
+                      onDelete={handleDelete}
+                      // 발동된 알림은 토글 버튼 숨김
+                      showToggle={!alert.isTriggered}
+                    />
+                  ))}
                 </div>
               )}
 
-              {/* 활성 알림 */}
-              {activeAlerts.length > 0 && (
-                <section className="mb-6">
-                  <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
-                    <span className="w-2 h-2 bg-green-500 rounded-full" />
-                    활성 알림 ({activeAlerts.length})
-                  </h2>
-                  <div className="space-y-3">
-                    {activeAlerts.map((alert) => (
-                      <AlertCard
-                        key={alert.id}
-                        alert={alert}
-                        onToggle={handleToggle}
-                        onDelete={handleDelete}
-                      />
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* 비활성 알림 */}
-              {inactiveAlerts.length > 0 && (
-                <section>
-                  <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
-                    <span className="w-2 h-2 bg-gray-400 rounded-full" />
-                    비활성 알림 ({inactiveAlerts.length})
-                  </h2>
-                  <div className="space-y-3">
-                    {inactiveAlerts.map((alert) => (
-                      <AlertCard
-                        key={alert.id}
-                        alert={alert}
-                        onToggle={handleToggle}
-                        onDelete={handleDelete}
-                      />
-                    ))}
-                  </div>
-                </section>
+              {/* 전체 알림이 없는 경우 안내 */}
+              {alerts.length === 0 && (
+                <div className="mt-4 text-center">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    종목 상세 페이지에서 🔔 버튼을 눌러 알림을 추가할 수 있습니다
+                  </p>
+                </div>
               )}
             </>
           )}

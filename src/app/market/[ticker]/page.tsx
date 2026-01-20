@@ -27,7 +27,7 @@ import {
 } from 'recharts';
 import { getAssetDetail, getRelatedNews } from '@/constants';
 import { ChartPeriod, AssetDetail, RelatedNews } from '@/types/market';
-import { useKoreanStockPrice, useUSStockPrice, KOREAN_STOCKS, useWatchlist, useRecentlyViewed, useAlerts } from '@/hooks';
+import { useKoreanStockPrice, useUSStockPrice, KOREAN_STOCKS, useWatchlist, useRecentlyViewed, useAlerts, usePriceAlertCheck } from '@/hooks';
 import { showSuccess, showError } from '@/lib/toast';
 import { MarketType } from '@/types/recentlyViewed';
 import { useAuthStore } from '@/stores';
@@ -315,6 +315,9 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
   const { hasAlertForTicker } = useAlerts();
   const hasAlert = hasAlertForTicker(ticker);
 
+  // 가격 알림 체크 훅
+  const { checkSingleAlert } = usePriceAlertCheck();
+
   /**
    * 알림 버튼 클릭 핸들러
    * 로그인 상태에 따라 모달 열기 또는 로그인 페이지로 이동
@@ -343,6 +346,18 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
       });
     }
   }, [ticker, stock, isLoading, stockInfo, addToRecentlyViewed]);
+
+  // ========================================
+  // 가격 알림 체크
+  // 종목 데이터 로드 완료 시 해당 종목의 알림 조건 체크
+  // ========================================
+  useEffect(() => {
+    // 로그인 상태이고, 데이터 로딩 완료 시 알림 체크
+    if (isLoggedIn && !isLoading && stock) {
+      console.log('[KoreanAssetDetailPage] 가격 알림 체크:', ticker, stock.currentPrice);
+      checkSingleAlert(ticker, stock.currentPrice, 'KR');
+    }
+  }, [isLoggedIn, isLoading, stock, ticker, checkSingleAlert]);
 
   // 관심종목 토글 핸들러 (Supabase 연동, 로그인 필수)
   const handleToggleWatchlist = async () => {
@@ -693,6 +708,9 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
   const { hasAlertForTicker } = useAlerts();
   const hasAlert = hasAlertForTicker(ticker);
 
+  // 가격 알림 체크 훅
+  const { checkSingleAlert } = usePriceAlertCheck();
+
   /**
    * 알림 버튼 클릭 핸들러
    */
@@ -719,6 +737,18 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
       });
     }
   }, [ticker, stock, isLoading, addToRecentlyViewed]);
+
+  // ========================================
+  // 가격 알림 체크
+  // 종목 데이터 로드 완료 시 해당 종목의 알림 조건 체크
+  // ========================================
+  useEffect(() => {
+    // 로그인 상태이고, 데이터 로딩 완료 시 알림 체크
+    if (isLoggedIn && !isLoading && stock) {
+      console.log('[USAssetDetailPage] 가격 알림 체크:', ticker, stock.currentPrice);
+      checkSingleAlert(ticker, stock.currentPrice, 'US');
+    }
+  }, [isLoggedIn, isLoading, stock, ticker, checkSingleAlert]);
 
   /**
    * 관심종목 토글 핸들러 (Supabase 연동, 로그인 필수)

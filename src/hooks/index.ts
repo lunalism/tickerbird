@@ -56,5 +56,8 @@ export { useRecentlyViewed } from './useRecentlyViewed';
 // 가격 알림 관리 훅
 export { useAlerts } from './useAlerts';
 
+// 가격 알림 발동 체크 훅
+export { usePriceAlertCheck, type PriceData } from './usePriceAlertCheck';
+
 // 커뮤니티 훅
 export { useCommunity, useComments } from './useCommunity';
