@@ -532,16 +532,30 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
               </svg>
             </button>
 
-            {/* 종목명 + 티커 */}
-            <div className="flex items-center gap-2">
-              <h1 className="text-base font-semibold text-gray-900 dark:text-white">
+            {/* 종목명 + 티커 + 가격 */}
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <h1 className="text-base font-semibold text-gray-900 dark:text-white truncate">
                 {stockInfo?.name || stock.stockName || ticker}
               </h1>
-              <span className="text-sm text-gray-500 dark:text-gray-400">{ticker}</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">{ticker}</span>
+
+              {/* 헤더 가격 표시 - 스크롤해도 현재가 확인 가능 */}
+              <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  {stock.currentPrice.toLocaleString('ko-KR')}
+                </span>
+                <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                  isPositive
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                }`}>
+                  {isPositive ? '+' : ''}{stock.changePercent.toFixed(2)}%
+                </span>
+              </div>
             </div>
 
             {/* 우측 버튼들 */}
-            <div className="flex items-center gap-1 ml-auto">
+            <div className="flex items-center gap-1 flex-shrink-0">
               <WatchlistButton
                 isInWatchlist={inWatchlist}
                 onToggle={handleToggleWatchlist}
@@ -1101,16 +1115,30 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
               </svg>
             </button>
 
-            {/* 종목명 + 티커 */}
-            <div className="flex items-center gap-2">
-              <h1 className="text-base font-semibold text-gray-900 dark:text-white">
+            {/* 종목명 + 티커 + 가격 */}
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <h1 className="text-base font-semibold text-gray-900 dark:text-white truncate">
                 {stock.name}
               </h1>
-              <span className="text-sm text-gray-500 dark:text-gray-400">{ticker}</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">{ticker}</span>
+
+              {/* 헤더 가격 표시 - 스크롤해도 현재가 확인 가능 */}
+              <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  ${stock.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                  isPositive
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                }`}>
+                  {isPositive ? '+' : ''}{stock.changePercent.toFixed(2)}%
+                </span>
+              </div>
             </div>
 
             {/* 우측 버튼들 */}
-            <div className="flex items-center gap-1 ml-auto">
+            <div className="flex items-center gap-1 flex-shrink-0">
               <WatchlistButton
                 isInWatchlist={inWatchlist}
                 onToggle={handleToggleWatchlist}

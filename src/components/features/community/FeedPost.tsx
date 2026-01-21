@@ -36,9 +36,15 @@ interface FeedPostProps {
   onLoadComments?: (postId: string) => Promise<CommunityComment[]>;
   /** 댓글 작성 콜백 */
   onAddComment?: (postId: string, content: string) => Promise<CommunityComment | null>;
+  /**
+   * 티커 카드에 가격 표시 여부
+   * - true: 가격 표시 (기본값, /community 페이지용)
+   * - false: 가격 숨김 (/market/[ticker] 페이지 커뮤니티 섹션용 - 위에 가격 있어서 중복 방지)
+   */
+  showTickerPrice?: boolean;
 }
 
-export function FeedPost({ post, postId, onLikeToggle, onLoadComments, onAddComment }: FeedPostProps) {
+export function FeedPost({ post, postId, onLikeToggle, onLoadComments, onAddComment, showTickerPrice = true }: FeedPostProps) {
   const router = useRouter();
 
   // 인터랙션 상태
@@ -222,9 +228,13 @@ export function FeedPost({ post, postId, onLikeToggle, onLoadComments, onAddComm
   /**
    * 종목 미니 카드 렌더링
    *
+   * showTickerPrice 설정에 따른 동작:
+   * - true (기본값): 가격 표시 (/community 페이지용)
+   * - false: 가격 숨김 (/market/[ticker] 커뮤니티 섹션용 - 중복 방지)
+   *
    * 가격 정보가 없는 경우 (price === 0):
-   * - 가격과 등락률 대신 "시세 보기 →" 텍스트 표시
-   * - 클릭 시 종목 상세 페이지로 이동하여 실시간 시세 확인 가능
+   * - "시세 보기 →" 텍스트 표시
+   * - 클릭 시 종목 상세 페이지로 이동
    */
   const renderStockCard = (stock: StockTag) => {
     const isPositive = stock.changePercent >= 0;
@@ -247,29 +257,37 @@ export function FeedPost({ post, postId, onLikeToggle, onLoadComments, onAddComm
           <span className="text-sm text-gray-500 dark:text-gray-400">{stock.name}</span>
         </div>
 
-        {/* 가격 및 등락률 - 가격 정보가 있을 때만 표시 */}
-        {hasPrice ? (
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-gray-900 dark:text-white">
-              ${stock.price.toFixed(2)}
+        {/* 가격 영역 - showTickerPrice=false면 숨김 */}
+        {showTickerPrice && (
+          hasPrice ? (
+            /* 가격 정보 있음 - 가격과 등락률 표시 */
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-gray-900 dark:text-white">
+                ${stock.price.toFixed(2)}
+              </span>
+              <span
+                className={`text-sm font-medium px-2 py-0.5 rounded-full ${
+                  isPositive
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                }`}
+              >
+                {isPositive ? '+' : ''}
+                {stock.changePercent.toFixed(2)}%
+              </span>
+              <span className="text-lg">{isPositive ? '📈' : '📉'}</span>
+            </div>
+          ) : (
+            /* 가격 정보 없음 - 시세 보기 링크 표시 */
+            <span className="text-sm text-blue-600 dark:text-blue-400">
+              시세 보기 →
             </span>
-            <span
-              className={`text-sm font-medium px-2 py-0.5 rounded-full ${
-                isPositive
-                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                  : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-              }`}
-            >
-              {isPositive ? '+' : ''}
-              {stock.changePercent.toFixed(2)}%
-            </span>
-            <span className="text-lg">{isPositive ? '📈' : '📉'}</span>
-          </div>
-        ) : (
-          /* 가격 정보 없음 - 시세 보기 링크 표시 */
-          <span className="text-sm text-blue-600 dark:text-blue-400">
-            시세 보기 →
-          </span>
+          )
+        )}
+
+        {/* showTickerPrice=false일 때 화살표 아이콘만 표시 */}
+        {!showTickerPrice && (
+          <span className="text-gray-400 dark:text-gray-500">→</span>
         )}
       </div>
     );

@@ -331,6 +331,7 @@ export function TickerCommunitySection({
               onLikeToggle={handleLikeToggle}
               onLoadComments={handleLoadComments}
               onAddComment={handleAddComment}
+              showTickerPrice={false}  // 시세 페이지에서는 가격 숨김 (위에 이미 표시됨)
             />
           ))}
           {/* 더보기 버튼 (하단) */}
