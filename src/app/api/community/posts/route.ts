@@ -50,7 +50,10 @@ import {
 
 /**
  * Firestore 문서를 CommunityPost로 변환
- * 기존 게시글 호환성: markets, tickerNames 필드가 없는 경우 빈 배열로 처리
+ *
+ * 기존 게시글 호환성:
+ * - markets, tickerNames 필드가 없는 경우 빈 배열로 처리
+ * - authorHandle 필드가 없는 경우 userId 앞 8자리로 대체
  */
 function docToPost(
   docData: FirestorePost & { id: string },
@@ -73,6 +76,8 @@ function docToPost(
     author: {
       id: docData.userId,
       name: docData.authorName || '사용자',
+      // 기존 글 호환: authorHandle 없으면 userId 앞 8자리 사용
+      handle: docData.authorHandle || docData.userId.slice(0, 8),
       avatarUrl: docData.authorPhotoURL || null,
     },
     isLiked,
@@ -193,12 +198,19 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/community/posts
  * 새 게시글 작성
+ *
+ * 요청 헤더:
+ * - x-user-id: Firebase uid
+ * - x-user-name: 닉네임 (표시용)
+ * - x-user-handle: @아이디 (고유 식별자)
+ * - x-user-photo: 프로필 이미지 URL
  */
 export async function POST(request: NextRequest) {
   try {
     // 요청 헤더에서 사용자 정보 가져오기
     const userId = request.headers.get('x-user-id');
     const userName = request.headers.get('x-user-name') || '사용자';
+    const userHandle = request.headers.get('x-user-handle') || userId?.slice(0, 8) || 'user';
     const userPhotoURL = request.headers.get('x-user-photo');
 
     if (!userId) {
@@ -228,10 +240,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Firestore에 게시글 생성
-    // 종목 태그: tickers (종목 코드), markets (시장), tickerNames (종목명)
+    // 작성자 정보: authorName (닉네임), authorHandle (@아이디), authorPhotoURL (프로필 사진)
     const postData: Omit<FirestorePost, 'createdAt' | 'updatedAt'> = {
       userId,
       authorName: decodeURIComponent(userName),
+      authorHandle: decodeURIComponent(userHandle),
       authorPhotoURL: userPhotoURL ? decodeURIComponent(userPhotoURL) : null,
       content: content.trim(),
       category,
@@ -268,6 +281,7 @@ export async function POST(request: NextRequest) {
       author: {
         id: userId,
         name: decodeURIComponent(userName),
+        handle: decodeURIComponent(userHandle),
         avatarUrl: userPhotoURL ? decodeURIComponent(userPhotoURL) : null,
       },
       isLiked: false,

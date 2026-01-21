@@ -270,9 +270,18 @@ export function FeedPost({ post, postId, onLikeToggle, onLoadComments, onAddComm
       <div className="p-4">
         {/* 상단: 프로필 + 닉네임 + 시간 */}
         <div className="flex items-start gap-3">
-          {/* 프로필 아바타 */}
-          <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xl flex-shrink-0">
-            {post.authorAvatar}
+          {/* 프로필 아바타 - URL이면 이미지, 아니면 이모지 텍스트 */}
+          <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xl flex-shrink-0 overflow-hidden">
+            {post.authorAvatar?.startsWith('http') ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={post.authorAvatar}
+                alt={post.author}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              post.authorAvatar
+            )}
           </div>
 
           {/* 콘텐츠 영역 */}

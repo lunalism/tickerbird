@@ -41,6 +41,10 @@ import { useCommunity } from '@/hooks';
 /**
  * CommunityPost를 FeedPost 형식으로 변환
  * 기존 FeedPost 컴포넌트와 호환성 유지
+ *
+ * 작성자 정보 표시:
+ * - author: 닉네임 (표시용)
+ * - username: @handle (고유 식별자, 이메일 앞부분)
  */
 function toFeedPost(post: CommunityPost): FeedPostType {
   // 상대 시간 계산
@@ -65,14 +69,24 @@ function toFeedPost(post: CommunityPost): FeedPostType {
   }
 
   // 아바타 이모지 선택 (이름의 첫 글자 기반)
+  // author.name이 없거나 빈 문자열이면 기본 이모지 사용
   const avatarEmojis = ['👤', '😊', '🙂', '😎', '🤓', '👨‍💼', '👩‍💼', '🧑‍💻'];
-  const avatarIndex = post.author.name.charCodeAt(0) % avatarEmojis.length;
+  const authorName = post.author.name || '사용자';
+  const avatarIndex = authorName.charCodeAt(0) % avatarEmojis.length;
+
+  // avatarUrl이 URL인지 확인 (http로 시작하면 URL)
+  // URL이면 그대로 사용, 아니면 이모지 사용
+  const isAvatarUrl = post.author.avatarUrl?.startsWith('http');
+  const authorAvatar = isAvatarUrl ? post.author.avatarUrl : avatarEmojis[avatarIndex];
+
+  // @handle: 고유 식별자 (이메일 앞부분 또는 userId 앞 8자리)
+  const authorHandle = post.author.handle || post.userId.slice(0, 8);
 
   return {
     id: parseInt(post.id.replace(/-/g, '').slice(0, 8), 16) || Date.now(),
-    author: post.author.name,
-    username: post.author.name.toLowerCase().replace(/\s+/g, '_'),
-    authorAvatar: post.author.avatarUrl || avatarEmojis[avatarIndex],
+    author: authorName,
+    username: authorHandle,  // @handle 사용 (닉네임 대신 고유 식별자)
+    authorAvatar: authorAvatar || avatarEmojis[avatarIndex],
     content: post.content,
     hashtags: post.hashtags,
     stockTags: post.tickers.map(ticker => ({

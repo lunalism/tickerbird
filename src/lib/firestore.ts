@@ -240,11 +240,17 @@ export interface FirestoreWatchlistItem {
 
 /**
  * Firestore 게시글 문서 타입
+ *
+ * 작성자 정보:
+ * - authorName: 닉네임 (표시용)
+ * - authorHandle: @아이디 (이메일 앞부분, 고유 식별자)
+ * - authorPhotoURL: 프로필 이미지 URL
  */
 export interface FirestorePost {
   userId: string;
-  authorName: string;
-  authorPhotoURL: string | null;
+  authorName: string;              // 닉네임 (표시용)
+  authorHandle?: string;           // @아이디 (고유 식별자, optional - 기존 글 호환)
+  authorPhotoURL: string | null;   // 프로필 이미지 URL
   content: string;
   category: string;
   tickers: string[];           // 종목 코드 배열 ["005930", "AAPL", "TSLA"]
@@ -260,11 +266,17 @@ export interface FirestorePost {
 
 /**
  * Firestore 댓글 문서 타입 (posts/{postId}/comments 서브컬렉션)
+ *
+ * 작성자 정보:
+ * - authorName: 닉네임 (표시용)
+ * - authorHandle: @아이디 (이메일 앞부분, 고유 식별자)
+ * - authorPhotoURL: 프로필 이미지 URL
  */
 export interface FirestoreComment {
   userId: string;
-  authorName: string;
-  authorPhotoURL: string | null;
+  authorName: string;              // 닉네임 (표시용)
+  authorHandle?: string;           // @아이디 (고유 식별자, optional - 기존 글 호환)
+  authorPhotoURL: string | null;   // 프로필 이미지 URL
   content: string;
   createdAt: Timestamp;
 }

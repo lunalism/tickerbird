@@ -44,6 +44,8 @@ interface CommentsListResponse {
 
 /**
  * Firestore 문서를 CommunityComment로 변환
+ *
+ * 기존 댓글 호환성: authorHandle 필드가 없는 경우 userId 앞 8자리로 대체
  */
 function docToComment(doc: FirestoreComment & { id: string }): CommunityComment {
   return {
@@ -55,6 +57,8 @@ function docToComment(doc: FirestoreComment & { id: string }): CommunityComment 
     author: {
       id: doc.userId,
       name: doc.authorName || '사용자',
+      // 기존 댓글 호환: authorHandle 없으면 userId 앞 8자리 사용
+      handle: doc.authorHandle || doc.userId.slice(0, 8),
       avatarUrl: doc.authorPhotoURL || null,
     },
   };
@@ -134,6 +138,12 @@ export async function GET(
 /**
  * POST /api/community/posts/[id]/comments
  * 새 댓글 작성
+ *
+ * 요청 헤더:
+ * - x-user-id: Firebase uid
+ * - x-user-name: 닉네임 (표시용)
+ * - x-user-handle: @아이디 (고유 식별자)
+ * - x-user-photo: 프로필 이미지 URL
  */
 export async function POST(
   request: NextRequest,
@@ -145,6 +155,7 @@ export async function POST(
     // 요청 헤더에서 사용자 정보 가져오기
     const userId = request.headers.get('x-user-id');
     const userName = request.headers.get('x-user-name') || '사용자';
+    const userHandle = request.headers.get('x-user-handle') || userId?.slice(0, 8) || 'user';
     const userPhotoURL = request.headers.get('x-user-photo');
 
     if (!userId) {
@@ -183,9 +194,11 @@ export async function POST(
     }
 
     // Firestore에 댓글 생성
+    // 작성자 정보: authorName (닉네임), authorHandle (@아이디), authorPhotoURL (프로필 사진)
     const commentData: Omit<FirestoreComment, 'createdAt'> = {
       userId,
       authorName: decodeURIComponent(userName),
+      authorHandle: decodeURIComponent(userHandle),
       authorPhotoURL: userPhotoURL ? decodeURIComponent(userPhotoURL) : null,
       content: content.trim(),
     };
@@ -210,6 +223,7 @@ export async function POST(
       author: {
         id: userId,
         name: decodeURIComponent(userName),
+        handle: decodeURIComponent(userHandle),
         avatarUrl: userPhotoURL ? decodeURIComponent(userPhotoURL) : null,
       },
     };

@@ -53,12 +53,16 @@ export function useCommunity(options: UseCommunityOptions = {}) {
    * API 요청 시 사용할 인증 헤더 생성
    * Firebase Auth 사용자 정보를 헤더에 포함
    *
-   * 사용자 이름 우선순위:
+   * 사용자 이름(닉네임) 우선순위:
    * 1. userProfile.nickname (AlphaBoard 닉네임)
    * 2. userProfile.displayName (프로필에서 가져온 이름)
    * 3. user.displayName (Firebase Auth의 Google 이름)
    * 4. user.email의 @ 앞부분
    * 5. '사용자' (기본값)
+   *
+   * 사용자 핸들(@아이디) - 고유 식별자:
+   * 1. user.email의 @ 앞부분
+   * 2. user.uid 앞 8자리 (이메일 없는 경우)
    *
    * 프로필 이미지 우선순위:
    * 1. userProfile.avatarUrl
@@ -73,7 +77,7 @@ export function useCommunity(options: UseCommunityOptions = {}) {
     if (user?.uid) {
       headers['x-user-id'] = user.uid;
 
-      // 사용자 이름 설정 (우선순위에 따라 fallback)
+      // 사용자 이름(닉네임) 설정 - 표시용
       // nickname이 빈 문자열('')인 경우도 falsy로 처리됨
       const userName =
         (userProfile?.nickname && userProfile.nickname.trim()) ||
@@ -82,6 +86,11 @@ export function useCommunity(options: UseCommunityOptions = {}) {
         user.email?.split('@')[0] ||
         '사용자';
       headers['x-user-name'] = encodeURIComponent(userName);
+
+      // 사용자 핸들(@아이디) 설정 - 고유 식별자
+      // 이메일 앞부분 또는 uid 앞 8자리
+      const userHandle = user.email?.split('@')[0] || user.uid.slice(0, 8);
+      headers['x-user-handle'] = encodeURIComponent(userHandle);
 
       // 프로필 이미지 설정 (userProfile → user.photoURL 순서)
       const photoUrl = userProfile?.avatarUrl || user.photoURL;
@@ -306,6 +315,12 @@ export function useComments(postId: string) {
   /**
    * API 요청 시 사용할 인증 헤더 생성
    * (useCommunity의 getAuthHeaders와 동일한 로직)
+   *
+   * 헤더 정보:
+   * - x-user-id: Firebase uid
+   * - x-user-name: 닉네임 (표시용)
+   * - x-user-handle: 핸들 (@아이디, 고유 식별자)
+   * - x-user-photo: 프로필 이미지 URL
    */
   const getAuthHeaders = useCallback((): HeadersInit => {
     const headers: HeadersInit = {
@@ -315,7 +330,7 @@ export function useComments(postId: string) {
     if (user?.uid) {
       headers['x-user-id'] = user.uid;
 
-      // 사용자 이름 설정 (우선순위에 따라 fallback)
+      // 사용자 이름(닉네임) 설정 - 표시용
       const userName =
         (userProfile?.nickname && userProfile.nickname.trim()) ||
         (userProfile?.displayName && userProfile.displayName.trim()) ||
@@ -323,6 +338,10 @@ export function useComments(postId: string) {
         user.email?.split('@')[0] ||
         '사용자';
       headers['x-user-name'] = encodeURIComponent(userName);
+
+      // 사용자 핸들(@아이디) 설정 - 고유 식별자
+      const userHandle = user.email?.split('@')[0] || user.uid.slice(0, 8);
+      headers['x-user-handle'] = encodeURIComponent(userHandle);
 
       // 프로필 이미지 설정
       const photoUrl = userProfile?.avatarUrl || user.photoURL;

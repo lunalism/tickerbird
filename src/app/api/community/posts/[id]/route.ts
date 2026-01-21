@@ -31,7 +31,10 @@ interface RouteParams {
 
 /**
  * Firestore 문서를 CommunityPost로 변환
- * 기존 게시글 호환성: markets, tickerNames 필드가 없는 경우 빈 배열로 처리
+ *
+ * 기존 게시글 호환성:
+ * - markets, tickerNames 필드가 없는 경우 빈 배열로 처리
+ * - authorHandle 필드가 없는 경우 userId 앞 8자리로 대체
  */
 function docToPost(
   docData: FirestorePost & { id: string },
@@ -54,6 +57,8 @@ function docToPost(
     author: {
       id: docData.userId,
       name: docData.authorName || '사용자',
+      // 기존 글 호환: authorHandle 없으면 userId 앞 8자리 사용
+      handle: docData.authorHandle || docData.userId.slice(0, 8),
       avatarUrl: docData.authorPhotoURL || null,
     },
     isLiked,

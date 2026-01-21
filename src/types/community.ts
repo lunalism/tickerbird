@@ -182,7 +182,8 @@ export interface CommunityPost {
   // 작성자 정보
   author: {
     id: string;
-    name: string;
+    name: string;              // 닉네임 (표시용)
+    handle: string;            // @아이디 (이메일 앞부분, 고유 식별자)
     avatarUrl: string | null;
   };
   // 현재 사용자 상태
@@ -201,7 +202,8 @@ export interface CommunityComment {
   // 작성자 정보
   author: {
     id: string;
-    name: string;
+    name: string;              // 닉네임 (표시용)
+    handle: string;            // @아이디 (이메일 앞부분, 고유 식별자)
     avatarUrl: string | null;
   };
 }
@@ -261,7 +263,10 @@ export interface PostsListResponse {
 
 /**
  * PostRow를 CommunityPost로 변환
- * 기존 게시글 호환성: tickers, markets, tickerNames 필드가 없는 경우 빈 배열로 처리
+ *
+ * 기존 게시글 호환성:
+ * - tickers, markets, tickerNames 필드가 없는 경우 빈 배열로 처리
+ * - handle 필드가 없는 경우 user_id 앞 8자리로 대체
  */
 export function rowToPost(row: PostRow, isLiked: boolean = false): CommunityPost {
   return {
@@ -281,6 +286,8 @@ export function rowToPost(row: PostRow, isLiked: boolean = false): CommunityPost
     author: {
       id: row.profiles?.id || row.user_id,
       name: row.profiles?.name || '사용자',
+      // 기존 글 호환: handle 없으면 user_id 앞 8자리 사용
+      handle: row.user_id.slice(0, 8),
       avatarUrl: row.profiles?.avatar_url || null,
     },
     isLiked,
@@ -289,6 +296,8 @@ export function rowToPost(row: PostRow, isLiked: boolean = false): CommunityPost
 
 /**
  * CommentRow를 CommunityComment로 변환
+ *
+ * 기존 댓글 호환성: handle 필드가 없는 경우 user_id 앞 8자리로 대체
  */
 export function rowToComment(row: CommentRow): CommunityComment {
   return {
@@ -300,6 +309,8 @@ export function rowToComment(row: CommentRow): CommunityComment {
     author: {
       id: row.profiles?.id || row.user_id,
       name: row.profiles?.name || '사용자',
+      // 기존 댓글 호환: handle 없으면 user_id 앞 8자리 사용
+      handle: row.user_id.slice(0, 8),
       avatarUrl: row.profiles?.avatar_url || null,
     },
   };
