@@ -112,6 +112,7 @@ export async function GET(request: NextRequest) {
 
     // 종목 필터 (array-contains 사용)
     // 특정 종목의 게시글만 조회할 때 사용
+    // 참고: tickers + createdAt 복합 인덱스 필요 (없으면 폴백 쿼리 실행)
     if (ticker) {
       constraints.push(where('tickers', 'array-contains', ticker));
     }
@@ -135,13 +136,41 @@ export async function GET(request: NextRequest) {
     }
 
     // 개수 제한 (+1 for hasMore check)
-    constraints.push(firestoreLimit(limitNum + 1));
+    // ticker 필터링 시 더 많이 가져와서 JS에서 필터링 (인덱스 폴백용)
+    const fetchLimit = ticker ? Math.max(limitNum * 3, 50) : limitNum + 1;
+    constraints.push(firestoreLimit(fetchLimit));
 
     // Firestore 쿼리 실행
-    const posts = await queryCollection<FirestorePost>(
-      postsCollection(),
-      constraints
-    );
+    // 복합 인덱스 없으면 폴백 쿼리 실행
+    // queryCollection은 id 필드를 자동으로 포함하여 반환
+    let posts: (FirestorePost & { id: string })[];
+    try {
+      posts = await queryCollection<FirestorePost>(
+        postsCollection(),
+        constraints
+      );
+    } catch (queryError) {
+      // 인덱스 에러 시: ticker 필터 없이 쿼리 후 JS에서 필터링
+      // (복합 인덱스가 생성되기 전까지의 임시 폴백)
+      const errorMessage = queryError instanceof Error ? queryError.message : '';
+      if (ticker && errorMessage.includes('index')) {
+        // 더 많이 가져와서 JS에서 필터링
+        const fallbackPosts = await queryCollection<FirestorePost>(
+          postsCollection(),
+          [
+            orderBy('createdAt', 'desc'),
+            firestoreLimit(100), // 넉넉히 가져옴
+          ]
+        );
+
+        // JS에서 ticker 필터링
+        posts = fallbackPosts.filter(p =>
+          p.tickers && p.tickers.includes(ticker)
+        );
+      } else {
+        throw queryError;
+      }
+    }
 
     // 좋아요 여부 조회 (로그인 사용자만)
     const likedPostIds = new Set<string>();
