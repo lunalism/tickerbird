@@ -76,14 +76,15 @@ function toFeedPost(post: CommunityPost): FeedPostType {
     timeAgo = createdDate.toLocaleDateString('ko-KR');
   }
 
-  // 아바타 이모지 선택 (이름의 첫 글자 기반)
-  const avatarEmojis = ['👤', '😊', '🙂', '😎', '🤓', '👨‍💼', '👩‍💼', '🧑‍💻'];
+  // 아바타 처리
   const authorName = post.author.name || '사용자';
-  const avatarIndex = authorName.charCodeAt(0) % avatarEmojis.length;
 
-  // avatarUrl이 URL인지 확인
-  const isAvatarUrl = post.author.avatarUrl?.startsWith('http');
-  const authorAvatar = isAvatarUrl ? post.author.avatarUrl : avatarEmojis[avatarIndex];
+  // avatarUrl이 이미지 URL인지 확인
+  // 1. http:// 또는 https:// 로 시작하는 외부 URL
+  // 2. /avatars/ 로 시작하는 내부 경로 (온보딩 아바타)
+  const isImageUrl = post.author.avatarUrl?.startsWith('http') || post.author.avatarUrl?.startsWith('/avatars/');
+  // 이미지 URL이면 그대로 사용, 아니면 null (FeedPost에서 이니셜로 처리)
+  const authorAvatar = isImageUrl ? post.author.avatarUrl : null;
 
   // @handle: 고유 식별자
   const authorHandle = post.author.handle || post.userId.slice(0, 8);
@@ -92,7 +93,7 @@ function toFeedPost(post: CommunityPost): FeedPostType {
     id: parseInt(post.id.replace(/-/g, '').slice(0, 8), 16) || Date.now(),
     author: authorName,
     username: authorHandle,
-    authorAvatar: authorAvatar || avatarEmojis[avatarIndex],
+    authorAvatar: authorAvatar,  // null이면 FeedPost에서 이니셜 표시
     content: post.content,
     hashtags: post.hashtags,
     stockTags: post.tickers.map(ticker => ({
