@@ -55,17 +55,36 @@ interface FeedPostProps {
    * - false: 정적 가격 표시 또는 "시세 보기 →" (기본값)
    */
   fetchPrices?: boolean;
+  /**
+   * 로그인 상태 여부
+   * - true: 좋아요/댓글 기능 활성화
+   * - false: 클릭 시 로그인 유도 토스트 표시
+   */
+  isLoggedIn?: boolean;
+  /**
+   * 로그인 필요 시 호출되는 콜백
+   * - 비로그인 상태에서 좋아요/댓글 클릭 시 호출
+   */
+  onLoginRequired?: () => void;
 }
 
-export function FeedPost({ post, postId, onLikeToggle, onLoadComments, onAddComment, showTickerPrice = true, showTickerCard = true, fetchPrices = false }: FeedPostProps) {
+export function FeedPost({
+  post,
+  postId,
+  onLikeToggle,
+  onLoadComments,
+  onAddComment,
+  showTickerPrice = true,
+  showTickerCard = true,
+  fetchPrices = false,
+  isLoggedIn = false,
+  onLoginRequired,
+}: FeedPostProps) {
   const router = useRouter();
 
-  // 인터랙션 상태
+  // 인터랙션 상태 (좋아요, 댓글만 사용 - 리포스트/북마크 제거됨)
   const [liked, setLiked] = useState(post.liked);
   const [likesCount, setLikesCount] = useState(post.likes);
-  const [bookmarked, setBookmarked] = useState(post.bookmarked);
-  const [reposted, setReposted] = useState(post.reposted);
-  const [repostsCount, setRepostsCount] = useState(post.reposts);
   const [commentsCount, setCommentsCount] = useState(post.comments);
 
   // 댓글 관련 상태
@@ -80,8 +99,16 @@ export function FeedPost({ post, postId, onLikeToggle, onLoadComments, onAddComm
 
   /**
    * 좋아요 토글
+   * - 비로그인 시: onLoginRequired 콜백 호출 (로그인 유도 토스트)
+   * - 로그인 시: API 호출하여 좋아요 토글
    */
   const handleLike = async () => {
+    // 비로그인 상태 체크 - 로그인 유도
+    if (!isLoggedIn) {
+      onLoginRequired?.();
+      return;
+    }
+
     if (isLiking) return;
 
     // API 콜백이 있으면 사용
@@ -126,8 +153,16 @@ export function FeedPost({ post, postId, onLikeToggle, onLoadComments, onAddComm
 
   /**
    * 댓글 작성
+   * - 비로그인 시: onLoginRequired 콜백 호출 (로그인 유도 토스트)
+   * - 로그인 시: API 호출하여 댓글 작성
    */
   const handleSubmitComment = async () => {
+    // 비로그인 상태 체크 - 로그인 유도
+    if (!isLoggedIn) {
+      onLoginRequired?.();
+      return;
+    }
+
     if (!commentInput.trim() || !postId || !onAddComment || isSubmittingComment) return;
 
     setIsSubmittingComment(true);
@@ -143,21 +178,6 @@ export function FeedPost({ post, postId, onLikeToggle, onLoadComments, onAddComm
     } finally {
       setIsSubmittingComment(false);
     }
-  };
-
-  /**
-   * 북마크 토글
-   */
-  const handleBookmark = () => {
-    setBookmarked(!bookmarked);
-  };
-
-  /**
-   * 리포스트 토글
-   */
-  const handleRepost = () => {
-    setReposted(!reposted);
-    setRepostsCount(reposted ? repostsCount - 1 : repostsCount + 1);
   };
 
   /**
@@ -373,26 +393,28 @@ export function FeedPost({ post, postId, onLikeToggle, onLoadComments, onAddComm
               </div>
             )}
 
-            {/* 인터랙션 버튼 */}
-            <div className="flex items-center justify-between max-w-md -ml-2">
-              {/* 좋아요 */}
+            {/* 인터랙션 버튼 - 좋아요, 댓글만 표시 (리포스트/북마크 제거됨) */}
+            <div className="flex items-center gap-2 -ml-2">
+              {/* 좋아요 버튼 - 클릭 시 빨간색으로 변경 */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleLike();
                 }}
+                disabled={isLiking}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors
                   ${
                     liked
                       ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'
                       : 'text-gray-500 dark:text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'
-                  }`}
+                  }
+                  ${isLiking ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <span className="text-lg">{liked ? '❤️' : '🤍'}</span>
                 <span className="text-sm">{likesCount}</span>
               </button>
 
-              {/* 댓글 */}
+              {/* 댓글 버튼 - 클릭 시 댓글 섹션 펼침/접힘 */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -406,39 +428,6 @@ export function FeedPost({ post, postId, onLikeToggle, onLoadComments, onAddComm
               >
                 <span className="text-lg">💬</span>
                 <span className="text-sm">{commentsCount}</span>
-              </button>
-
-              {/* 리포스트 */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRepost();
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors
-                  ${
-                    reposted
-                      ? 'text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20'
-                  }`}
-              >
-                <span className="text-lg">🔄</span>
-                <span className="text-sm">{repostsCount}</span>
-              </button>
-
-              {/* 북마크 */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleBookmark();
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors
-                  ${
-                    bookmarked
-                      ? 'text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                  }`}
-              >
-                <span className="text-lg">{bookmarked ? '🔖' : '📑'}</span>
               </button>
             </div>
           </div>

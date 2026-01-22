@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { useTickerCommunity } from '@/hooks';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { FeedPost } from './FeedPost';
+import { showWarning } from '@/lib/toast';
 import {
   CommunityPost,
   CommunityComment,
@@ -122,7 +123,8 @@ export function TickerCommunitySection({
   limit = 5,
 }: TickerCommunitySectionProps) {
   const router = useRouter();
-  const { isLoggedIn, signInWithGoogle } = useAuth();
+  // useAuth에서 로그인 상태, 사용자 정보 가져오기
+  const { isLoggedIn, signInWithGoogle, user, userProfile } = useAuth();
 
   // 종목별 커뮤니티 훅
   const {
@@ -143,6 +145,50 @@ export function TickerCommunitySection({
   // 글쓰기 입력 상태
   const [composeContent, setComposeContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  /**
+   * API 요청 시 사용할 인증 헤더 생성
+   * (useCommunity의 getAuthHeaders와 동일한 로직)
+   *
+   * 댓글 작성 시 사용자 정보를 서버에 전달하기 위해 필요
+   */
+  const getAuthHeaders = useCallback((): HeadersInit => {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    if (user?.uid) {
+      headers['x-user-id'] = user.uid;
+
+      // 사용자 이름(닉네임) 설정 - 표시용
+      const userName =
+        (userProfile?.nickname && userProfile.nickname.trim()) ||
+        user.displayName ||
+        user.email?.split('@')[0] ||
+        '사용자';
+      headers['x-user-name'] = encodeURIComponent(userName);
+
+      // 사용자 핸들(@아이디) 설정 - 고유 식별자
+      const userHandle = user.email?.split('@')[0] || user.uid.slice(0, 8);
+      headers['x-user-handle'] = encodeURIComponent(userHandle);
+
+      // 프로필 이미지 URL
+      const photoURL = userProfile?.avatarUrl || user.photoURL;
+      if (photoURL) {
+        headers['x-user-photo'] = encodeURIComponent(photoURL);
+      }
+    }
+
+    return headers;
+  }, [user, userProfile]);
+
+  /**
+   * 로그인 필요 시 호출되는 콜백
+   * - 토스트로 로그인 유도 메시지 표시
+   */
+  const handleLoginRequired = useCallback(() => {
+    showWarning('로그인이 필요합니다', '좋아요와 댓글 작성은 로그인 후 이용 가능합니다');
+  }, []);
 
   /**
    * 게시글 작성 핸들러
@@ -188,12 +234,13 @@ export function TickerCommunitySection({
 
   /**
    * 댓글 작성 핸들러
+   * - 인증 헤더 포함하여 API 호출 (사용자 정보 전달)
    */
   const handleAddComment = useCallback(async (postId: string, content: string): Promise<CommunityComment | null> => {
     try {
       const response = await fetch(`/api/community/posts/${postId}/comments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ content }),
       });
       const result: CommunityApiResponse<CommunityComment> = await response.json();
@@ -204,7 +251,7 @@ export function TickerCommunitySection({
     } catch {
       return null;
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   /**
    * 더보기 버튼 클릭 핸들러
@@ -333,6 +380,8 @@ export function TickerCommunitySection({
               onAddComment={handleAddComment}
               showTickerPrice={false}  // 시세 페이지에서는 가격 숨김 (위에 이미 표시됨)
               showTickerCard={false}   // 시세 페이지에서는 티커 카드 숨김 (이미 종목 페이지에 있으므로)
+              isLoggedIn={isLoggedIn}  // 로그인 상태 전달 (좋아요/댓글 기능 활성화용)
+              onLoginRequired={handleLoginRequired}  // 비로그인 시 토스트 표시
             />
           ))}
           {/* 더보기 버튼 (하단) */}

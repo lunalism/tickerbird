@@ -38,6 +38,7 @@ import {
 import { hotPosts, discussionStocks, activeUsers } from '@/constants';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useCommunity } from '@/hooks';
+import { showWarning } from '@/lib/toast';
 
 /**
  * CommunityPost를 FeedPost 형식으로 변환
@@ -116,7 +117,51 @@ export default function CommunityPage() {
   const [sortType, setSortType] = useState<SortType>('latest');
   // AuthProvider의 useAuth 훅 사용 (Firebase Auth 연동)
   // useAuthStore(Zustand)가 아닌 useAuth(Context)를 사용해야 Firebase 로그인 상태를 인식함
-  const { isLoggedIn, signInWithGoogle } = useAuth();
+  const { isLoggedIn, signInWithGoogle, user, userProfile } = useAuth();
+
+  /**
+   * API 요청 시 사용할 인증 헤더 생성
+   * (useCommunity의 getAuthHeaders와 동일한 로직)
+   *
+   * 댓글 작성 시 사용자 정보를 서버에 전달하기 위해 필요
+   */
+  const getAuthHeaders = useCallback((): HeadersInit => {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    if (user?.uid) {
+      headers['x-user-id'] = user.uid;
+
+      // 사용자 이름(닉네임) 설정 - 표시용
+      const userName =
+        (userProfile?.nickname && userProfile.nickname.trim()) ||
+        user.displayName ||
+        user.email?.split('@')[0] ||
+        '사용자';
+      headers['x-user-name'] = encodeURIComponent(userName);
+
+      // 사용자 핸들(@아이디) 설정 - 고유 식별자
+      const userHandle = user.email?.split('@')[0] || user.uid.slice(0, 8);
+      headers['x-user-handle'] = encodeURIComponent(userHandle);
+
+      // 프로필 이미지 URL
+      const photoURL = userProfile?.avatarUrl || user.photoURL;
+      if (photoURL) {
+        headers['x-user-photo'] = encodeURIComponent(photoURL);
+      }
+    }
+
+    return headers;
+  }, [user, userProfile]);
+
+  /**
+   * 로그인 필요 시 호출되는 콜백
+   * - 토스트로 로그인 유도 메시지 표시
+   */
+  const handleLoginRequired = useCallback(() => {
+    showWarning('로그인이 필요합니다', '좋아요와 댓글 작성은 로그인 후 이용 가능합니다');
+  }, []);
 
   // URL 쿼리 파라미터에서 종목 필터 가져오기
   // /community?ticker=AAPL 형태로 접근 시 해당 종목 글만 표시
@@ -168,12 +213,13 @@ export default function CommunityPage() {
 
   /**
    * 댓글 작성 핸들러
+   * - 인증 헤더 포함하여 API 호출 (사용자 정보 전달)
    */
   const handleAddComment = useCallback(async (postId: string, content: string): Promise<CommunityComment | null> => {
     try {
       const response = await fetch(`/api/community/posts/${postId}/comments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ content }),
       });
       const result: CommunityApiResponse<CommunityComment> = await response.json();
@@ -184,7 +230,7 @@ export default function CommunityPage() {
     } catch {
       return null;
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900">
@@ -295,6 +341,8 @@ export default function CommunityPage() {
                       onLoadComments={handleLoadComments}
                       onAddComment={handleAddComment}
                       fetchPrices={true}  // 커뮤니티 페이지에서는 실시간 가격 API 호출
+                      isLoggedIn={isLoggedIn}  // 로그인 상태 전달 (좋아요/댓글 기능 활성화용)
+                      onLoginRequired={handleLoginRequired}  // 비로그인 시 토스트 표시
                     />
                   ))
                 ) : (
