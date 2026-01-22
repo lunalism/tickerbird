@@ -309,7 +309,7 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
 
   // 헤더 가격 표시 상태 (스크롤 시 메인 가격 영역이 화면에서 사라지면 true)
   const [showHeaderPrice, setShowHeaderPrice] = useState(false);
-  const priceRef = useRef<HTMLElement>(null);
+  const priceRef = useRef<HTMLParagraphElement>(null);
 
   // 한국 종목 실시간 데이터
   const { stock, isLoading: isStockLoading, error, refetch } = useKoreanStockPrice(ticker);
@@ -656,9 +656,10 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
             <div className="lg:col-span-3 space-y-6">
 
               {/* 가격 섹션 - 항상 중앙 정렬 (토스 스타일) */}
-              {/* ref: Intersection Observer로 화면 이탈 감지 → 헤더에 가격 표시 */}
-              <section ref={priceRef} className="text-center py-4">
-                <p className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-2">
+              <section className="text-center py-4">
+                {/* ref: 메인 가격에 붙여서 가격 숫자가 화면 위로 사라지면 헤더에 가격 표시 */}
+                {/* 전체 section이 아닌 가격 p 태그에 붙여야 "실시간" 텍스트가 보여도 가격만 가려지면 헤더 표시됨 */}
+                <p ref={priceRef} className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-2">
                   {stock.currentPrice.toLocaleString('ko-KR')}
                   <span className="text-2xl md:text-3xl font-medium ml-1">원</span>
                 </p>
@@ -932,7 +933,7 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
 
   // 헤더 가격 표시 상태 (스크롤 시 메인 가격 영역이 화면에서 사라지면 true)
   const [showHeaderPrice, setShowHeaderPrice] = useState(false);
-  const priceRef = useRef<HTMLElement>(null);
+  const priceRef = useRef<HTMLParagraphElement>(null);
 
   // 미국 주식 실시간 데이터 조회
   const { stock, isLoading: isStockLoading, error, refetch } = useUSStockPrice(ticker);
@@ -1278,9 +1279,10 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
             <div className="lg:col-span-3 space-y-6">
 
               {/* 가격 섹션 - 항상 중앙 정렬 (토스 스타일) */}
-              {/* ref: Intersection Observer로 화면 이탈 감지 → 헤더에 가격 표시 */}
-              <section ref={priceRef} className="text-center py-4">
-                <p className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-2">
+              <section className="text-center py-4">
+                {/* ref: 메인 가격에 붙여서 가격 숫자가 화면 위로 사라지면 헤더에 가격 표시 */}
+                {/* 전체 section이 아닌 가격 p 태그에 붙여야 "NYSE · 실시간"이 보여도 가격만 가려지면 헤더 표시됨 */}
+                <p ref={priceRef} className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-2">
                   <span className="text-2xl md:text-3xl font-medium mr-1">$</span>
                   {stock.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
