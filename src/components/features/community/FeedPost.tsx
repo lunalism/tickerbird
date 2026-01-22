@@ -97,6 +97,12 @@ export function FeedPost({
   // 좋아요 로딩 상태
   const [isLiking, setIsLiking] = useState(false);
 
+  // 프로필 이미지 로딩 에러 상태
+  // - authorImageError: 게시글 작성자 이미지 로딩 실패 여부
+  // - commentImageErrors: 댓글 작성자별 이미지 로딩 실패 여부 (댓글 ID를 키로 사용)
+  const [authorImageError, setAuthorImageError] = useState(false);
+  const [commentImageErrors, setCommentImageErrors] = useState<Record<string, boolean>>({});
+
   /**
    * 좋아요 토글
    * - 비로그인 시: onLoginRequired 콜백 호출 (로그인 유도 토스트)
@@ -334,33 +340,49 @@ export function FeedPost({
       <div className="p-4">
         {/* 상단: 프로필 + 닉네임 + 시간 */}
         <div className="flex items-start gap-3">
-          {/* 프로필 아바타 - 이미지 URL이면 이미지, 아니면 이모지 텍스트 또는 이니셜 */}
-          {/* 이미지 로딩 실패 시 이니셜 아바타로 fallback */}
-          {/* 이미지 URL 판별: http로 시작하거나 /avatars/로 시작하는 경우 (온보딩 아바타) */}
-          <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-xl flex-shrink-0 overflow-hidden">
-            {/* 이니셜 fallback - 이미지 로딩 실패 시 보임 */}
-            <span className="text-white font-bold text-base">
-              {post.author?.charAt(0).toUpperCase() || '?'}
-            </span>
-            {/* 이미지가 있으면 이니셜 위에 오버레이 (http:// 또는 /avatars/ 경로) */}
-            {(post.authorAvatar?.startsWith('http') || post.authorAvatar?.startsWith('/avatars/')) && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={post.authorAvatar}
-                alt={post.author}
-                className="absolute inset-0 w-full h-full object-cover"
-                onError={(e) => {
-                  // 이미지 로딩 실패 시 숨김 → 이니셜이 보임
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
-            )}
-            {/* URL이 아닌 경우 (이모지 등) - http나 /avatars/로 시작하지 않는 경우 */}
-            {post.authorAvatar && !post.authorAvatar.startsWith('http') && !post.authorAvatar.startsWith('/avatars/') && (
-              <span className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-xl">
-                {post.authorAvatar}
-              </span>
-            )}
+          {/* 프로필 아바타 - 조건부 렌더링으로 하나만 표시 */}
+          {/* 우선순위: 1.이미지URL → 2.이모지 → 3.이니셜 (이미지 로딩 실패 시 이니셜로 fallback) */}
+          <div className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden">
+            {(() => {
+              // 이미지 URL 여부 확인 (http:// 또는 /avatars/ 경로)
+              const isImageUrl = post.authorAvatar?.startsWith('http') || post.authorAvatar?.startsWith('/avatars/');
+              // 이모지 여부 확인 (이미지 URL이 아닌 경우)
+              const isEmoji = post.authorAvatar && !isImageUrl;
+
+              // 1. 이미지 URL이 있고 로딩 에러가 없으면 → 이미지 표시
+              if (isImageUrl && !authorImageError) {
+                return (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={post.authorAvatar}
+                    alt={post.author}
+                    className="w-full h-full object-cover"
+                    onError={() => {
+                      // 이미지 로딩 실패 시 에러 상태 설정 → 이니셜로 전환
+                      setAuthorImageError(true);
+                    }}
+                  />
+                );
+              }
+
+              // 2. 이모지가 있으면 → 이모지 표시
+              if (isEmoji) {
+                return (
+                  <div className="w-full h-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xl">
+                    {post.authorAvatar}
+                  </div>
+                );
+              }
+
+              // 3. 그 외 (이미지 없거나 로딩 실패) → 이니셜 아바타 표시
+              return (
+                <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                  <span className="text-white font-bold text-base">
+                    {post.author?.charAt(0).toUpperCase() || '?'}
+                  </span>
+                </div>
+              );
+            })()}
           </div>
 
           {/* 콘텐츠 영역 */}
@@ -499,26 +521,43 @@ export function FeedPost({
             ) : comments.length > 0 ? (
               comments.map((comment) => (
                 <div key={comment.id} className="flex gap-3" onClick={(e) => e.stopPropagation()}>
-                  {/* 댓글 작성자 아바타 - 이미지 URL이면 이미지, 로딩 실패 시 이니셜 fallback */}
-                  {/* 이미지 URL 판별: http로 시작하거나 /avatars/로 시작하는 경우 (온보딩 아바타) */}
-                  <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-sm flex-shrink-0 overflow-hidden">
-                    {/* 이니셜 fallback - 이미지 로딩 실패 시 보임 */}
-                    <span className="text-white font-bold">
-                      {comment.author.name?.charAt(0).toUpperCase() || '?'}
-                    </span>
-                    {/* 이미지가 있으면 이니셜 위에 오버레이 (http:// 또는 /avatars/ 경로) */}
-                    {(comment.author.avatarUrl?.startsWith('http') || comment.author.avatarUrl?.startsWith('/avatars/')) && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={comment.author.avatarUrl}
-                        alt={comment.author.name}
-                        className="absolute inset-0 w-full h-full object-cover"
-                        onError={(e) => {
-                          // 이미지 로딩 실패 시 숨김 → 이니셜이 보임
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    )}
+                  {/* 댓글 작성자 아바타 - 조건부 렌더링으로 하나만 표시 */}
+                  {/* 우선순위: 1.이미지URL → 2.이니셜 (이미지 로딩 실패 시 이니셜로 fallback) */}
+                  <div className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden">
+                    {(() => {
+                      // 이미지 URL 여부 확인 (http:// 또는 /avatars/ 경로)
+                      const isImageUrl = comment.author.avatarUrl?.startsWith('http') || comment.author.avatarUrl?.startsWith('/avatars/');
+                      // 해당 댓글의 이미지 로딩 에러 여부
+                      const hasImageError = commentImageErrors[comment.id];
+
+                      // 1. 이미지 URL이 있고 로딩 에러가 없으면 → 이미지 표시
+                      if (isImageUrl && !hasImageError) {
+                        return (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={comment.author.avatarUrl}
+                            alt={comment.author.name}
+                            className="w-full h-full object-cover"
+                            onError={() => {
+                              // 이미지 로딩 실패 시 에러 상태 설정 → 이니셜로 전환
+                              setCommentImageErrors(prev => ({
+                                ...prev,
+                                [comment.id]: true,
+                              }));
+                            }}
+                          />
+                        );
+                      }
+
+                      // 2. 그 외 (이미지 없거나 로딩 실패) → 이니셜 아바타 표시
+                      return (
+                        <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">
+                            {comment.author.name?.charAt(0).toUpperCase() || '?'}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
