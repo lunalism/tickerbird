@@ -57,21 +57,21 @@ const US_INDICES: OverseasIndexCode[] = ['SPX', 'CCMP', 'INDU', 'RUT'];
  * QQQ ETF는 NASDAQ 100을 추적하므로 "NASDAQ 100"으로 표시합니다.
  */
 const INDEX_TO_ETF_MAP: Record<OverseasIndexCode, {
-  symbol: string;
-  exchange: OverseasExchangeCode;
-  multiplier: number;
-  fallbackName: string;  // ETF 기준일 때 표시할 이름
-  isEstimated: boolean;  // ETF 기반 추정치 여부
+  symbol: string;                    // ETF 티커 심볼
+  exchanges: OverseasExchangeCode[]; // 시도할 거래소 목록 (순서대로 시도)
+  multiplier: number;                // 지수 추정을 위한 배수
+  fallbackName: string;              // ETF 기준일 때 표시할 지수명
+  isEstimated: boolean;              // ETF 기반 추정치 여부
 }> = {
   // S&P 500: SPY ETF로 폴백 (실제로는 SPX가 정상 반환되어 사용 안 됨)
-  'SPX': { symbol: 'SPY', exchange: 'AMS', multiplier: 10, fallbackName: 'S&P 500', isEstimated: true },
+  'SPX': { symbol: 'SPY', exchanges: ['NYS', 'AMS'], multiplier: 10, fallbackName: 'S&P 500', isEstimated: true },
   // NASDAQ 100: QQQ ETF로 폴백 (CCMP가 0 반환하므로 항상 사용)
-  'CCMP': { symbol: 'QQQ', exchange: 'NAS', multiplier: 35, fallbackName: 'NASDAQ 100', isEstimated: true },
+  'CCMP': { symbol: 'QQQ', exchanges: ['NAS', 'AMS'], multiplier: 35, fallbackName: 'NASDAQ 100', isEstimated: true },
   // DOW JONES: DIA ETF로 폴백 (INDU가 0 반환하므로 항상 사용)
-  'INDU': { symbol: 'DIA', exchange: 'AMS', multiplier: 90, fallbackName: 'DOW JONES', isEstimated: true },
+  'INDU': { symbol: 'DIA', exchanges: ['NYS', 'AMS'], multiplier: 90, fallbackName: 'DOW JONES', isEstimated: true },
   // Russell 2000: IWM ETF로 폴백 (소형주 지수)
-  // IWM ≈ $225 × 10 = Russell 2000 ≈ 2,250
-  'RUT': { symbol: 'IWM', exchange: 'AMS', multiplier: 10, fallbackName: 'Russell 2000', isEstimated: true },
+  // IWM ≈ $265 × 10 = Russell 2000 ≈ 2,650
+  'RUT': { symbol: 'IWM', exchanges: ['NYS', 'AMS'], multiplier: 10, fallbackName: 'Russell 2000', isEstimated: true },
 };
 
 /**
@@ -120,54 +120,81 @@ async function getIndexWithFallback(indexCode: OverseasIndexCode): Promise<Overs
   const etfInfo = INDEX_TO_ETF_MAP[indexCode];
   console.log(`[API] ${indexCode} 지수값 0, ${etfInfo.symbol} ETF로 폴백 (배수: ${etfInfo.multiplier})`);
 
-  try {
-    const etfData = await getOverseasStockPrice(etfInfo.exchange, etfInfo.symbol);
+  // 여러 거래소를 순차적으로 시도하여 ETF 가격 조회
+  for (const exchange of etfInfo.exchanges) {
+    try {
+      console.log(`[API] ${etfInfo.symbol} ETF 조회 시도 (거래소: ${exchange})`);
+      const etfData = await getOverseasStockPrice(exchange, etfInfo.symbol);
 
-    // ETF 가격에 배수를 곱해 대략적인 지수값 계산
-    // 예: QQQ $620 × 35 = NASDAQ 100 21,700
-    const estimatedIndexValue = etfData.currentPrice * etfInfo.multiplier;
-    const estimatedChange = etfData.change * etfInfo.multiplier;
+      // ETF 가격이 유효한 경우
+      if (etfData.currentPrice > 0) {
+        // ETF 가격에 배수를 곱해 대략적인 지수값 계산
+        // 예: QQQ $620 × 35 = NASDAQ 100 21,700
+        const estimatedIndexValue = etfData.currentPrice * etfInfo.multiplier;
+        const estimatedChange = etfData.change * etfInfo.multiplier;
 
-    console.log(`[API] ${etfInfo.symbol} ETF: $${etfData.currentPrice} × ${etfInfo.multiplier} = ${estimatedIndexValue.toFixed(2)}`);
+        console.log(`[API] ${etfInfo.symbol} ETF: $${etfData.currentPrice} × ${etfInfo.multiplier} = ${estimatedIndexValue.toFixed(2)}`);
 
-    return {
-      indexCode,
-      indexName: etfInfo.fallbackName,  // "NASDAQ 100", "DOW JONES"
-      currentValue: Math.round(estimatedIndexValue * 100) / 100,
-      change: Math.round(estimatedChange * 100) / 100,
-      changePercent: etfData.changePercent,
-      changeSign: etfData.changeSign,
-      timestamp: new Date().toISOString(),
-      isEstimated: true,  // ETF 기반 추정치
-    };
-  } catch (etfError) {
-    console.error(`[API] ${etfInfo.symbol} ETF 폴백도 실패:`, etfError);
-    // ETF도 실패하면 원래 0 값 반환 (isEstimated 없음)
-    return indexData;
+        return {
+          indexCode,
+          indexName: etfInfo.fallbackName,  // "NASDAQ 100", "DOW JONES"
+          currentValue: Math.round(estimatedIndexValue * 100) / 100,
+          change: Math.round(estimatedChange * 100) / 100,
+          changePercent: etfData.changePercent,
+          changeSign: etfData.change >= 0 ? 'up' : 'down',
+          timestamp: new Date().toISOString(),
+          isEstimated: true,  // ETF 기반 추정치
+        };
+      }
+    } catch (etfError) {
+      console.error(`[API] ${etfInfo.symbol} ETF 조회 실패 (거래소: ${exchange}):`, etfError);
+      // 다음 거래소 시도
+      continue;
+    }
   }
+
+  // 모든 거래소에서 실패하면 원래 0 값 반환
+  console.error(`[API] ${etfInfo.symbol} ETF 모든 거래소 폴백 실패`);
+  return indexData;
 }
 
 export async function GET(): Promise<NextResponse<OverseasIndicesResponse | KISApiErrorResponse>> {
   try {
     console.log('[API /api/kis/overseas/indices] 미국 지수 조회 시작');
 
-    // 모든 지수를 병렬로 조회 (ETF 폴백 포함)
-    const results = await Promise.allSettled(
-      US_INDICES.map(indexCode => getIndexWithFallback(indexCode))
-    );
-
-    // 성공/실패 분리
+    // 순차적으로 지수 조회 (한투 API rate limit 고려)
+    // 병렬 호출 시 fetch failed 에러 발생하므로 순차 처리
     const successfulData: OverseasIndexData[] = [];
     const failedIndices: OverseasIndexCode[] = [];
 
-    results.forEach((result, index) => {
-      if (result.status === 'fulfilled') {
-        successfulData.push(result.value);
-      } else {
-        failedIndices.push(US_INDICES[index]);
-        console.error(`[API] ${US_INDICES[index]} 조회 실패:`, result.reason);
+    for (const indexCode of US_INDICES) {
+      let success = false;
+      let lastError: unknown;
+
+      // 최대 2회 재시도 (소켓 에러 대응)
+      for (let attempt = 0; attempt < 2 && !success; attempt++) {
+        try {
+          if (attempt > 0) {
+            console.log(`[API] ${indexCode} 재시도 ${attempt + 1}회...`);
+            // 재시도 전 500ms 대기
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+          const data = await getIndexWithFallback(indexCode);
+          successfulData.push(data);
+          success = true;
+          // API 호출 간 200ms 딜레이 (rate limit 방지)
+          await new Promise(resolve => setTimeout(resolve, 200));
+        } catch (error) {
+          lastError = error;
+          console.error(`[API] ${indexCode} 시도 ${attempt + 1} 실패:`, error);
+        }
       }
-    });
+
+      if (!success) {
+        failedIndices.push(indexCode);
+        console.error(`[API] ${indexCode} 최종 실패:`, lastError);
+      }
+    }
 
     console.log(`[API] 조회 완료: 성공 ${successfulData.length}개, 실패 ${failedIndices.length}개`);
 

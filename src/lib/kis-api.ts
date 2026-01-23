@@ -561,7 +561,10 @@ export async function getStockPrice(symbol: string): Promise<StockPriceData> {
     const errorText = await priceResponse.text();
     console.error('[KIS API] 주식 현재가 조회 실패:', errorText);
 
-    if (priceResponse.status === 401) {
+    // 토큰 만료 에러 체크 (401 또는 EGW00123 에러코드)
+    // 한투 API는 토큰 만료 시 500과 함께 EGW00123을 반환하기도 함
+    if (priceResponse.status === 401 || errorText.includes('EGW00123') || errorText.includes('만료된 token')) {
+      console.log('[KIS API] 토큰 만료 감지, 캐시 초기화');
       clearTokenCache();
       throw new Error('인증 토큰이 만료되었습니다. 다시 시도해주세요.');
     }
@@ -660,7 +663,8 @@ export async function getIndexPrice(indexCode: string): Promise<IndexPriceData> 
     console.error('[KIS API] 지수 현재가 조회 실패:', errorText);
 
     // 토큰 만료로 인한 실패일 수 있으므로 캐시 초기화 후 재시도
-    if (response.status === 401) {
+    if (response.status === 401 || errorText.includes('EGW00123') || errorText.includes('만료된 token')) {
+      console.log('[KIS API] 토큰 만료 감지, 캐시 초기화');
       clearTokenCache();
       throw new Error('인증 토큰이 만료되었습니다. 다시 시도해주세요.');
     }
@@ -813,7 +817,8 @@ export async function getVolumeRanking(
     const errorText = await response.text();
     console.error('[KIS API] 거래량순위 조회 실패:', errorText);
 
-    if (response.status === 401) {
+    if (response.status === 401 || errorText.includes('EGW00123') || errorText.includes('만료된 token')) {
+      console.log('[KIS API] 토큰 만료 감지, 캐시 초기화');
       clearTokenCache();
       throw new Error('인증 토큰이 만료되었습니다. 다시 시도해주세요.');
     }
@@ -919,7 +924,8 @@ export async function getFluctuationRanking(
     const errorText = await response.text();
     console.error('[KIS API] 등락률순위 조회 실패:', errorText);
 
-    if (response.status === 401) {
+    if (response.status === 401 || errorText.includes('EGW00123') || errorText.includes('만료된 token')) {
+      console.log('[KIS API] 토큰 만료 감지, 캐시 초기화');
       clearTokenCache();
       throw new Error('인증 토큰이 만료되었습니다. 다시 시도해주세요.');
     }
@@ -1020,7 +1026,8 @@ export async function getMarketCapRanking(
     const errorText = await response.text();
     console.error('[KIS API] 시가총액순위 조회 실패:', errorText);
 
-    if (response.status === 401) {
+    if (response.status === 401 || errorText.includes('EGW00123') || errorText.includes('만료된 token')) {
+      console.log('[KIS API] 토큰 만료 감지, 캐시 초기화');
       clearTokenCache();
       throw new Error('인증 토큰이 만료되었습니다. 다시 시도해주세요.');
     }
@@ -1140,7 +1147,8 @@ export async function getOverseasIndexPrice(indexCode: OverseasIndexCode): Promi
     const errorText = await response.text();
     console.error('[KIS API] 해외지수 조회 실패:', errorText);
 
-    if (response.status === 401) {
+    if (response.status === 401 || errorText.includes('EGW00123') || errorText.includes('만료된 token')) {
+      console.log('[KIS API] 토큰 만료 감지, 캐시 초기화');
       clearTokenCache();
       throw new Error('인증 토큰이 만료되었습니다. 다시 시도해주세요.');
     }
@@ -1217,7 +1225,8 @@ export async function getOverseasStockPrice(
     const errorText = await response.text();
     console.error('[KIS API] 해외주식 현재가 조회 실패:', errorText);
 
-    if (response.status === 401) {
+    if (response.status === 401 || errorText.includes('EGW00123') || errorText.includes('만료된 token')) {
+      console.log('[KIS API] 토큰 만료 감지, 캐시 초기화');
       clearTokenCache();
       throw new Error('인증 토큰이 만료되었습니다. 다시 시도해주세요.');
     }
@@ -1302,7 +1311,8 @@ export async function getOverseasVolumeRanking(
     const errorText = await response.text();
     console.error('[KIS API] 해외주식 거래량순위 조회 실패:', errorText);
 
-    if (response.status === 401) {
+    if (response.status === 401 || errorText.includes('EGW00123') || errorText.includes('만료된 token')) {
+      console.log('[KIS API] 토큰 만료 감지, 캐시 초기화');
       clearTokenCache();
       throw new Error('인증 토큰이 만료되었습니다. 다시 시도해주세요.');
     }
@@ -1382,7 +1392,8 @@ export async function getOverseasMarketCapRanking(
     const errorText = await response.text();
     console.error('[KIS API] 해외주식 시가총액순위 조회 실패:', errorText);
 
-    if (response.status === 401) {
+    if (response.status === 401 || errorText.includes('EGW00123') || errorText.includes('만료된 token')) {
+      console.log('[KIS API] 토큰 만료 감지, 캐시 초기화');
       clearTokenCache();
       throw new Error('인증 토큰이 만료되었습니다. 다시 시도해주세요.');
     }
@@ -1467,7 +1478,8 @@ export async function getOverseasFluctuationRanking(
     const errorText = await response.text();
     console.error('[KIS API] 해외주식 등락률순위 조회 실패:', errorText);
 
-    if (response.status === 401) {
+    if (response.status === 401 || errorText.includes('EGW00123') || errorText.includes('만료된 token')) {
+      console.log('[KIS API] 토큰 만료 감지, 캐시 초기화');
       clearTokenCache();
       throw new Error('인증 토큰이 만료되었습니다. 다시 시도해주세요.');
     }
