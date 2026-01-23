@@ -1295,13 +1295,14 @@ interface FinnhubProfileResponse {
  * 미국 주식 개별 시세 응답 타입
  *
  * Finnhub API에서 받는 데이터를 통합한 형식입니다.
+ * 기존 한투 API 응답 형식과 호환되도록 필드를 유지합니다.
  */
 export interface USStockPriceResponse {
   /** 종목 심볼 (예: AAPL, TSLA) */
   symbol: string;
   /** 회사명 */
   name: string;
-  /** 거래소 코드 (예: NASDAQ NMS - GLOBAL MARKET) */
+  /** 거래소 코드 (NAS, NYS, AMS - 기존 형식 호환) */
   exchange: string;
   /** 현재가 (USD) */
   currentPrice: number;
@@ -1309,6 +1310,8 @@ export interface USStockPriceResponse {
   change: number;
   /** 전일 대비 변동률 (%) */
   changePercent: number;
+  /** 거래량 (Finnhub 무료 플랜에서는 제공 안됨, 0으로 표시) */
+  volume: number;
   /** 당일 고가 */
   highPrice: number;
   /** 당일 저가 */
@@ -1423,14 +1426,26 @@ export function useUSStockPrice(
         ? profileResult as FinnhubProfileResponse
         : null;
 
+      // 거래소 코드 변환 (Finnhub → 기존 형식)
+      // "NASDAQ NMS - GLOBAL MARKET" → "NAS"
+      // "NEW YORK STOCK EXCHANGE, INC." → "NYS"
+      // 그 외 → "AMS" (AMEX)
+      const normalizeExchange = (exchange: string): string => {
+        const ex = exchange.toUpperCase();
+        if (ex.includes('NASDAQ')) return 'NAS';
+        if (ex.includes('NYSE') || ex.includes('NEW YORK')) return 'NYS';
+        return 'AMS';
+      };
+
       // 통합 응답 데이터 생성
       const stockData: USStockPriceResponse = {
         symbol: quoteData.symbol,
         name: profileData?.name || upperSymbol,
-        exchange: profileData?.exchange || 'US',
+        exchange: profileData?.exchange ? normalizeExchange(profileData.exchange) : 'NAS',
         currentPrice: quoteData.currentPrice,
         change: quoteData.change,
         changePercent: quoteData.changePercent,
+        volume: 0, // Finnhub 무료 플랜에서는 거래량 미제공
         highPrice: quoteData.highPrice,
         lowPrice: quoteData.lowPrice,
         openPrice: quoteData.openPrice,
