@@ -30,8 +30,10 @@ import type { OverseasExchangeCode, KISApiErrorResponse } from '@/types/kis';
 interface USStockPriceResponse {
   /** 종목 심볼 */
   symbol: string;
-  /** 회사명 */
+  /** 회사명 (영문) */
   name: string;
+  /** 회사명 (한글, 있는 경우) */
+  nameKr?: string;
   /** 거래소 코드 */
   exchange: string;
   /** 현재가 (USD) */
@@ -78,6 +80,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<USStockPri
 
     // 종목명과 거래소 초기값 (fallback 값으로 시작)
     let name = symbol;  // 기본값: 티커 심볼
+    let nameKr: string | undefined = undefined;  // 한글명 (종목 마스터에서 조회)
     let exchange: OverseasExchangeCode = 'NAS';  // 기본값: NASDAQ
 
     if (stockInfo) {
@@ -85,6 +88,18 @@ export async function GET(request: NextRequest): Promise<NextResponse<USStockPri
       name = stockInfo.name;
       exchange = stockInfo.exchange;
       console.log(`[US Stock Price API] ${symbol} - usStockList에서 조회: ${name}`);
+
+      // usStockList에는 한글명이 없으므로 종목 마스터에서 한글명만 추가 조회
+      try {
+        const usMaster = await getUSStockMaster();
+        const masterStock = usMaster.find((stock: USStockMaster) => stock.symbol === symbol);
+        if (masterStock?.nameKr) {
+          nameKr = masterStock.nameKr;
+          console.log(`[US Stock Price API] ${symbol} - 한글명: ${nameKr}`);
+        }
+      } catch {
+        // 한글명 조회 실패 시 무시
+      }
     } else {
       // 2단계: 종목 마스터 캐시에서 종목 정보 찾기 (디스크 캐시)
       try {
@@ -94,11 +109,12 @@ export async function GET(request: NextRequest): Promise<NextResponse<USStockPri
         if (masterStock) {
           // 종목 마스터에서 찾은 경우
           name = masterStock.name;
+          nameKr = masterStock.nameKr;  // 한글명도 함께 가져옴
           // 거래소 코드 변환 (NASDAQ → NAS, NYSE → NYS, AMEX → AMS)
           exchange = masterStock.exchange === 'NASDAQ' ? 'NAS'
             : masterStock.exchange === 'NYSE' ? 'NYS'
             : 'AMS';
-          console.log(`[US Stock Price API] ${symbol} - 종목 마스터에서 조회: ${name}`);
+          console.log(`[US Stock Price API] ${symbol} - 종목 마스터에서 조회: ${name} (${nameKr || '한글명 없음'})`);
         } else {
           // 3단계: 종목 마스터에도 없는 경우 (fallback)
           console.log(`[US Stock Price API] ${symbol} - 종목 마스터에 없음, 티커 사용`);
@@ -116,6 +132,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<USStockPri
     return NextResponse.json({
       symbol,
       name,
+      nameKr,  // 한글명 추가 (종목 마스터에서 조회, 없으면 undefined)
       exchange,
       currentPrice: priceData.currentPrice,
       change: priceData.change,

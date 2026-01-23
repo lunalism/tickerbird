@@ -214,7 +214,18 @@ function StockTable({
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-3">
                       <CompanyLogo domain={stock.domain} size="sm" />
-                      <span className="font-medium text-gray-900 dark:text-white">{stock.name}</span>
+                      <div className="flex flex-col">
+                        {/* 한글명 우선 표시, 없으면 영문명 */}
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {stock.nameKr || stock.name}
+                        </span>
+                        {/* 한글명이 있는 경우에만 영문명을 부가 정보로 표시 */}
+                        {stock.nameKr && (
+                          <span className="text-xs text-gray-400 dark:text-gray-500">
+                            {stock.name}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
                   {/* 티커 */}
@@ -342,6 +353,7 @@ export function StocksContent({ market }: StocksContentProps) {
   const usStocks: Stock[] = usStockPrices.slice(0, 50).map((item, idx) => ({
     rank: idx + 1,
     name: item.name,
+    nameKr: item.nameKr,  // 한글명 추가 (종목 마스터에서 제공)
     ticker: item.symbol,
     price: item.currentPrice,
     change: item.change,

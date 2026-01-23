@@ -1178,6 +1178,8 @@ export function useUSETFs(
  */
 export interface USStockPriceData extends OverseasStockPriceData {
   name: string;
+  /** 한글 종목명 (종목 마스터에서 제공, 없으면 undefined) */
+  nameKr?: string;
   sector: USStockInfo['sector'];
 }
 
@@ -1265,8 +1267,10 @@ export function useUSStocks(
 export interface USStockPriceResponse {
   /** 종목 심볼 (예: AAPL, TSLA) */
   symbol: string;
-  /** 회사명 */
+  /** 회사명 (영문) */
   name: string;
+  /** 회사명 (한글, 종목 마스터에서 제공) */
+  nameKr?: string;
   /** 거래소 코드 (NAS, NYS, AMS) */
   exchange: string;
   /** 현재가 (USD) */

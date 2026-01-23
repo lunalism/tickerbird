@@ -54,6 +54,7 @@ export interface MarketIndex {
 export interface Stock {
   rank: number;
   name: string;
+  nameKr?: string; // 한글 종목명 (미국 주식의 경우 종목 마스터에서 제공)
   ticker: string;
   price: number;
   change: number;

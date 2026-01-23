@@ -207,9 +207,9 @@ export function StockTable({ stocks, market }: StockTableProps) {
                       {stock.rank}
                     </span>
 
-                    {/* 종목명 */}
+                    {/* 종목명 (한글명 우선) */}
                     <span className="font-medium text-gray-900 dark:text-white text-sm truncate">
-                      {stock.name}
+                      {stock.nameKr || stock.name}
                     </span>
                   </div>
 
@@ -304,9 +304,18 @@ export function StockTable({ stocks, market }: StockTableProps) {
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-3">
                         <CompanyLogo domain={stock.domain} size="sm" />
-                        <span className="font-medium text-gray-900 dark:text-white">
-                          {stock.name}
-                        </span>
+                        <div className="flex flex-col">
+                          {/* 한글명 우선 표시 */}
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {stock.nameKr || stock.name}
+                          </span>
+                          {/* 한글명이 있으면 영문명을 부가 정보로 표시 */}
+                          {stock.nameKr && (
+                            <span className="text-xs text-gray-400 dark:text-gray-500">
+                              {stock.name}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
 

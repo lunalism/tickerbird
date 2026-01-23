@@ -596,7 +596,10 @@ export function GlobalSearch({
                       {/* 종목 정보 */}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                          {result.name}
+                          {/* 미국 주식: 한글명 우선, 없으면 영문명 */}
+                          {result.type === 'us' && (result as { nameKr?: string }).nameKr
+                            ? (result as { nameKr?: string }).nameKr
+                            : result.name}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           {result.symbol} · {getMarketLabel(result)}

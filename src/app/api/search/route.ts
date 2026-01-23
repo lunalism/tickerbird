@@ -45,6 +45,8 @@ interface USSearchResult {
   type: 'us';
   symbol: string;
   name: string;
+  /** 한글 종목명 (종목 마스터에서 제공, 없으면 undefined) */
+  nameKr?: string;
   exchange: 'NASDAQ' | 'NYSE' | 'AMEX';
 }
 
@@ -145,6 +147,7 @@ function searchUSStocks(
         type: 'us',
         symbol: stock.symbol,
         name: stock.name,
+        nameKr: stock.nameKr,  // 한글명 추가 (종목 마스터에서 제공)
         exchange: stock.exchange,
       });
 

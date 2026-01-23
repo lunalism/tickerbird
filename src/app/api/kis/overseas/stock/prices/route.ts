@@ -18,14 +18,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOverseasStockPrice } from '@/lib/kis-api';
 import { usStockList, USStockInfo } from '@/constants';
+import { getUSStockMaster, type USStockMaster } from '@/lib/stock-master';
 import type { OverseasStockPriceData, KISApiErrorResponse, OverseasExchangeCode } from '@/types/kis';
 
 /**
  * 미국 주식 시세 데이터 타입 (클라이언트용)
  */
 export interface USStockPriceData extends OverseasStockPriceData {
-  /** 회사명 */
+  /** 회사명 (영문) */
   name: string;
+  /** 회사명 (한글, 종목 마스터에서 제공) */
+  nameKr?: string;
   /** 섹터 */
   sector: USStockInfo['sector'];
 }
@@ -46,17 +49,28 @@ interface USStockPricesResponse {
 
 /**
  * 단일 주식 시세 조회 (에러 처리 포함)
+ *
+ * @param stockInfo 주식 정보 (usStockList에서)
+ * @param masterMap 종목 마스터 맵 (한글명 조회용)
  */
-async function fetchUSStockPrice(stockInfo: USStockInfo): Promise<USStockPriceData | null> {
+async function fetchUSStockPrice(
+  stockInfo: USStockInfo,
+  masterMap: Map<string, USStockMaster>
+): Promise<USStockPriceData | null> {
   try {
     const priceData = await getOverseasStockPrice(
       stockInfo.exchange as OverseasExchangeCode,
       stockInfo.symbol
     );
 
+    // 종목 마스터에서 한글명 조회
+    const masterStock = masterMap.get(stockInfo.symbol);
+    const nameKr = masterStock?.nameKr;
+
     return {
       ...priceData,
       name: stockInfo.name,
+      nameKr,  // 한글명 추가 (종목 마스터에서 조회)
       sector: stockInfo.sector,
     };
   } catch (error) {
@@ -112,6 +126,17 @@ export async function GET(request: NextRequest): Promise<NextResponse<USStockPri
 
     console.log(`[US Stock API] ${sector} 섹터 ${targetStocks.length}개 주식 조회 시작`);
 
+    // 종목 마스터 로드 (한글명 조회용)
+    // Map으로 변환하여 O(1) 조회 성능 확보
+    let masterMap = new Map<string, USStockMaster>();
+    try {
+      const usMaster = await getUSStockMaster();
+      masterMap = new Map(usMaster.map(stock => [stock.symbol, stock]));
+      console.log(`[US Stock API] 종목 마스터 로드 완료: ${masterMap.size}개`);
+    } catch (masterError) {
+      console.warn('[US Stock API] 종목 마스터 로드 실패, 한글명 없이 진행:', masterError);
+    }
+
     // 병렬 조회 (Rate Limit 고려)
     // 10개씩 청크로 나누어 병렬 조회 후 150ms 대기
     const results: (USStockPriceData | null)[] = [];
@@ -121,7 +146,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<USStockPri
       const chunk = chunks[i];
 
       const chunkResults = await Promise.all(
-        chunk.map(stock => fetchUSStockPrice(stock))
+        chunk.map(stock => fetchUSStockPrice(stock, masterMap))
       );
 
       results.push(...chunkResults);

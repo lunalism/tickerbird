@@ -1031,7 +1031,7 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
       addToRecentlyViewed({
         ticker,
         market: 'us' as RecentlyViewedMarket,
-        name: stock.name,
+        name: stock.nameKr || stock.name,  // 한글명 우선 저장
       });
     }
   }, [ticker, stock, isStockLoading, addToRecentlyViewed]);
@@ -1085,7 +1085,8 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
    * 관심종목 토글 핸들러 (Supabase 연동, 로그인 필수)
    */
   const handleToggleWatchlist = async () => {
-    const stockName = stock?.name || ticker;
+    // 한글명 우선 사용
+    const stockName = stock?.nameKr || stock?.name || ticker;
     const result = await toggleWatchlist({ ticker, name: stockName, market: 'us' });
 
     // null이면 비로그인 상태 - 로그인 안내
@@ -1196,7 +1197,8 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
             {/* 종목명 + 티커 + 가격 */}
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <h1 className="text-base font-semibold text-gray-900 dark:text-white truncate">
-                {stock.name}
+                {/* 한글명 우선 표시, 없으면 영문명 */}
+                {stock.nameKr || stock.name}
               </h1>
               <span className="text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">{ticker}</span>
 
