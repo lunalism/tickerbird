@@ -1425,14 +1425,11 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
                   <div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">거래량</p>
                     <p className="text-base font-semibold text-gray-900 dark:text-white">
-                      {/* Finnhub 무료 플랜은 거래량 미제공으로 '-' 표시 */}
-                      {stock.volume > 0
-                        ? stock.volume >= 1000000
-                          ? (stock.volume / 1000000).toFixed(1) + 'M'
-                          : stock.volume >= 1000
-                          ? (stock.volume / 1000).toFixed(1) + 'K'
-                          : stock.volume.toLocaleString()
-                        : '-'}
+                      {stock.volume >= 1000000
+                        ? (stock.volume / 1000000).toFixed(1) + 'M'
+                        : stock.volume >= 1000
+                        ? (stock.volume / 1000).toFixed(1) + 'K'
+                        : stock.volume.toLocaleString()}
                     </p>
                   </div>
                   <div>
