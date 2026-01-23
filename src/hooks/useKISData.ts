@@ -1255,19 +1255,53 @@ export function useUSStocks(
   return { stocks, isLoading, error, refetch: fetchStocks, failedSymbols };
 }
 
-// ==================== 미국 주식 개별 시세 훅 ====================
+// ==================== 미국 주식 개별 시세 훅 (Finnhub API) ====================
+
+/**
+ * Finnhub Quote API 응답 타입
+ */
+interface FinnhubQuoteResponse {
+  symbol: string;
+  currentPrice: number;
+  change: number;
+  changePercent: number;
+  highPrice: number;
+  lowPrice: number;
+  openPrice: number;
+  previousClose: number;
+  timestamp: number;
+  market: 'US';
+}
+
+/**
+ * Finnhub Profile API 응답 타입
+ */
+interface FinnhubProfileResponse {
+  symbol: string;
+  name: string;
+  country: string;
+  currency: string;
+  exchange: string;
+  industry: string;
+  ipoDate: string;
+  logo: string;
+  marketCap: number;
+  sharesOutstanding: number;
+  website: string;
+  market: 'US';
+}
 
 /**
  * 미국 주식 개별 시세 응답 타입
  *
- * API 응답에서 받는 데이터 형식입니다.
+ * Finnhub API에서 받는 데이터를 통합한 형식입니다.
  */
 export interface USStockPriceResponse {
   /** 종목 심볼 (예: AAPL, TSLA) */
   symbol: string;
   /** 회사명 */
   name: string;
-  /** 거래소 코드 (NAS, NYS, AMS) */
+  /** 거래소 코드 (예: NASDAQ NMS - GLOBAL MARKET) */
   exchange: string;
   /** 현재가 (USD) */
   currentPrice: number;
@@ -1275,8 +1309,22 @@ export interface USStockPriceResponse {
   change: number;
   /** 전일 대비 변동률 (%) */
   changePercent: number;
-  /** 거래량 */
-  volume: number;
+  /** 당일 고가 */
+  highPrice: number;
+  /** 당일 저가 */
+  lowPrice: number;
+  /** 시가 */
+  openPrice: number;
+  /** 전일 종가 */
+  previousClose: number;
+  /** 시가총액 (백만 달러) */
+  marketCap?: number;
+  /** 산업 분류 */
+  industry?: string;
+  /** 로고 URL */
+  logo?: string;
+  /** 웹사이트 */
+  website?: string;
   /** 조회 시각 */
   timestamp: string;
 }
@@ -1295,7 +1343,9 @@ interface UseUSStockPriceResult {
 /**
  * 미국 주식 개별 시세 조회 훅
  *
- * 한국투자증권 API를 통해 미국 개별 주식의 현재가를 조회합니다.
+ * Finnhub API를 통해 미국 개별 주식의 현재가와 회사 정보를 조회합니다.
+ * - /api/finnhub/quote: 실시간 시세 (현재가, 변동률 등)
+ * - /api/finnhub/profile: 회사 정보 (회사명, 로고, 시가총액 등)
  *
  * @param symbol 종목 심볼 (예: AAPL, TSLA, MSFT)
  * @param options 옵션 (autoRefresh, refreshInterval)
@@ -1310,7 +1360,8 @@ interface UseUSStockPriceResult {
  * const { stock } = useUSStockPrice('TSLA', { autoRefresh: true });
  * ```
  *
- * @see /api/kis/overseas/stock/price - API 엔드포인트
+ * @see /api/finnhub/quote - 시세 조회 API
+ * @see /api/finnhub/profile - 회사 정보 API
  */
 export function useUSStockPrice(
   symbol: string,
@@ -1326,7 +1377,8 @@ export function useUSStockPrice(
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * 종목 시세 데이터 가져오기
+   * 종목 시세 및 회사 정보 가져오기
+   * Finnhub의 quote와 profile API를 병렬로 호출합니다.
    */
   const fetchStock = useCallback(async () => {
     // 심볼이 없으면 에러
@@ -1336,21 +1388,61 @@ export function useUSStockPrice(
       return;
     }
 
+    // 미국 주식 심볼 형식 검사 (알파벳 1~5자)
+    const upperSymbol = symbol.toUpperCase();
+    if (!/^[A-Z]{1,5}$/.test(upperSymbol)) {
+      setError('미국 주식 심볼은 1~5자의 알파벳이어야 합니다.');
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
-      // 미국 주식 개별 시세 API 호출
-      const response = await fetch(`/api/kis/overseas/stock/price?symbol=${symbol.toUpperCase()}`);
-      const result = await response.json();
+      // Finnhub Quote와 Profile API를 병렬로 호출
+      const [quoteResponse, profileResponse] = await Promise.all([
+        fetch(`/api/finnhub/quote?symbol=${upperSymbol}`),
+        fetch(`/api/finnhub/profile?symbol=${upperSymbol}`),
+      ]);
 
-      if (response.ok && result.currentPrice !== undefined) {
-        // 성공: 시세 데이터 설정
-        setStock(result);
-      } else {
-        // 실패: 에러 메시지 설정
-        setError(result.message || '종목 데이터를 가져올 수 없습니다.');
+      const quoteResult = await quoteResponse.json();
+      const profileResult = await profileResponse.json();
+
+      // Quote API 에러 체크
+      if (!quoteResponse.ok || quoteResult.error) {
+        setError(quoteResult.message || '시세 데이터를 가져올 수 없습니다.');
+        return;
       }
+
+      // Quote 데이터를 기반으로 응답 생성
+      const quoteData = quoteResult as FinnhubQuoteResponse;
+
+      // Profile 데이터는 옵션 (실패해도 시세는 표시)
+      const profileData = profileResponse.ok && !profileResult.error
+        ? profileResult as FinnhubProfileResponse
+        : null;
+
+      // 통합 응답 데이터 생성
+      const stockData: USStockPriceResponse = {
+        symbol: quoteData.symbol,
+        name: profileData?.name || upperSymbol,
+        exchange: profileData?.exchange || 'US',
+        currentPrice: quoteData.currentPrice,
+        change: quoteData.change,
+        changePercent: quoteData.changePercent,
+        highPrice: quoteData.highPrice,
+        lowPrice: quoteData.lowPrice,
+        openPrice: quoteData.openPrice,
+        previousClose: quoteData.previousClose,
+        marketCap: profileData?.marketCap,
+        industry: profileData?.industry,
+        logo: profileData?.logo,
+        website: profileData?.website,
+        timestamp: new Date(quoteData.timestamp * 1000).toISOString(),
+      };
+
+      setStock(stockData);
     } catch (err) {
       // 네트워크 에러 등
       console.error('[useUSStockPrice] 에러:', err);
