@@ -304,6 +304,7 @@ function MarketContent() {
       ? usStockPrices.slice(0, 10).map((stock, idx) => ({
           rank: idx + 1,
           name: stock.name,
+          nameKr: stock.nameKr,  // 한글명 추가
           ticker: stock.symbol,
           price: stock.currentPrice,
           change: stock.change,
@@ -325,6 +326,7 @@ function MarketContent() {
           .slice(0, 5)
           .map(stock => ({
             name: stock.name,
+            nameKr: stock.nameKr,  // 한글명 추가
             ticker: stock.symbol,
             changePercent: stock.changePercent,
           }))
@@ -341,6 +343,7 @@ function MarketContent() {
           .slice(0, 5)
           .map(stock => ({
             name: stock.name,
+            nameKr: stock.nameKr,  // 한글명 추가
             ticker: stock.symbol,
             changePercent: stock.changePercent,
           }))
@@ -359,6 +362,7 @@ function MarketContent() {
           .slice(0, 5)
           .map(stock => ({
             name: stock.name,
+            nameKr: stock.nameKr,  // 한글명 추가
             ticker: stock.symbol,
             changePercent: stock.changePercent,
             volume: stock.volume,
@@ -376,6 +380,7 @@ function MarketContent() {
           .slice(0, 5)
           .map(stock => ({
             name: stock.name,
+            nameKr: stock.nameKr,  // 한글명 추가
             ticker: stock.symbol,
             changePercent: stock.changePercent,
             volume: stock.volume,

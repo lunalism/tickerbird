@@ -60,8 +60,10 @@ function MoverList({ title, emoji, movers, isGainer }: {
                 {idx + 1}
               </span>
               <div>
-                {/* 종목명 */}
-                <p className="font-medium text-gray-900 dark:text-white text-sm">{mover.name}</p>
+                {/* 종목명 (한글명 우선 표시) */}
+                <p className="font-medium text-gray-900 dark:text-white text-sm">
+                  {mover.nameKr || mover.name}
+                </p>
                 {/* 티커 */}
                 <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">{mover.ticker}</p>
               </div>

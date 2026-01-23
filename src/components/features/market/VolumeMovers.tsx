@@ -23,7 +23,8 @@ import { useRouter } from 'next/navigation';
  * 거래량/거래대금 종목 데이터 타입
  */
 export interface VolumeMover {
-  name: string;           // 종목명
+  name: string;           // 종목명 (영문)
+  nameKr?: string;        // 종목명 (한글, 미국 주식의 경우 종목 마스터에서 제공)
   ticker: string;         // 종목코드
   changePercent: number;  // 등락률 (%)
   volume: number;         // 거래량
@@ -147,9 +148,11 @@ function VolumeMoverList({ title, emoji, movers, valueType, market = 'kr' }: Vol
                   {idx + 1}
                 </span>
 
-                {/* 종목명 */}
+                {/* 종목명 (한글명 우선 표시) */}
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-white text-sm">{mover.name}</p>
+                  <p className="font-medium text-gray-900 dark:text-white text-sm">
+                    {mover.nameKr || mover.name}
+                  </p>
                   {/* 거래량/거래대금 수치 (회색 글씨) */}
                   <p className="text-xs text-gray-400 dark:text-gray-500">
                     {valueType === 'volume'
