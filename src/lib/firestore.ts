@@ -94,6 +94,18 @@ export const alertsCollection = () => collection(db, 'price_alerts');
  */
 export const alertDoc = (alertId: string) => doc(db, 'price_alerts', alertId);
 
+/**
+ * company_info 컬렉션 참조
+ * AI 생성 회사 소개 저장
+ */
+export const companyInfoCollection = () => collection(db, 'company_info');
+
+/**
+ * 특정 회사 정보 문서 참조
+ * @param symbol - 종목 심볼
+ */
+export const companyInfoDoc = (symbol: string) => doc(db, 'company_info', symbol);
+
 // ==================== 타임스탬프 변환 헬퍼 ====================
 
 /**
