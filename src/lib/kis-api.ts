@@ -1565,20 +1565,15 @@ export async function getOverseasDailyChart(
   const today = new Date();
   const endDate = today.toISOString().slice(0, 10).replace(/-/g, '');
 
-  // 거래소 코드 매핑
-  const exchCdMap: Record<string, string> = {
-    NAS: 'NASD',  // 나스닥
-    NYS: 'NYSE',  // 뉴욕증권거래소
-    AMS: 'AMEX',  // 아멕스
-  };
-
+  // 해외주식 기간별시세 API 파라미터 설정
+  // @see https://github.com/koreainvestment/open-trading-api/tree/main/examples_llm/overseas_stock/dailyprice
   const url = new URL(`${KIS_BASE_URL}/uapi/overseas-price/v1/quotations/dailyprice`);
-  url.searchParams.append('AUTH', '');
-  url.searchParams.append('EXCD', exchCdMap[exchange] || 'NASD');
-  url.searchParams.append('SYMB', symbol.toUpperCase());
-  url.searchParams.append('GUBN', period);  // 0: 일, 1: 주, 2: 월
-  url.searchParams.append('BYMD', endDate);
-  url.searchParams.append('MODP', '1');     // 1: 수정주가 적용
+  url.searchParams.append('AUTH', '');                          // 사용자권한정보 (필수, 빈 값)
+  url.searchParams.append('EXCD', exchange);                    // 거래소코드: NAS, NYS, AMS
+  url.searchParams.append('SYMB', symbol.toUpperCase());        // 종목코드
+  url.searchParams.append('GUBN', period);                      // 0: 일, 1: 주, 2: 월
+  url.searchParams.append('BYMD', endDate);                     // 조회기준일자 (YYYYMMDD)
+  url.searchParams.append('MODP', '0');                         // 수정주가반영여부: 0
 
   const response = await fetch(url.toString(), {
     method: 'GET',
