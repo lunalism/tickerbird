@@ -9,15 +9,23 @@
  * 기능:
  * - 티커 코드로 한국/미국 종목 자동 구분
  * - 실시간 시세 API 호출 (lazy loading)
- * - 미국 주식: 한글명 표시 (nameKr)
+ * - 한국 주식: stockName 필드 사용 (예: "삼성전자")
+ * - 미국 주식: nameKr(한글명) > name(영문명) 우선순위
  * - 로딩 중: 스켈레톤 UI
  * - API 실패 시: "시세 보기 →" 폴백
  * - 클릭 시: 종목 상세 페이지로 이동
  *
+ * API 경로:
+ * - 한국 주식: /api/kis/stock/price?symbol=005930
+ *   - 반환: { stockName: "삼성전자", currentPrice: 75000, ... }
+ * - 미국 주식: /api/kis/overseas/stock/price?symbol=AAPL
+ *   - 반환: { name: "Apple", nameKr: "애플", currentPrice: 180.5, ... }
+ *
  * 종목명 표시 우선순위:
- * 1. nameKr (한글명) - "써모 피셔 사이언티픽"
- * 2. name (영문명) - "Thermo Fisher Scientific"
- * 3. props.name (fallback)
+ * 1. stockName (한국 주식) - "삼성전자"
+ * 2. nameKr (미국 주식 한글명) - "써모 피셔 사이언티픽"
+ * 3. name (미국 주식 영문명) - "Thermo Fisher Scientific"
+ * 4. props.name (fallback)
  */
 
 import { useState, useEffect } from 'react';
@@ -56,8 +64,11 @@ export function StockCardWithPrice({ ticker, name: propName }: StockCardWithPric
 
       try {
         const isKR = isKoreanStock(ticker);
+        // API 경로:
+        // - 한국 주식: /api/kis/stock/price
+        // - 미국 주식: /api/kis/overseas/stock/price
         const apiUrl = isKR
-          ? `/api/kis/domestic/stock/price?symbol=${ticker}`
+          ? `/api/kis/stock/price?symbol=${ticker}`
           : `/api/kis/overseas/stock/price?symbol=${ticker.toUpperCase()}`;
 
         const response = await fetch(apiUrl);
@@ -67,11 +78,17 @@ export function StockCardWithPrice({ ticker, name: propName }: StockCardWithPric
           setPrice(data.currentPrice);
           setChangePercent(data.changePercent || 0);
 
-          // 종목명 설정 (우선순위: nameKr > name > propName)
-          // 미국 주식의 경우 한글명(nameKr)이 있으면 한글명 표시
-          if (data.nameKr) {
+          // 종목명 설정 (우선순위: stockName > nameKr > name > propName)
+          // - 한국 주식: stockName 필드 사용 (예: "삼성전자", "유일에너테크")
+          // - 미국 주식: nameKr(한글명) > name(영문명)
+          if (data.stockName) {
+            // 한국 주식 - stockName 필드
+            setDisplayName(data.stockName);
+          } else if (data.nameKr) {
+            // 미국 주식 - 한글명 우선
             setDisplayName(data.nameKr);
           } else if (data.name && data.name !== ticker) {
+            // 미국 주식 - 영문명
             setDisplayName(data.name);
           }
           // 그 외의 경우 propName 유지
