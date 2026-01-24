@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { useTickerCommunity } from '@/hooks';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { FeedPost } from './FeedPost';
+import { PostDetailModal } from './PostDetailModal';
 import { showWarning } from '@/lib/toast';
 import { getAvatarPath, isValidAvatarId } from '@/constants/avatars';
 import {
@@ -95,7 +96,7 @@ function toFeedPost(post: CommunityPost): FeedPostType {
     id: parseInt(post.id.replace(/-/g, '').slice(0, 8), 16) || Date.now(),
     author: authorName,
     username: authorHandle,
-    authorAvatar: authorAvatar,  // null이면 FeedPost에서 이니셜 표시
+    authorAvatar: authorAvatar || '',  // null이면 빈 문자열 (FeedPost에서 이니셜 표시)
     userId: post.userId,  // 작성자 ID (수정/삭제 권한 확인용)
     content: post.content,
     hashtags: post.hashtags,
@@ -151,6 +152,10 @@ export function TickerCommunitySection({
   // 글쓰기 입력 상태
   const [composeContent, setComposeContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 상세 모달 상태
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   /**
    * API 요청 시 사용할 인증 헤더 생성
@@ -383,6 +388,25 @@ export function TickerCommunitySection({
     router.push(`/community?ticker=${ticker}`);
   };
 
+  /**
+   * 게시글 클릭 핸들러 (상세 모달 열기)
+   */
+  const handlePostClick = useCallback((postId: string) => {
+    setSelectedPostId(postId);
+    setIsModalOpen(true);
+  }, []);
+
+  /**
+   * 모달 닫기 핸들러
+   */
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false);
+    setSelectedPostId(null);
+  }, []);
+
+  // 선택된 게시글 찾기
+  const selectedPost = selectedPostId ? posts.find(p => p.id === selectedPostId) : null;
+
   return (
     <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
       {/* 섹션 헤더 */}
@@ -508,6 +532,7 @@ export function TickerCommunitySection({
               showTickerCard={false}   // 시세 페이지에서는 티커 카드 숨김 (이미 종목 페이지에 있으므로)
               isLoggedIn={isLoggedIn}  // 로그인 상태 전달 (좋아요/댓글 기능 활성화용)
               onLoginRequired={handleLoginRequired}  // 비로그인 시 토스트 표시
+              onClick={() => handlePostClick(post.id)}  // 클릭 시 상세 모달 열기
             />
           ))}
           {/* 더보기 버튼 (하단) */}
@@ -535,6 +560,26 @@ export function TickerCommunitySection({
             첫 번째 글을 작성해보세요!
           </p>
         </div>
+      )}
+
+      {/* 게시글 상세 모달 */}
+      {selectedPost && (
+        <PostDetailModal
+          post={toFeedPost(selectedPost)}
+          postId={selectedPost.id}
+          currentUserId={user?.uid}
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          onLikeToggle={handleLikeToggle}
+          onLoadComments={handleLoadComments}
+          onAddComment={handleAddComment}
+          onEditPost={handleEditPost}
+          onDeletePost={handleDeletePost}
+          onEditComment={handleEditComment}
+          onDeleteComment={handleDeleteComment}
+          isLoggedIn={isLoggedIn}
+          onLoginRequired={handleLoginRequired}
+        />
       )}
     </section>
   );

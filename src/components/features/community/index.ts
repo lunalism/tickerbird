@@ -6,3 +6,4 @@ export { FeedPost } from './FeedPost';
 export { PostComposer } from './PostComposer';
 export { TickerCommunitySection } from './TickerCommunitySection';
 export { StockCardWithPrice } from './StockCardWithPrice';
+export { PostDetailModal } from './PostDetailModal';

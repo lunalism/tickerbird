@@ -34,6 +34,7 @@ import {
   WriteButton,
   FeedPost,
   PostComposer,
+  PostDetailModal,
 } from '@/components/features/community';
 import { hotPosts, discussionStocks, activeUsers } from '@/constants';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -90,7 +91,7 @@ function toFeedPost(post: CommunityPost): FeedPostType {
     id: parseInt(post.id.replace(/-/g, '').slice(0, 8), 16) || Date.now(),
     author: authorName,
     username: authorHandle,  // @handle 사용 (닉네임 대신 고유 식별자)
-    authorAvatar: authorAvatar,  // null이면 FeedPost에서 이니셜 표시
+    authorAvatar: authorAvatar || '',  // null이면 빈 문자열 (FeedPost에서 이니셜 표시)
     userId: post.userId,  // 작성자 ID (수정/삭제 권한 확인용)
     content: post.content,
     hashtags: post.hashtags,
@@ -122,6 +123,10 @@ export default function CommunityPage() {
   // AuthProvider의 useAuth 훅 사용 (Firebase Auth 연동)
   // useAuthStore(Zustand)가 아닌 useAuth(Context)를 사용해야 Firebase 로그인 상태를 인식함
   const { isLoggedIn, signInWithGoogle, user, userProfile } = useAuth();
+
+  // 상세 모달 상태
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   /**
    * API 요청 시 사용할 인증 헤더 생성
@@ -353,6 +358,25 @@ export default function CommunityPage() {
     }
   }, [getAuthHeaders]);
 
+  /**
+   * 게시글 클릭 핸들러 (상세 모달 열기)
+   */
+  const handlePostClick = useCallback((postId: string) => {
+    setSelectedPostId(postId);
+    setIsModalOpen(true);
+  }, []);
+
+  /**
+   * 모달 닫기 핸들러
+   */
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false);
+    setSelectedPostId(null);
+  }, []);
+
+  // 선택된 게시글 찾기
+  const selectedPost = selectedPostId ? posts.find(p => p.id === selectedPostId) : null;
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900">
       {/* Sidebar - 모바일에서 숨김 */}
@@ -469,6 +493,7 @@ export default function CommunityPage() {
                       fetchPrices={true}  // 커뮤니티 페이지에서는 실시간 가격 API 호출
                       isLoggedIn={isLoggedIn}  // 로그인 상태 전달 (좋아요/댓글 기능 활성화용)
                       onLoginRequired={handleLoginRequired}  // 비로그인 시 토스트 표시
+                      onClick={() => handlePostClick(post.id)}  // 클릭 시 상세 모달 열기
                     />
                   ))
                 ) : (
@@ -514,6 +539,26 @@ export default function CommunityPage() {
 
       {/* 글쓰기 FAB (모바일에서만 표시) */}
       <WriteButton />
+
+      {/* 게시글 상세 모달 */}
+      {selectedPost && (
+        <PostDetailModal
+          post={toFeedPost(selectedPost)}
+          postId={selectedPost.id}
+          currentUserId={user?.uid}
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          onLikeToggle={handleLikeToggle}
+          onLoadComments={handleLoadComments}
+          onAddComment={handleAddComment}
+          onEditPost={handleEditPost}
+          onDeletePost={handleDeletePost}
+          onEditComment={handleEditComment}
+          onDeleteComment={handleDeleteComment}
+          isLoggedIn={isLoggedIn}
+          onLoginRequired={handleLoginRequired}
+        />
+      )}
     </div>
   );
 }

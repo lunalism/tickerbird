@@ -80,6 +80,11 @@ interface FeedPostProps {
    * - 비로그인 상태에서 좋아요/댓글 클릭 시 호출
    */
   onLoginRequired?: () => void;
+  /**
+   * 게시글 클릭 콜백 (상세 모달 열기)
+   * - 좋아요/댓글 버튼 클릭은 이 콜백을 트리거하지 않음
+   */
+  onClick?: () => void;
 }
 
 /**
@@ -322,6 +327,7 @@ export function FeedPost({
   fetchPrices = false,
   isLoggedIn = false,
   onLoginRequired,
+  onClick,
 }: FeedPostProps) {
   const router = useRouter();
 
@@ -708,6 +714,7 @@ export function FeedPost({
 
   return (
     <article
+      onClick={onClick}
       className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700
                  hover:bg-gray-50/50 dark:hover:bg-gray-750 transition-colors cursor-pointer"
     >
@@ -963,7 +970,7 @@ export function FeedPost({
                           return (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={comment.author.avatarUrl}
+                              src={comment.author.avatarUrl!}
                               alt={comment.author.name}
                               className="w-full h-full object-cover"
                               onError={() => {
