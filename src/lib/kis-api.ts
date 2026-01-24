@@ -355,7 +355,7 @@ async function fetchNewToken(): Promise<string> {
 }
 
 /**
- * 접근토큰 발급 (동시 요청 처리 포함)
+ * 접근토큰 발급 (동시 요청 처리 + Rate Limit 재시도 포함)
  *
  * @description
  * POST /oauth2/tokenP 엔드포인트로 토큰 발급
@@ -363,19 +363,25 @@ async function fetchNewToken(): Promise<string> {
  * - 1분당 1회 발급 제한이 있으므로 캐싱 필수
  * - 동시 요청 시 중복 발급 방지 (Promise 기반 락)
  *
+ * Vercel 서버리스 환경 고려사항:
+ * - 각 인스턴스는 독립적인 메모리/파일 캐시를 가짐
+ * - 다른 인스턴스가 토큰을 발급했으면 Rate Limit 에러 발생
+ * - Rate Limit 에러 시 재시도하여 파일 캐시 확인
+ *
  * 동작 흐름:
  * 1. 캐시된 토큰이 유효하면 즉시 반환
- * 2. Rate limit 상태면 에러 throw
+ * 2. Rate limit 상태면 대기 후 재시도
  * 3. 다른 요청이 토큰 발급 중이면 해당 Promise 대기
  * 4. 첫 번째 요청만 실제 토큰 발급 수행
  * 5. 발급 완료 후 모든 대기 중인 요청에 결과 전달
  *
  * @see https://apiportal.koreainvestment.com/apiservice/oauth2#L_5c87ba63-740a-4166-93ac-803510f9571d
  *
+ * @param retryCount 재시도 횟수 (내부용)
  * @returns 접근토큰
  * @throws 토큰 발급 실패 시 에러
  */
-export async function getAccessToken(): Promise<string> {
+export async function getAccessToken(retryCount: number = 0): Promise<string> {
   validateEnv();
 
   // 1단계: 캐시된 토큰이 유효하면 즉시 반환
@@ -392,8 +398,26 @@ export async function getAccessToken(): Promise<string> {
       console.log('[KIS API] Rate limit 상태, 기존 토큰 사용 (만료 임박)');
       return tokenCache.accessToken;
     }
+
+    // Vercel 서버리스: 다른 인스턴스가 발급한 토큰이 있을 수 있음
+    // 파일 캐시를 다시 확인 (다른 인스턴스가 저장했을 수 있음)
+    if (retryCount < 3) {
+      console.log(`[KIS API] Rate limit 상태, ${(retryCount + 1) * 2}초 후 재시도 (${retryCount + 1}/3)...`);
+      await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
+
+      // 파일 캐시 다시 확인
+      const fileToken = loadTokenFromFile();
+      if (fileToken) {
+        tokenCache = fileToken;
+        console.log('[KIS API] 재시도 후 파일 캐시에서 토큰 발견');
+        return fileToken.accessToken;
+      }
+
+      return getAccessToken(retryCount + 1);
+    }
+
     throw new Error(
-      '토큰 발급 rate limit 상태입니다. 1분 후 다시 시도해주세요. ' +
+      '토큰 발급 rate limit 상태입니다. 잠시 후 다시 시도해주세요. ' +
       '(EGW00133: 접근토큰 발급 1분당 1회 제한)'
     );
   }
@@ -415,6 +439,26 @@ export async function getAccessToken(): Promise<string> {
 
   // 4단계: 토큰 발급 시작 (첫 번째 요청만)
   tokenPromise = fetchNewToken()
+    .catch(async (error) => {
+      // Rate limit 에러 시 재시도
+      if (error.message?.includes('Rate Limit') && retryCount < 3) {
+        console.log(`[KIS API] 토큰 발급 Rate Limit 에러, ${(retryCount + 1) * 2}초 후 재시도...`);
+        await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
+
+        // 파일 캐시 다시 확인 (다른 프로세스가 저장했을 수 있음)
+        const fileToken = loadTokenFromFile();
+        if (fileToken) {
+          tokenCache = fileToken;
+          console.log('[KIS API] Rate Limit 에러 후 파일 캐시에서 토큰 발견');
+          return fileToken.accessToken;
+        }
+
+        // 재시도
+        tokenPromise = null;
+        return getAccessToken(retryCount + 1);
+      }
+      throw error;
+    })
     .finally(() => {
       // 5단계: 발급 완료 후 Promise 초기화
       // 다음 만료 시점에 새로운 발급 요청을 받을 수 있도록

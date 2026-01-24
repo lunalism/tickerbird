@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { menuItems } from '@/constants';
 import { MenuIcon } from '@/components/common';
-import { useAuthStore } from '@/stores';
+import { useAuth } from '@/components/providers/AuthProvider';
 
 interface BottomNavProps {
   activeMenu: string;
@@ -13,7 +13,9 @@ interface BottomNavProps {
 
 export function BottomNav({ activeMenu, onMenuChange }: BottomNavProps) {
   const [mounted, setMounted] = useState(false);
-  const { isLoggedIn } = useAuthStore();
+  // Firebase Auth 상태 사용 (AuthProvider에서 관리)
+  // useAuthStore는 테스트 모드만 지원하므로 useAuth로 변경
+  const { isLoggedIn, isLoading } = useAuth();
 
   useEffect(() => {
     setMounted(true);
@@ -45,15 +47,16 @@ export function BottomNav({ activeMenu, onMenuChange }: BottomNavProps) {
         ))}
 
         {/* 로그인/프로필 (로그인 상태에 따라 변경) */}
+        {/* Firebase Auth 로딩 중에는 "로그인" 표시, 로딩 완료 후 상태에 따라 표시 */}
         <Link
-          href={(mounted && isLoggedIn) ? "/profile" : "/login"}
+          href={(mounted && !isLoading && isLoggedIn) ? "/profile" : "/login"}
           className="flex flex-col items-center justify-center flex-1 h-full transition-colors"
         >
           <div className={`transition-colors ${activeMenu === 'profile' ? "text-blue-500 dark:text-blue-400" : "text-gray-400 dark:text-gray-500"}`}>
             <MenuIcon icon="profile" active={activeMenu === 'profile'} />
           </div>
           <span className={`text-xs mt-1 ${activeMenu === 'profile' ? "text-blue-500 dark:text-blue-400" : "text-gray-500 dark:text-gray-400"}`}>
-            {(mounted && isLoggedIn) ? "프로필" : "로그인"}
+            {(mounted && !isLoading && isLoggedIn) ? "프로필" : "로그인"}
           </span>
         </Link>
       </div>

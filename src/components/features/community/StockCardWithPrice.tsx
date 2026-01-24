@@ -114,53 +114,57 @@ export function StockCardWithPrice({ ticker, name: propName }: StockCardWithPric
         e.stopPropagation();
         router.push(`/market/${ticker}`);
       }}
-      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl
+      className="flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl
                  border border-gray-100 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700
                  transition-colors cursor-pointer"
     >
       {/* 종목 정보 */}
       {/* 표시 형식: "종목명 티커" (예: "써모 피셔 사이언티픽 TMO") */}
-      <div className="flex items-center gap-2">
-        <span className="font-semibold text-gray-900 dark:text-white">{displayName}</span>
+      {/* 긴 종목명은 말줄임 처리 */}
+      <div className="flex items-center gap-2 min-w-0 flex-shrink">
+        <span className="font-semibold text-gray-900 dark:text-white truncate max-w-[120px] sm:max-w-[180px]">
+          {displayName}
+        </span>
         {/* 종목명이 티커와 다를 때만 티커 표시 */}
         {displayName !== ticker && (
-          <span className="text-sm text-gray-500 dark:text-gray-400">{ticker}</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">{ticker}</span>
         )}
       </div>
 
-      {/* 가격 영역 */}
-      {isLoading ? (
-        /* 로딩 중 - 스켈레톤 UI */
-        <div className="flex items-center gap-2">
-          <div className="w-16 h-5 bg-gray-200 dark:bg-gray-600 rounded animate-pulse" />
-          <div className="w-12 h-5 bg-gray-200 dark:bg-gray-600 rounded animate-pulse" />
-        </div>
-      ) : hasPrice ? (
-        /* 가격 정보 있음 - 가격과 등락률 표시 */
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-gray-900 dark:text-white">
-            {isKoreanStock(ticker)
-              ? price!.toLocaleString('ko-KR') + '원'
-              : '$' + price!.toFixed(2)}
+      {/* 가격 영역 - 고정 너비로 레이아웃 안정화 */}
+      <div className="flex-shrink-0">
+        {isLoading ? (
+          /* 로딩 중 - 스켈레톤 UI */
+          <div className="flex items-center gap-2">
+            <div className="w-16 h-5 bg-gray-200 dark:bg-gray-600 rounded animate-pulse" />
+            <div className="w-12 h-5 bg-gray-200 dark:bg-gray-600 rounded animate-pulse" />
+          </div>
+        ) : hasPrice ? (
+          /* 가격 정보 있음 - 가격과 등락률 표시 */
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium text-gray-900 dark:text-white text-sm whitespace-nowrap">
+              {isKoreanStock(ticker)
+                ? price!.toLocaleString('ko-KR') + '원'
+                : '$' + price!.toFixed(2)}
+            </span>
+            <span
+              className={`text-xs font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap ${
+                isPositive
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                  : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+              }`}
+            >
+              {isPositive ? '+' : ''}
+              {changePercent?.toFixed(2)}%
+            </span>
+          </div>
+        ) : (
+          /* 가격 정보 없음/에러 - 시세 보기 링크 표시 */
+          <span className="text-sm text-blue-600 dark:text-blue-400 whitespace-nowrap">
+            시세 보기 →
           </span>
-          <span
-            className={`text-sm font-medium px-2 py-0.5 rounded-full ${
-              isPositive
-                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-            }`}
-          >
-            {isPositive ? '+' : ''}
-            {changePercent?.toFixed(2)}%
-          </span>
-          <span className="text-lg">{isPositive ? '📈' : '📉'}</span>
-        </div>
-      ) : (
-        /* 가격 정보 없음/에러 - 시세 보기 링크 표시 */
-        <span className="text-sm text-blue-600 dark:text-blue-400">
-          시세 보기 →
-        </span>
-      )}
+        )}
+      </div>
     </div>
   );
 }
