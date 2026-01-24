@@ -64,3 +64,6 @@ export { useCommunity, useComments, useTickerCommunity } from './useCommunity';
 
 // 경제 캘린더 훅
 export { useCalendarEvents } from './useCalendarEvents';
+
+// 인기 검색어 훅
+export { usePopularSearches, type PopularSearchItem } from './usePopularSearches';

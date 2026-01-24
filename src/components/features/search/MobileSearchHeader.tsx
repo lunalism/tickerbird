@@ -16,7 +16,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { GlobalSearch } from "./GlobalSearch";
-import { useRecentlyViewed } from "@/hooks";
+import { useRecentlyViewed, usePopularSearches } from "@/hooks";
 
 interface MobileSearchHeaderProps {
   /** 현재 페이지 타이틀 */
@@ -28,6 +28,9 @@ export function MobileSearchHeader({ title = "AlphaBoard" }: MobileSearchHeaderP
 
   // 최근 본 종목 훅
   const { recentlyViewed, isLoaded: isRecentlyViewedLoaded } = useRecentlyViewed();
+
+  // 인기 검색어 훅 (Firestore 기반)
+  const { popularSearches, isLoading: isPopularLoading } = usePopularSearches();
 
   // ESC 키로 검색창 닫기
   useEffect(() => {
@@ -178,7 +181,11 @@ export function MobileSearchHeader({ title = "AlphaBoard" }: MobileSearchHeaderP
                 </section>
               )}
 
-              {/* 인기 검색어 섹션 */}
+              {/* ========================================
+                  인기 검색어 섹션
+                  - Firestore에서 실시간 집계된 인기 검색어 표시
+                  - 최근 7일간 가장 많이 검색된 검색어
+                  ======================================== */}
               <section>
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-base">🔥</span>
@@ -186,18 +193,30 @@ export function MobileSearchHeader({ title = "AlphaBoard" }: MobileSearchHeaderP
                     인기 검색어
                   </h3>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {["삼성전자", "NVIDIA", "테슬라", "CPI", "FOMC", "금리"].map((term) => (
-                    <Link
-                      key={term}
-                      href={`/search?q=${encodeURIComponent(term)}`}
-                      onClick={() => setIsSearchOpen(false)}
-                      className="text-xs px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      {term}
-                    </Link>
-                  ))}
-                </div>
+                {/* 로딩 상태 */}
+                {isPopularLoading ? (
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div
+                        key={i}
+                        className="h-7 w-16 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {popularSearches.map((item) => (
+                      <Link
+                        key={`popular-${item.query}`}
+                        href={`/search?q=${encodeURIComponent(item.query)}`}
+                        onClick={() => setIsSearchOpen(false)}
+                        className="text-xs px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        {item.query}
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </section>
             </div>
           </div>

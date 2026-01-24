@@ -24,7 +24,7 @@ import Link from "next/link";
 import { Sidebar } from "@/components/layout";
 import { MobileSearchHeader, GlobalSearch } from "@/components/features/search";
 import { searchCategoryFilters } from "@/utils/search";
-import { useRecentSearches, useStockSearch, type StockSearchResult } from "@/hooks";
+import { useRecentSearches, useStockSearch, usePopularSearches, type StockSearchResult } from "@/hooks";
 import { newsData } from "@/constants/news";
 import { glossaryTerms } from "@/constants/glossary";
 import { calendarEvents } from "@/constants/calendar";
@@ -662,6 +662,9 @@ function SearchResultsContent() {
   // 최근 검색어 훅
   const { addSearch } = useRecentSearches();
 
+  // 인기 검색어 훅 (Firestore 기반)
+  const { popularSearches, isLoading: isPopularLoading } = usePopularSearches();
+
   // API 기반 종목 검색 훅
   const {
     results: stockResults,
@@ -949,7 +952,11 @@ function SearchResultsContent() {
                 검색창 클릭 시 최근 본 종목을 확인할 수 있어요
               </p>
 
-              {/* 인기 검색어 섹션 */}
+              {/* ========================================
+                  인기 검색어 섹션
+                  - Firestore에서 실시간 집계된 인기 검색어 표시
+                  - 최근 7일간 가장 많이 검색된 검색어
+                  ======================================== */}
               <div className="mt-8">
                 <div className="flex items-center justify-center gap-2 mb-3">
                   <span className="text-lg">🔥</span>
@@ -957,22 +964,32 @@ function SearchResultsContent() {
                     인기 검색어
                   </p>
                 </div>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {["삼성전자", "NVIDIA", "테슬라", "CPI", "FOMC", "금리"].map(
-                    (term) => (
+                {/* 로딩 상태 */}
+                {isPopularLoading ? (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                      <div
+                        key={i}
+                        className="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {popularSearches.map((item) => (
                       <button
-                        key={term}
+                        key={`popular-${item.query}`}
                         onClick={() => {
-                          setInputValue(term);
-                          router.push(`/search?q=${encodeURIComponent(term)}`);
+                          setInputValue(item.query);
+                          router.push(`/search?q=${encodeURIComponent(item.query)}`);
                         }}
                         className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                       >
-                        {term}
+                        {item.query}
                       </button>
-                    )
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

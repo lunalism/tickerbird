@@ -2,12 +2,14 @@
  * 최근 검색어 관리 훅
  *
  * localStorage를 사용하여 최근 검색어를 저장하고 관리합니다.
+ * 검색 시 Firestore에 로그를 저장하여 인기 검색어 집계에 활용합니다.
  *
  * 기능:
  * - 검색어 추가 (중복 시 최상단으로 이동)
  * - 개별 검색어 삭제
  * - 전체 검색어 삭제
  * - 최대 10개 저장 (오래된 것 자동 삭제)
+ * - Firestore 검색 로그 저장 (인기 검색어용)
  *
  * 사용법:
  * const { recentSearches, addSearch, removeSearch, clearAll } = useRecentSearches();
@@ -16,6 +18,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { logSearch } from "@/lib/searchLog";
 
 // localStorage 키 상수
 const STORAGE_KEY = "recentSearches";
@@ -80,6 +83,7 @@ export function useRecentSearches() {
    * - 빈 문자열은 무시
    * - 이미 존재하는 검색어는 최상단으로 이동
    * - 최대 개수(10개) 초과 시 가장 오래된 검색어 삭제
+   * - Firestore에 검색 로그 저장 (인기 검색어 집계용)
    *
    * @param {string} query - 추가할 검색어
    */
@@ -88,6 +92,11 @@ export function useRecentSearches() {
 
     // 빈 문자열은 무시
     if (!trimmed) return;
+
+    // Firestore에 검색 로그 저장 (비동기, 에러 무시)
+    logSearch(trimmed, 'all').catch(() => {
+      // 로그 저장 실패해도 검색 기능에는 영향 없음
+    });
 
     setRecentSearches((prev) => {
       // 기존 검색어 제거 (중복 방지 및 최신으로 이동)
