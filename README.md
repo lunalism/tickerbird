@@ -133,34 +133,13 @@ AI 기반 글로벌 금융 뉴스
 
 ## 🛠 Tech Stack
 
-<table width="100%">
-<tr>
-<td align="center" width="16.66%">
-<img src="https://skillicons.dev/icons?i=nextjs" width="48" height="48" alt="Next.js" />
-<br /><strong>Next.js 16</strong>
-</td>
-<td align="center" width="16.66%">
-<img src="https://skillicons.dev/icons?i=react" width="48" height="48" alt="React" />
-<br /><strong>React 19</strong>
-</td>
-<td align="center" width="16.66%">
-<img src="https://skillicons.dev/icons?i=ts" width="48" height="48" alt="TypeScript" />
-<br /><strong>TypeScript</strong>
-</td>
-<td align="center" width="16.66%">
-<img src="https://skillicons.dev/icons?i=tailwind" width="48" height="48" alt="Tailwind" />
-<br /><strong>Tailwind 4</strong>
-</td>
-<td align="center" width="16.66%">
-<img src="https://skillicons.dev/icons?i=firebase" width="48" height="48" alt="Firebase" />
-<br /><strong>Firebase</strong>
-</td>
-<td align="center" width="16.66%">
-<img src="https://skillicons.dev/icons?i=supabase" width="48" height="48" alt="Supabase" />
-<br /><strong>Supabase</strong>
-</td>
-</tr>
-</table>
+<div align="center">
+
+|  |  |  |  |  |  |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| <img src="https://skillicons.dev/icons?i=nextjs" width="48" height="48" alt="Next.js" /><br />**Next.js 16** | <img src="https://skillicons.dev/icons?i=react" width="48" height="48" alt="React" /><br />**React 19** | <img src="https://skillicons.dev/icons?i=ts" width="48" height="48" alt="TypeScript" /><br />**TypeScript** | <img src="https://skillicons.dev/icons?i=tailwind" width="48" height="48" alt="Tailwind" /><br />**Tailwind 4** | <img src="https://skillicons.dev/icons?i=firebase" width="48" height="48" alt="Firebase" /><br />**Firebase** | <img src="https://skillicons.dev/icons?i=supabase" width="48" height="48" alt="Supabase" /><br />**Supabase** |
+
+</div>
 
 <br />
 
@@ -187,32 +166,14 @@ AI 기반 글로벌 금융 뉴스
 
 ## 📸 Screenshots
 
-<table width="100%">
-<tr>
-<td align="center" width="50%" height="150">
-<strong>📰 News Feed</strong>
-<br /><br />
-<em>Coming Soon</em>
-</td>
-<td align="center" width="50%" height="150">
-<strong>💹 Market</strong>
-<br /><br />
-<em>Coming Soon</em>
-</td>
-</tr>
-<tr>
-<td align="center" width="50%" height="150">
-<strong>👥 Community</strong>
-<br /><br />
-<em>Coming Soon</em>
-</td>
-<td align="center" width="50%" height="150">
-<strong>📊 Stock Detail</strong>
-<br /><br />
-<em>Coming Soon</em>
-</td>
-</tr>
-</table>
+<div align="center">
+
+|  |  |
+|:---:|:---:|
+| **📰 News Feed**<br /><br />*Coming Soon* | **💹 Market**<br /><br />*Coming Soon* |
+| **👥 Community**<br /><br />*Coming Soon* | **📊 Stock Detail**<br /><br />*Coming Soon* |
+
+</div>
 
 <br />
 
