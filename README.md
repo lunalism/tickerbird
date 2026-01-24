@@ -1,378 +1,325 @@
 <div align="center">
 
-# 🚀 AlphaBoard
+<br />
 
-### 글로벌 투자자를 위한 올인원 금융 플랫폼
+# ✦ AlphaBoard
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
-[![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
+<h3>
+  <em>Smart Investing Starts Here</em>
+</h3>
 
 <br />
 
-**실시간 글로벌 주식 시세** | **AI 기반 뉴스 요약** | **투자자 커뮤니티**
-
-한국과 미국 주식 정보를 한눈에, 직관적인 UI로 제공합니다.
+**한국 · 미국 주식을 한눈에** | **AI 뉴스 요약** | **투자자 커뮤니티**
 
 <br />
 
-[주요 기능](#-주요-기능) •
-[기술 스택](#-기술-스택) •
-[설치 방법](#-설치-방법) •
-[프로젝트 구조](#-프로젝트-구조) •
-[기여 방법](#-기여-방법)
+[![Next.js](https://img.shields.io/badge/Next.js_16-000?logo=nextdotjs&logoColor=fff)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React_19-61DAFB?logo=react&logoColor=000)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript_5-3178C6?logo=typescript&logoColor=fff)](https://www.typescriptlang.org/)
+[![Tailwind](https://img.shields.io/badge/Tailwind_4-06B6D4?logo=tailwindcss&logoColor=fff)](https://tailwindcss.com/)
+[![Firebase](https://img.shields.io/badge/Firebase-DD2C00?logo=firebase&logoColor=fff)](https://firebase.google.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?logo=supabase&logoColor=fff)](https://supabase.com/)
+
+<br />
+
+<a href="#-features">Features</a> ·
+<a href="#-tech-stack">Tech Stack</a> ·
+<a href="#-getting-started">Getting Started</a> ·
+<a href="#-contributing">Contributing</a>
+
+<br />
+<br />
 
 </div>
 
 ---
 
-## 📋 목차
+<br />
 
-- [주요 기능](#-주요-기능)
-- [스크린샷](#-스크린샷)
-- [기술 스택](#-기술-스택)
-- [설치 방법](#-설치-방법)
-- [환경 변수](#-환경-변수)
-- [프로젝트 구조](#-프로젝트-구조)
-- [API 구조](#-api-구조)
-- [기여 방법](#-기여-방법)
-- [라이선스](#-라이선스)
+## 📌 Overview
 
----
+> **AlphaBoard**는 글로벌 투자자를 위한 올인원 금융 플랫폼입니다.
+>
+> 실시간 주식 시세, AI 기반 뉴스 요약, 투자자 커뮤니티를 하나의 서비스에서 경험하세요.
 
-## ✨ 주요 기능
+<br />
 
-### 🔐 사용자 인증
-> Firebase Authentication 기반의 안전한 인증 시스템
+## ✨ Features
 
-- **Google OAuth 2.0** 소셜 로그인
-- 신규 가입자를 위한 **온보딩 플로우**
-- 프로필 관리 및 설정
+<table>
+<tr>
+<td width="50%">
 
----
+### 🔐 Authentication
+Firebase 기반 안전한 인증
+- Google OAuth 2.0 로그인
+- 신규 사용자 온보딩 플로우
+- 프로필 & 설정 관리
 
-### 📰 실시간 뉴스 피드
-> 글로벌 금융 뉴스를 실시간으로 확인
+</td>
+<td width="50%">
 
-- 카테고리별 뉴스 분류 (종합, 속보, 분석, 암호화폐, 경제지표)
-- **Claude AI 기반 뉴스 요약** - 길고 복잡한 기사를 핵심만 요약
-- **원문/번역 토글** - 영어 뉴스를 한글로 번역하여 제공
-- 출처 로고 및 발행 시간 표시
+### 📰 News Feed
+AI 기반 글로벌 금융 뉴스
+- 카테고리별 뉴스 분류
+- **Claude AI 요약** 기능
+- 원문/번역 토글
 
----
+</td>
+</tr>
+<tr>
+<td width="50%">
 
-### 💹 실시간 시세 조회
-> 한국투자증권 API 연동으로 실시간 시세 제공
+### 💹 Real-time Quotes
+한국투자증권 API 연동
+- 🇰🇷 KOSPI/KOSDAQ 실시간 시세
+- 🇺🇸 NYSE/NASDAQ 실시간 시세
+- 4대 지수 위젯 & 차트
 
-- **한국 주식** (KOSPI, KOSDAQ) 실시간 시세
-- **미국 주식** (NYSE, NASDAQ) 실시간 시세
-- **4대 지수** 위젯 (코스피, 코스닥, 다우, 나스닥)
-- 인터랙티브 **차트** (일/주/월/년 기간별)
-- 종목별 상세 정보 페이지
+</td>
+<td width="50%">
 
----
+### 👥 Community
+투자자 소통 공간
+- 게시글/댓글 CRUD
+- 좋아요 & 종목 태그 (`$AAPL`)
+- 태그 종목 실시간 시세 카드
 
-### 👥 투자자 커뮤니티
-> 투자자들과 소통하는 타임라인 피드
+</td>
+</tr>
+<tr>
+<td width="50%">
 
-- **게시글 CRUD** - 작성, 수정, 삭제 (1시간 이내)
-- **댓글 시스템** - 게시글에 댓글 작성/수정/삭제
-- **좋아요 기능** - 마음에 드는 게시글에 좋아요
-- **종목 태그** - 게시글에 종목 태깅 ($AAPL, $005930)
-- **실시간 시세 카드** - 태그된 종목의 현재가 표시
-- **게시글 상세 모달** - 클릭 시 상세 내용 확인
+### ⭐ Watchlist
+나만의 관심종목 관리
+- 종목 검색 & 추가
+- 실시간 시세 모니터링
+- 드래그로 순서 변경
 
----
+</td>
+<td width="50%">
 
-### ⭐ 관심종목 관리
-> 나만의 워치리스트 구성
+### 🔔 Price Alerts
+목표가 알림 시스템
+- 종목별 목표가 설정
+- 상승/하락 조건 선택
+- 알림 히스토리
 
-- 종목 검색 및 관심종목 추가
-- 관심종목 목록에서 실시간 시세 확인
-- 드래그 앤 드롭으로 순서 변경
+</td>
+</tr>
+<tr>
+<td width="50%">
 
----
+### 🔍 Search
+빠른 종목 검색
+- 한글/영문 종목명 검색
+- 티커 코드 검색
+- 검색 결과 즉시 이동
 
-### 🔔 가격 알림
-> 목표가 도달 시 즉시 알림
+</td>
+<td width="50%">
 
-- 종목별 **목표가 설정**
-- 상승/하락 알림 조건 선택
-- 알림 히스토리 관리
-
----
-
-### 🏢 회사 정보
-> Wikipedia API 연동 회사 소개
-
-- **미국 주식**: Wikipedia에서 회사 정보 자동 조회
-- 회사 개요, 설립일, 본사 위치 등 기본 정보 제공
-
----
-
-### 🔍 종목 검색
-> 빠르고 정확한 종목 검색
-
-- **한글/영문** 종목명 검색
-- **티커 코드** 검색
-- 검색 결과에서 바로 종목 페이지 이동
-
----
-
-### 🌙 다크모드
-> 눈의 피로를 줄이는 다크 테마
-
+### 🌙 Dark Mode
+눈 편한 다크 테마
 - 시스템 테마 자동 감지
-- 수동 테마 전환 지원
+- 수동 테마 전환
 
----
-
-## 📸 스크린샷
-
-<div align="center">
-
-| 뉴스 피드 | 시세 조회 |
-|:---:|:---:|
-| *스크린샷 추가 예정* | *스크린샷 추가 예정* |
-
-| 커뮤니티 | 종목 상세 |
-|:---:|:---:|
-| *스크린샷 추가 예정* | *스크린샷 추가 예정* |
-
-</div>
-
----
-
-## 🛠 기술 스택
-
-<details open>
-<summary><b>Frontend</b></summary>
+</td>
+</tr>
+</table>
 
 <br />
 
-| 기술 | 버전 | 설명 |
-|:---|:---:|:---|
-| ![Next.js](https://img.shields.io/badge/Next.js-black?style=flat-square&logo=next.js&logoColor=white) | 16 | React 풀스택 프레임워크 (App Router) |
-| ![React](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black) | 19 | UI 라이브러리 |
-| ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white) | 5 | 정적 타입 언어 |
-| ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white) | 4 | 유틸리티 퍼스트 CSS 프레임워크 |
-| ![Zustand](https://img.shields.io/badge/Zustand-orange?style=flat-square) | 5 | 경량 상태 관리 라이브러리 |
-| ![Recharts](https://img.shields.io/badge/Recharts-22B5BF?style=flat-square) | 3 | React 차트 라이브러리 |
+## 🛠 Tech Stack
 
-</details>
-
-<details open>
-<summary><b>Backend & Database</b></summary>
+<table>
+<tr>
+<td align="center" width="96">
+<img src="https://skillicons.dev/icons?i=nextjs" width="48" height="48" alt="Next.js" />
+<br /><strong>Next.js 16</strong>
+</td>
+<td align="center" width="96">
+<img src="https://skillicons.dev/icons?i=react" width="48" height="48" alt="React" />
+<br /><strong>React 19</strong>
+</td>
+<td align="center" width="96">
+<img src="https://skillicons.dev/icons?i=ts" width="48" height="48" alt="TypeScript" />
+<br /><strong>TypeScript</strong>
+</td>
+<td align="center" width="96">
+<img src="https://skillicons.dev/icons?i=tailwind" width="48" height="48" alt="Tailwind" />
+<br /><strong>Tailwind 4</strong>
+</td>
+<td align="center" width="96">
+<img src="https://skillicons.dev/icons?i=firebase" width="48" height="48" alt="Firebase" />
+<br /><strong>Firebase</strong>
+</td>
+<td align="center" width="96">
+<img src="https://skillicons.dev/icons?i=supabase" width="48" height="48" alt="Supabase" />
+<br /><strong>Supabase</strong>
+</td>
+</tr>
+</table>
 
 <br />
-
-| 기술 | 설명 |
-|:---|:---|
-| ![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=flat-square&logo=supabase&logoColor=white) | PostgreSQL 기반 BaaS (데이터베이스, 실시간 구독) |
-| ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=flat-square&logo=firebase&logoColor=black) | 인증 (Authentication) |
-
-</details>
-
-<details open>
-<summary><b>External APIs</b></summary>
-
-<br />
-
-| API | 용도 |
-|:---|:---|
-| 한국투자증권 OpenAPI | 한국/미국 주식 실시간 시세 |
-| Claude AI (Anthropic) | 뉴스 AI 요약 및 번역 |
-| Wikipedia API | 회사 정보 조회 |
-
-</details>
 
 <details>
-<summary><b>개발 도구</b></summary>
+<summary><strong>📦 Dependencies</strong></summary>
 
 <br />
 
-| 도구 | 설명 |
-|:---|:---|
-| ![ESLint](https://img.shields.io/badge/ESLint-4B32C3?style=flat-square&logo=eslint&logoColor=white) | 코드 린팅 |
-| ![Prettier](https://img.shields.io/badge/Prettier-F7B93E?style=flat-square&logo=prettier&logoColor=black) | 코드 포맷팅 |
-| ![pnpm](https://img.shields.io/badge/pnpm-F69220?style=flat-square&logo=pnpm&logoColor=white) | 패키지 매니저 |
+| Category | Technologies |
+|:---------|:-------------|
+| **Framework** | Next.js 16, React 19 |
+| **Language** | TypeScript 5 |
+| **Styling** | Tailwind CSS 4 |
+| **State** | Zustand 5 |
+| **Database** | Supabase (PostgreSQL) |
+| **Auth** | Firebase Authentication |
+| **Charts** | Recharts 3 |
+| **AI** | Claude API (Anthropic) |
+| **Stock API** | 한국투자증권 OpenAPI |
 
 </details>
 
----
+<br />
 
-## 🚀 설치 방법
+## 📸 Screenshots
 
-### 사전 요구사항
+<table>
+<tr>
+<td align="center">
+<strong>📰 News Feed</strong>
+<br /><br />
+<em>Coming Soon</em>
+</td>
+<td align="center">
+<strong>💹 Market</strong>
+<br /><br />
+<em>Coming Soon</em>
+</td>
+</tr>
+<tr>
+<td align="center">
+<strong>👥 Community</strong>
+<br /><br />
+<em>Coming Soon</em>
+</td>
+<td align="center">
+<strong>📊 Stock Detail</strong>
+<br /><br />
+<em>Coming Soon</em>
+</td>
+</tr>
+</table>
 
-- Node.js 18.17 이상
-- npm, yarn, 또는 pnpm
+<br />
 
-### 1단계: 저장소 클론
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18.17+
+- npm / yarn / pnpm
+
+### Installation
 
 ```bash
-git clone https://github.com/your-username/alphaboard.git
+# 1. Clone
+git clone https://github.com/lunalism/alphaboard.git
 cd alphaboard
-```
 
-### 2단계: 의존성 설치
-
-```bash
+# 2. Install dependencies
 npm install
-# 또는
-yarn install
-# 또는
-pnpm install
-```
 
-### 3단계: 환경 변수 설정
-
-```bash
+# 3. Setup environment variables
 cp .env.local.example .env.local
-```
 
-`.env.local` 파일을 열고 필요한 환경 변수를 설정합니다.
-
-### 4단계: 개발 서버 실행
-
-```bash
+# 4. Run dev server
 npm run dev
 ```
 
-브라우저에서 [http://localhost:3000](http://localhost:3000)에 접속합니다.
-
----
-
-## ⚙️ 환경 변수
-
-<details>
-<summary><b>필수 환경 변수</b></summary>
+Visit [http://localhost:3000](http://localhost:3000)
 
 <br />
 
-| 변수명 | 설명 |
-|:---|:---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase 프로젝트 URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Anonymous Key |
-| `NEXT_PUBLIC_FIREBASE_*` | Firebase 설정 값들 |
-| `KIS_APP_KEY` | 한국투자증권 API App Key |
-| `KIS_APP_SECRET` | 한국투자증권 API App Secret |
-| `ANTHROPIC_API_KEY` | Claude AI API Key |
-
-</details>
-
 <details>
-<summary><b>환경 변수 설정 가이드</b></summary>
+<summary><strong>⚙️ Environment Variables</strong></summary>
 
 <br />
 
-#### Supabase 설정
-1. [Supabase](https://supabase.com)에서 새 프로젝트 생성
-2. Project Settings > API에서 URL과 anon key 복사
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-#### Firebase 설정
-1. [Firebase Console](https://console.firebase.google.com)에서 프로젝트 생성
-2. Authentication > Sign-in method > Google 활성화
-3. 프로젝트 설정에서 웹 앱 추가 후 config 값 복사
+# Firebase
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
 
-#### 한국투자증권 API 설정
-1. [한국투자증권 OpenAPI](https://apiportal.koreainvestment.com)에서 계정 생성
-2. 앱 등록 후 App Key와 App Secret 발급
+# Korea Investment API
+KIS_APP_KEY=your_kis_app_key
+KIS_APP_SECRET=your_kis_app_secret
+
+# Claude AI
+ANTHROPIC_API_KEY=your_anthropic_api_key
+```
 
 </details>
 
----
+<br />
 
-## 📁 프로젝트 구조
+## 📁 Project Structure
 
 ```
-alphaboard/
-├── 📂 src/
-│   ├── 📂 app/                          # Next.js App Router
-│   │   ├── 📂 api/                      # API Routes
-│   │   │   ├── 📂 kis/                  # 한국투자증권 API
-│   │   │   │   ├── 📂 stock/price/      # 한국 주식 시세
-│   │   │   │   └── 📂 overseas/         # 미국 주식 시세
-│   │   │   ├── 📂 community/            # 커뮤니티 API
-│   │   │   │   └── 📂 posts/            # 게시글 CRUD
-│   │   │   ├── 📂 news/                 # 뉴스 API
-│   │   │   └── 📂 wikipedia/            # Wikipedia API
-│   │   │
-│   │   ├── 📂 (auth)/                   # 인증 관련 페이지
-│   │   │   ├── 📂 login/                # 로그인
-│   │   │   └── 📂 onboarding/           # 온보딩
-│   │   │
-│   │   ├── 📂 community/                # 커뮤니티 페이지
-│   │   ├── 📂 market/                   # 시세 페이지
-│   │   │   └── 📂 [ticker]/             # 종목 상세
-│   │   ├── 📂 news/                     # 뉴스 페이지
-│   │   └── 📂 watchlist/                # 관심종목 페이지
-│   │
-│   ├── 📂 components/                   # React 컴포넌트
-│   │   ├── 📂 common/                   # 공통 컴포넌트
-│   │   ├── 📂 features/                 # 기능별 컴포넌트
-│   │   │   ├── 📂 community/            # 커뮤니티
-│   │   │   ├── 📂 market/               # 시세
-│   │   │   ├── 📂 news/                 # 뉴스
-│   │   │   └── 📂 watchlist/            # 관심종목
-│   │   ├── 📂 layout/                   # 레이아웃 컴포넌트
-│   │   └── 📂 ui/                       # UI 컴포넌트
-│   │
-│   ├── 📂 hooks/                        # Custom Hooks
-│   ├── 📂 lib/                          # 라이브러리 설정
-│   │   ├── 📂 firebase/                 # Firebase 설정
-│   │   ├── 📂 supabase/                 # Supabase 클라이언트
-│   │   └── 📄 toast.ts                  # 토스트 알림
-│   │
-│   ├── 📂 stores/                       # Zustand 스토어
-│   ├── 📂 types/                        # TypeScript 타입 정의
-│   └── 📂 utils/                        # 유틸리티 함수
+src/
+├── app/                    # Next.js App Router
+│   ├── api/               # API Routes
+│   │   ├── kis/           # 한투 API (주식 시세)
+│   │   ├── community/     # 커뮤니티 API
+│   │   └── news/          # 뉴스 API
+│   ├── community/         # 커뮤니티 페이지
+│   ├── market/            # 시세 페이지
+│   └── news/              # 뉴스 페이지
 │
-├── 📄 .env.local.example                # 환경 변수 예시
-├── 📄 next.config.ts                    # Next.js 설정
-├── 📄 tailwind.config.ts                # Tailwind CSS 설정
-├── 📄 tsconfig.json                     # TypeScript 설정
-└── 📄 package.json                      # 프로젝트 설정
+├── components/
+│   ├── features/          # 기능별 컴포넌트
+│   ├── layout/            # 레이아웃
+│   └── ui/                # UI 컴포넌트
+│
+├── hooks/                 # Custom Hooks
+├── lib/                   # Firebase, Supabase 설정
+├── stores/                # Zustand 스토어
+└── types/                 # TypeScript 타입
 ```
-
----
-
-## 🔌 API 구조
-
-<details>
-<summary><b>한국 주식 API</b></summary>
 
 <br />
 
-```
+## 🔌 API Reference
+
+<details>
+<summary><strong>Stock Price API</strong></summary>
+
+<br />
+
+```http
 GET /api/kis/stock/price?symbol=005930
 ```
 
-**응답 예시:**
 ```json
 {
   "stockName": "삼성전자",
   "currentPrice": 75000,
-  "changePercent": 1.35,
-  "volume": 12345678
+  "changePercent": 1.35
 }
 ```
 
-</details>
-
-<details>
-<summary><b>미국 주식 API</b></summary>
-
-<br />
-
-```
+```http
 GET /api/kis/overseas/stock/price?symbol=AAPL
 ```
 
-**응답 예시:**
 ```json
 {
   "name": "Apple Inc",
@@ -385,72 +332,60 @@ GET /api/kis/overseas/stock/price?symbol=AAPL
 </details>
 
 <details>
-<summary><b>커뮤니티 API</b></summary>
+<summary><strong>Community API</strong></summary>
 
 <br />
 
-```
-GET    /api/community/posts              # 게시글 목록
-POST   /api/community/posts              # 게시글 작성
-GET    /api/community/posts/[id]         # 게시글 상세
-PUT    /api/community/posts/[id]         # 게시글 수정
-DELETE /api/community/posts/[id]         # 게시글 삭제
-
-GET    /api/community/posts/[id]/comments     # 댓글 목록
-POST   /api/community/posts/[id]/comments     # 댓글 작성
-```
+| Method | Endpoint | Description |
+|:-------|:---------|:------------|
+| `GET` | `/api/community/posts` | 게시글 목록 |
+| `POST` | `/api/community/posts` | 게시글 작성 |
+| `GET` | `/api/community/posts/[id]` | 게시글 상세 |
+| `PUT` | `/api/community/posts/[id]` | 게시글 수정 |
+| `DELETE` | `/api/community/posts/[id]` | 게시글 삭제 |
+| `GET` | `/api/community/posts/[id]/comments` | 댓글 목록 |
+| `POST` | `/api/community/posts/[id]/comments` | 댓글 작성 |
 
 </details>
 
----
+<br />
 
-## 📜 스크립트
+## 🤝 Contributing
+
+Contributions are welcome!
 
 ```bash
-npm run dev      # 개발 서버 실행
-npm run build    # 프로덕션 빌드
-npm run start    # 프로덕션 서버 실행
-npm run lint     # ESLint 코드 검사
+# Fork & Clone
+git checkout -b feature/amazing-feature
+git commit -m "feat: Add amazing feature"
+git push origin feature/amazing-feature
+# Open Pull Request
 ```
 
----
+<details>
+<summary><strong>Commit Convention</strong></summary>
 
-## 🤝 기여 방법
+<br />
 
-AlphaBoard에 기여해 주셔서 감사합니다!
-
-1. 이 저장소를 **Fork** 합니다
-2. 새 브랜치를 생성합니다
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
-3. 변경사항을 커밋합니다
-   ```bash
-   git commit -m 'feat: Add amazing feature'
-   ```
-4. 브랜치에 Push 합니다
-   ```bash
-   git push origin feature/amazing-feature
-   ```
-5. **Pull Request**를 생성합니다
-
-### 커밋 컨벤션
-
-| 타입 | 설명 |
-|:---|:---|
-| `feat` | 새로운 기능 추가 |
+| Type | Description |
+|:-----|:------------|
+| `feat` | 새로운 기능 |
 | `fix` | 버그 수정 |
 | `docs` | 문서 수정 |
-| `style` | 코드 포맷팅 |
-| `refactor` | 코드 리팩토링 |
-| `test` | 테스트 코드 |
-| `chore` | 빌드, 설정 변경 |
+| `style` | 포맷팅 |
+| `refactor` | 리팩토링 |
+| `test` | 테스트 |
+| `chore` | 기타 변경 |
 
----
+</details>
 
-## 📄 라이선스
+<br />
 
-이 프로젝트는 [MIT License](LICENSE)를 따릅니다.
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
+
+<br />
 
 ---
 
@@ -458,10 +393,8 @@ AlphaBoard에 기여해 주셔서 감사합니다!
 
 <br />
 
-**Made with ❤️ for Global Investors**
+**Built with ❤️ for Global Investors**
 
 <br />
-
-[![GitHub Stars](https://img.shields.io/github/stars/your-username/alphaboard?style=social)](https://github.com/your-username/alphaboard)
 
 </div>
