@@ -2,14 +2,21 @@
 
 /**
  * MobileSearchHeader 컴포넌트
- * - 모바일 상단 헤더
- * - 검색 아이콘 클릭 시 검색바 펼침
+ *
+ * 모바일 상단 헤더 + 전체 화면 검색 모달
+ *
+ * 기능:
+ * - 검색 아이콘 클릭 시 전체 화면 검색 오버레이 표시
+ * - 최근 본 종목 표시 (수평 스크롤 카드)
+ * - 인기 검색어 표시
+ * - ESC 키로 닫기
  * - 다크모드 지원
  */
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { GlobalSearch } from "./GlobalSearch";
+import { useRecentlyViewed } from "@/hooks";
 
 interface MobileSearchHeaderProps {
   /** 현재 페이지 타이틀 */
@@ -18,6 +25,9 @@ interface MobileSearchHeaderProps {
 
 export function MobileSearchHeader({ title = "AlphaBoard" }: MobileSearchHeaderProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  // 최근 본 종목 훅
+  const { recentlyViewed, isLoaded: isRecentlyViewedLoaded } = useRecentlyViewed();
 
   // ESC 키로 검색창 닫기
   useEffect(() => {
@@ -126,25 +136,69 @@ export function MobileSearchHeader({ title = "AlphaBoard" }: MobileSearchHeaderP
               </div>
             </div>
 
-            {/* 검색 안내 (검색어 입력 전) */}
-            <div className="p-4">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                뉴스, 종목, 용어를 검색하세요
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg">
-                  삼성전자
-                </span>
-                <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg">
-                  NVIDIA
-                </span>
-                <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg">
-                  CPI
-                </span>
-                <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg">
-                  FOMC
-                </span>
-              </div>
+            {/* ========================================
+                검색 안내 영역 (검색어 입력 전)
+                - 최근 본 종목 (수평 스크롤)
+                - 인기 검색어
+                ======================================== */}
+            <div className="p-4 space-y-6">
+              {/* 최근 본 종목 섹션 */}
+              {isRecentlyViewedLoaded && recentlyViewed.length > 0 && (
+                <section>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-base">👀</span>
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      최근 본 종목
+                    </h3>
+                  </div>
+                  {/* 수평 스크롤 카드 */}
+                  <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+                    {recentlyViewed.slice(0, 10).map((stock) => (
+                      <Link
+                        key={`mobile-recent-${stock.ticker}`}
+                        href={`/market/${stock.ticker}?market=${stock.market}`}
+                        onClick={() => setIsSearchOpen(false)}
+                        className="flex-shrink-0 px-3 py-2 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors min-w-[100px]"
+                      >
+                        {/* 시장 배지 */}
+                        <span className={`inline-block px-1.5 py-0.5 text-[10px] font-medium rounded mb-1 ${
+                          stock.market === 'kr'
+                            ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                            : 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                        }`}>
+                          {stock.market === 'kr' ? 'KR' : 'US'}
+                        </span>
+                        {/* 종목명 */}
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {stock.name}
+                        </p>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* 인기 검색어 섹션 */}
+              <section>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-base">🔥</span>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    인기 검색어
+                  </h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {["삼성전자", "NVIDIA", "테슬라", "CPI", "FOMC", "금리"].map((term) => (
+                    <Link
+                      key={term}
+                      href={`/search?q=${encodeURIComponent(term)}`}
+                      onClick={() => setIsSearchOpen(false)}
+                      className="text-xs px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      {term}
+                    </Link>
+                  ))}
+                </div>
+              </section>
             </div>
           </div>
         </div>
