@@ -924,8 +924,9 @@ function SearchResultsContent() {
               초기 상태 (검색 전)
               - 데스크톱: GlobalSearch 드롭다운에서 최근 본 종목/최근 검색어 표시
               - 모바일: 페이지에 직접 최근 검색어/인기 검색어 표시
+              - 검색어 입력 중(inputValue)이거나 검색 완료(hasQuery) 시 숨김
               ======================================== */}
-          {!hasQuery && (
+          {!hasQuery && !inputValue.trim() && (
             <div className="py-8 text-center">
               {/* 검색 안내 아이콘 */}
               <div className="w-16 h-16 mx-auto bg-blue-50 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
