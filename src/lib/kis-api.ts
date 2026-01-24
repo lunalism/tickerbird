@@ -47,18 +47,34 @@ import fs from 'fs';
 import path from 'path';
 
 /**
+ * Vercel/서버리스 환경 감지
+ *
+ * @description
+ * Vercel 서버리스 환경에서는 파일시스템이 read-only이므로
+ * /tmp 디렉토리만 쓰기가 가능합니다.
+ */
+const IS_VERCEL = process.env.VERCEL === '1';
+
+/**
  * 토큰 캐시 파일 경로
  *
  * @description
  * 토큰을 파일에 저장하여 서버 재시작 후에도 토큰을 재사용합니다.
- * .next/cache 디렉토리는 Next.js 빌드 캐시 디렉토리로, gitignore됨.
+ *
+ * 환경별 경로:
+ * - Vercel (서버리스): /tmp/kis-token.json (read-only 제약으로 /tmp만 사용 가능)
+ * - 로컬 개발: .next/cache/kis-token.json
  *
  * 파일 저장 이유:
  * 1. 서버 재시작 시에도 토큰 유지 (메모리 캐시는 초기화됨)
  * 2. 개발 중 HMR(Hot Module Replacement)에도 토큰 유지
  * 3. Rate limit (1분당 1회) 에러 방지
+ *
+ * 주의: Vercel 서버리스 환경에서는 cold start 시 /tmp 디렉토리도 초기화됨
  */
-const TOKEN_CACHE_FILE = path.join(process.cwd(), '.next', 'cache', 'kis-token.json');
+const TOKEN_CACHE_FILE = IS_VERCEL
+  ? '/tmp/kis-token.json'
+  : path.join(process.cwd(), '.next', 'cache', 'kis-token.json');
 
 /**
  * 토큰 캐시 (메모리 + 파일 이중 저장)
@@ -105,13 +121,16 @@ let tokenPromise: Promise<string> | null = null;
  * 서버 재시작 시 메모리 캐시가 초기화되므로
  * 파일에서 저장된 토큰을 읽어 메모리에 복원합니다.
  *
+ * Vercel 서버리스 환경에서는 cold start 시 /tmp가 초기화되어
+ * 파일이 없을 수 있습니다. 이 경우 새로 토큰을 발급받습니다.
+ *
  * @returns 유효한 토큰이 있으면 CachedToken, 없으면 null
  */
 function loadTokenFromFile(): CachedToken | null {
   try {
     // 파일 존재 확인
     if (!fs.existsSync(TOKEN_CACHE_FILE)) {
-      console.log('[KIS API] 토큰 캐시 파일 없음');
+      console.log(`[KIS API] 토큰 캐시 파일 없음 (경로: ${TOKEN_CACHE_FILE}, Vercel: ${IS_VERCEL})`);
       return null;
     }
 
@@ -133,10 +152,10 @@ function loadTokenFromFile(): CachedToken | null {
       return null;
     }
 
-    console.log('[KIS API] 파일에서 토큰 로드 성공, 만료:', cachedToken.expiresAt.toISOString());
+    console.log(`[KIS API] 파일에서 토큰 로드 성공, 만료: ${cachedToken.expiresAt.toISOString()} (Vercel: ${IS_VERCEL})`);
     return cachedToken;
   } catch (error) {
-    console.error('[KIS API] 파일 캐시 로드 실패:', error);
+    console.error(`[KIS API] 파일 캐시 로드 실패 (Vercel: ${IS_VERCEL}):`, error);
     return null;
   }
 }
@@ -148,14 +167,20 @@ function loadTokenFromFile(): CachedToken | null {
  * 새 토큰 발급 시 파일에 저장하여
  * 서버 재시작 후에도 토큰을 재사용할 수 있도록 합니다.
  *
+ * Vercel 서버리스 환경에서는 /tmp에 저장합니다.
+ * /tmp도 cold start 시 초기화되지만, warm 상태에서는 유지됩니다.
+ *
  * @param token 저장할 토큰 정보
  */
 function saveTokenToFile(token: CachedToken): void {
   try {
-    // 디렉토리 생성 (없으면)
-    const dir = path.dirname(TOKEN_CACHE_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    // /tmp는 이미 존재하므로 Vercel에서는 디렉토리 생성 스킵
+    if (!IS_VERCEL) {
+      // 로컬 환경에서만 디렉토리 생성
+      const dir = path.dirname(TOKEN_CACHE_FILE);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
     }
 
     // 토큰 저장 (JSON 형식)
@@ -165,10 +190,10 @@ function saveTokenToFile(token: CachedToken): void {
     }, null, 2);
 
     fs.writeFileSync(TOKEN_CACHE_FILE, data, 'utf-8');
-    console.log('[KIS API] 토큰 파일 저장 완료:', TOKEN_CACHE_FILE);
+    console.log(`[KIS API] 토큰 파일 저장 완료: ${TOKEN_CACHE_FILE} (Vercel: ${IS_VERCEL})`);
   } catch (error) {
     // 파일 저장 실패해도 메모리 캐시는 유지되므로 경고만 출력
-    console.warn('[KIS API] 토큰 파일 저장 실패 (메모리 캐시는 유지됨):', error);
+    console.warn(`[KIS API] 토큰 파일 저장 실패 (메모리 캐시는 유지됨, Vercel: ${IS_VERCEL}):`, error);
   }
 }
 

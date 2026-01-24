@@ -62,6 +62,28 @@ export default function LoginPage() {
   }, [isLoggedIn, isLoading, needsOnboarding, router]);
 
   /**
+   * Firebase 에러 코드별 사용자 친화적 메시지 반환
+   */
+  const getErrorMessage = (errorCode: string | undefined): string | null => {
+    switch (errorCode) {
+      case 'auth/popup-closed-by-user':
+        return null; // 사용자가 취소한 경우 무시
+      case 'auth/popup-blocked':
+        return '팝업이 차단되었습니다. 팝업 차단을 해제하고 다시 시도해주세요.';
+      case 'auth/unauthorized-domain':
+        return '이 도메인에서는 로그인할 수 없습니다. 관리자에게 문의하세요.';
+      case 'auth/operation-not-allowed':
+        return 'Google 로그인이 비활성화되어 있습니다.';
+      case 'auth/invalid-api-key':
+        return 'Firebase 설정 오류가 발생했습니다.';
+      case 'auth/network-request-failed':
+        return '네트워크 오류가 발생했습니다. 인터넷 연결을 확인하세요.';
+      default:
+        return '로그인에 실패했습니다. 다시 시도해주세요.';
+    }
+  };
+
+  /**
    * Google 로그인 버튼 클릭 핸들러
    *
    * Firebase signInWithPopup 호출
@@ -74,14 +96,16 @@ export default function LoginPage() {
     try {
       await signInWithGoogle();
       // 성공 시 useEffect에서 리다이렉트 처리됨
-    } catch (err) {
-      console.error('[LoginPage] Google 로그인 에러:', err);
-      // 팝업 닫힘 에러는 무시 (사용자가 취소한 경우)
-      if (err instanceof Error && err.message.includes('popup-closed')) {
-        setError(null);
-      } else {
-        setError('로그인에 실패했습니다. 다시 시도해주세요.');
-      }
+    } catch (err: unknown) {
+      const firebaseError = err as { code?: string; message?: string };
+      console.error('[LoginPage] Google 로그인 에러:', {
+        code: firebaseError.code,
+        message: firebaseError.message,
+      });
+
+      // Firebase 에러 코드에 따른 메시지 표시
+      const errorMessage = getErrorMessage(firebaseError.code);
+      setError(errorMessage);
     } finally {
       setIsSigningIn(false);
     }

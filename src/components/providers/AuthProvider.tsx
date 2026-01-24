@@ -259,15 +259,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    *
    * Google 팝업을 열어 로그인 진행
    * 로그인 성공 시 onAuthStateChanged에서 상태 업데이트됨
+   *
+   * 모바일에서 팝업이 실패하는 경우 (특히 iOS Safari)
+   * 에러 코드를 상세히 로깅하여 디버깅에 활용
    */
   const handleSignInWithGoogle = useCallback(async () => {
     try {
       debug.log('[AuthProvider] Google 로그인 시작...');
+      debug.log('[AuthProvider] Firebase auth 상태:', auth ? 'initialized' : 'null');
+      debug.log('[AuthProvider] 현재 URL:', typeof window !== 'undefined' ? window.location.href : 'SSR');
+
       await signInWithPopup(auth, googleProvider);
       // 성공 시 onAuthStateChanged가 자동으로 호출됨
       debug.log('[AuthProvider] Google 로그인 성공');
-    } catch (err) {
-      console.error('[AuthProvider] Google 로그인 에러:', err);
+    } catch (err: unknown) {
+      // Firebase 에러 코드 상세 로깅
+      const firebaseError = err as { code?: string; message?: string; customData?: unknown };
+      console.error('[AuthProvider] Google 로그인 에러:', {
+        code: firebaseError.code,
+        message: firebaseError.message,
+        customData: firebaseError.customData,
+        fullError: err,
+      });
+
+      // 일반적인 Firebase Auth 에러 코드:
+      // - auth/popup-blocked: 팝업이 차단됨
+      // - auth/popup-closed-by-user: 사용자가 팝업을 닫음
+      // - auth/unauthorized-domain: 승인되지 않은 도메인
+      // - auth/operation-not-allowed: 로그인 방식이 비활성화됨
+      // - auth/invalid-api-key: 잘못된 API 키
+      if (firebaseError.code === 'auth/unauthorized-domain') {
+        console.error('[AuthProvider] 현재 도메인이 Firebase 승인 도메인에 등록되지 않았습니다.');
+        console.error('[AuthProvider] Firebase Console > Authentication > Settings > Authorized domains에 도메인을 추가하세요.');
+      }
+
       throw err; // 호출한 곳에서 에러 처리하도록 전파
     }
   }, []);
