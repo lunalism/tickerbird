@@ -15,9 +15,13 @@
  * - 정렬: 최신순 / 인기순
  * - 글쓰기: 데스크톱은 상단 입력창, 모바일은 FAB
  * - 종목 태그: $AAPL 형태로 입력하면 파란색 링크
+ *
+ * Next.js 15+ 호환:
+ * - useSearchParams()는 Suspense boundary 안에서 사용해야 함
+ * - CommunityContent 컴포넌트로 분리하여 Suspense로 감싸서 사용
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   CommunityCategory,
@@ -114,7 +118,14 @@ function toFeedPost(post: CommunityPost): FeedPostType {
   };
 }
 
-export default function CommunityPage() {
+/**
+ * 커뮤니티 콘텐츠 컴포넌트
+ *
+ * useSearchParams()를 사용하므로 Suspense boundary 안에서 렌더링되어야 함
+ * Next.js 15+에서는 useSearchParams가 정적 렌더링을 방해하므로
+ * Suspense로 감싸서 클라이언트 사이드 렌더링으로 처리
+ */
+function CommunityContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeMenu, setActiveMenu] = useState('community');
@@ -560,5 +571,38 @@ export default function CommunityPage() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * 커뮤니티 페이지 로딩 폴백 컴포넌트
+ *
+ * useSearchParams() 로딩 중에 표시되는 스켈레톤 UI
+ */
+function CommunityLoadingFallback() {
+  return (
+    <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3" />
+        <p className="text-gray-500 dark:text-gray-400">커뮤니티를 불러오는 중...</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 커뮤니티 페이지 (export default)
+ *
+ * Next.js 15+에서 useSearchParams()를 사용하는 컴포넌트는
+ * Suspense boundary로 감싸야 정적 빌드 시 오류가 발생하지 않음
+ *
+ * Suspense는 useSearchParams()의 비동기 처리를 기다리면서
+ * fallback UI를 표시하고, 준비되면 실제 콘텐츠를 렌더링
+ */
+export default function CommunityPage() {
+  return (
+    <Suspense fallback={<CommunityLoadingFallback />}>
+      <CommunityContent />
+    </Suspense>
   );
 }
