@@ -176,37 +176,51 @@ function SearchInput({
   };
 
   return (
-    <div className="relative">
-      {/* 검색 아이콘 */}
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-        <svg
-          className="w-5 h-5 text-gray-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-          />
-        </svg>
-      </div>
+    <>
+      {/* ========================================
+          모바일 배경 오버레이
+          - 드롭다운 열릴 때 뒤의 콘텐츠 가리기
+          - 클릭 시 드롭다운 닫기
+          - md 이상에서는 숨김 (데스크톱은 영향 없음)
+          ======================================== */}
+      {isDropdownOpen && recentSearches.length > 0 && (
+        <div
+          className="fixed inset-0 bg-black/30 z-40 md:hidden"
+          onClick={() => setIsDropdownOpen(false)}
+        />
+      )}
 
-      {/* 검색 입력창 */}
-      <input
-        ref={inputRef}
-        type="text"
-        value={value}
-        onChange={handleInputChange}
-        onKeyDown={handleKeyDown}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        placeholder="뉴스, 종목, 용어를 검색하세요"
-        className="w-full pl-12 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
-        autoFocus
-      />
+      <div className="relative z-50">
+        {/* 검색 아이콘 */}
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+          <svg
+            className="w-5 h-5 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+        </div>
+
+        {/* 검색 입력창 */}
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          placeholder="뉴스, 종목, 용어를 검색하세요"
+          className="w-full pl-12 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+          autoFocus
+        />
 
       {/* 검색어 지우기 버튼 */}
       {value && (
@@ -321,7 +335,8 @@ function SearchInput({
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

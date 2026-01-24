@@ -426,16 +426,11 @@ export function GlobalSearch({
         )}
       </div>
 
-      {/* ========================================
-          드롭다운 컨테이너
-          - 데스크톱: 검색창 아래 왼쪽 정렬, 검색창 너비에 맞춤
-          - 모바일: 화면 전체 너비 (패딩 제외)
-          - z-50으로 다른 요소 위에 표시
-          ======================================== */}
+      {/* 드롭다운 컨테이너 - 오른쪽 정렬로 화면 밖 넘침 방지 */}
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden z-50 max-h-[60vh] overflow-y-auto animate-fade-in w-full min-w-[280px] md:min-w-[350px] md:max-w-[420px]"
+          className="absolute top-full right-0 mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden z-50 max-h-[70vh] overflow-y-auto animate-fade-in w-[350px] lg:w-[420px] max-w-[calc(100vw-2rem)]"
         >
           {/* ========================================
               최근 데이터 드롭다운 (검색어가 없을 때)
