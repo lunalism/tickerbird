@@ -44,10 +44,13 @@ function SearchInput({
   value,
   onChange,
   onSearch,
+  disableDropdown = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   onSearch: () => void;
+  /** 드롭다운 비활성화 (모바일에서 페이지 섹션과 중복 방지) */
+  disableDropdown?: boolean;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -65,8 +68,10 @@ function SearchInput({
   /**
    * 포커스 핸들러
    * 검색어가 비어있고 최근 검색어가 있으면 드롭다운 표시
+   * disableDropdown이 true면 드롭다운 표시하지 않음
    */
   const handleFocus = () => {
+    if (disableDropdown) return;
     if (!value.trim() && recentSearches.length > 0 && isMounted) {
       setIsDropdownOpen(true);
     }
@@ -90,10 +95,13 @@ function SearchInput({
   /**
    * 입력값 변경 핸들러
    * 값이 비어있으면 최근 검색어 드롭다운 표시
+   * disableDropdown이 true면 드롭다운 표시하지 않음
    */
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     onChange(newValue);
+
+    if (disableDropdown) return;
 
     if (!newValue.trim() && recentSearches.length > 0 && isMounted) {
       setIsDropdownOpen(true);
@@ -176,21 +184,7 @@ function SearchInput({
   };
 
   return (
-    <>
-      {/* ========================================
-          모바일 배경 오버레이
-          - 드롭다운 열릴 때 뒤의 콘텐츠 가리기
-          - 클릭 시 드롭다운 닫기
-          - md 이상에서는 숨김 (데스크톱은 영향 없음)
-          ======================================== */}
-      {isDropdownOpen && recentSearches.length > 0 && (
-        <div
-          className="fixed inset-0 bg-black/30 z-40 md:hidden"
-          onClick={() => setIsDropdownOpen(false)}
-        />
-      )}
-
-      <div className="relative z-50">
+    <div className="relative">
         {/* 검색 아이콘 */}
         <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
           <svg
@@ -228,7 +222,7 @@ function SearchInput({
           type="button"
           onClick={() => {
             onChange("");
-            if (recentSearches.length > 0 && isMounted) {
+            if (!disableDropdown && recentSearches.length > 0 && isMounted) {
               setIsDropdownOpen(true);
             }
             inputRef.current?.focus();
@@ -335,8 +329,7 @@ function SearchInput({
           </div>
         </div>
       )}
-      </div>
-    </>
+    </div>
   );
 }
 
@@ -660,7 +653,7 @@ function SearchResultsContent() {
   const [activeCategory, setActiveCategory] = useState<SearchCategory>("all");
 
   // 최근 검색어 훅
-  const { addSearch } = useRecentSearches();
+  const { recentSearches, isMounted, addSearch, removeSearch, clearAll } = useRecentSearches();
 
   // 인기 검색어 훅 (Firestore 기반)
   const { popularSearches, isLoading: isPopularLoading } = usePopularSearches();
@@ -780,14 +773,14 @@ function SearchResultsContent() {
           {/* ========================================
               모바일 검색 입력
               - md 이하에서만 표시
-              - relative z-50으로 아래 콘텐츠보다 위에 표시
-              - 드롭다운이 아래 콘텐츠와 겹치지 않도록 처리
+              - disableDropdown: 페이지 하단에 인기 검색어가 있으므로 드롭다운 비활성화
               ======================================== */}
-          <div className="md:hidden relative z-50">
+          <div className="md:hidden">
             <SearchInput
               value={inputValue}
               onChange={setInputValue}
               onSearch={handleSearch}
+              disableDropdown
             />
           </div>
 
@@ -929,16 +922,11 @@ function SearchResultsContent() {
 
           {/* ========================================
               초기 상태 (검색 전)
-              - 최근 본 종목: GlobalSearch 드롭다운에서 표시
-              - 인기 검색어: 하단에 표시
-              ======================================== */}
-          {/* ========================================
-              초기 상태 (검색 전)
-              - 모바일에서 검색 드롭다운이 이 섹션 위에 표시되도록
-              - relative z-0으로 드롭다운(z-50)보다 아래에 위치
+              - 데스크톱: GlobalSearch 드롭다운에서 최근 본 종목/최근 검색어 표시
+              - 모바일: 페이지에 직접 최근 검색어/인기 검색어 표시
               ======================================== */}
           {!hasQuery && (
-            <div className="py-8 text-center relative z-0">
+            <div className="py-8 text-center">
               {/* 검색 안내 아이콘 */}
               <div className="w-16 h-16 mx-auto bg-blue-50 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
                 <svg
@@ -959,8 +947,55 @@ function SearchResultsContent() {
                 검색어를 입력하세요
               </p>
               <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-                검색창 클릭 시 최근 본 종목을 확인할 수 있어요
+                종목, 뉴스, 용어를 검색할 수 있어요
               </p>
+
+              {/* ========================================
+                  최근 검색어 섹션 (모바일 전용)
+                  - 데스크톱은 GlobalSearch 드롭다운에서 표시하므로 숨김
+                  ======================================== */}
+              {isMounted && recentSearches.length > 0 && (
+                <div className="mt-8 md:hidden">
+                  <div className="flex items-center justify-center gap-2 mb-3">
+                    <span className="text-lg">🕐</span>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      최근 검색어
+                    </p>
+                    <button
+                      onClick={clearAll}
+                      className="ml-2 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      전체 삭제
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {recentSearches.slice(0, 8).map((query) => (
+                      <div
+                        key={`recent-page-${query}`}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg group"
+                      >
+                        <button
+                          onClick={() => {
+                            setInputValue(query);
+                            router.push(`/search?q=${encodeURIComponent(query)}`);
+                          }}
+                          className="text-gray-600 dark:text-gray-400 text-sm hover:text-gray-900 dark:hover:text-white"
+                        >
+                          {query}
+                        </button>
+                        <button
+                          onClick={() => removeSearch(query)}
+                          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* ========================================
                   인기 검색어 섹션
