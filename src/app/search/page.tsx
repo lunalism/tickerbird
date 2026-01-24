@@ -235,8 +235,8 @@ function SearchInput({
         </button>
       )}
 
-      {/* 최근 검색어 드롭다운 */}
-      {isDropdownOpen && recentSearches.length > 0 && (
+      {/* 최근 검색어 드롭다운 (disableDropdown일 때는 렌더링하지 않음) */}
+      {!disableDropdown && isDropdownOpen && recentSearches.length > 0 && (
         <div
           ref={dropdownRef}
           className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden z-50"
