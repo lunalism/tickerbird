@@ -148,6 +148,8 @@ function DropdownMenu({
   }, []);
 
   // ⋮ 버튼 위치 기준으로 드롭다운 위치 계산
+  // position: fixed 사용 시 getBoundingClientRect()가 반환하는 뷰포트 기준 좌표를 그대로 사용
+  // (scrollY/scrollX 추가하면 안 됨!)
   useEffect(() => {
     if (!isOpen || !anchorRef.current) return;
 
@@ -155,10 +157,10 @@ function DropdownMenu({
       const rect = anchorRef.current?.getBoundingClientRect();
       if (rect) {
         setPosition({
-          // 버튼 바로 아래에 위치
-          top: rect.bottom + window.scrollY + 4,
-          // 오른쪽 정렬 (버튼 오른쪽 끝에 맞춤)
-          left: rect.right + window.scrollX - 150, // 메뉴 너비 150px
+          // 버튼 바로 아래에 위치 (뷰포트 기준)
+          top: rect.bottom + 4,
+          // 오른쪽 정렬 (버튼 오른쪽 끝 - 메뉴 너비)
+          left: rect.right - 150,
         });
       }
     };
