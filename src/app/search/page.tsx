@@ -777,8 +777,13 @@ function SearchResultsContent() {
           <div className="hidden md:block">
             <GlobalSearch />
           </div>
-          {/* 모바일에서는 간단한 안내 문구 표시 (헤더의 검색 아이콘 클릭 유도) */}
-          <div className="md:hidden">
+          {/* ========================================
+              모바일 검색 입력
+              - md 이하에서만 표시
+              - relative z-50으로 아래 콘텐츠보다 위에 표시
+              - 드롭다운이 아래 콘텐츠와 겹치지 않도록 처리
+              ======================================== */}
+          <div className="md:hidden relative z-50">
             <SearchInput
               value={inputValue}
               onChange={setInputValue}
@@ -927,8 +932,13 @@ function SearchResultsContent() {
               - 최근 본 종목: GlobalSearch 드롭다운에서 표시
               - 인기 검색어: 하단에 표시
               ======================================== */}
+          {/* ========================================
+              초기 상태 (검색 전)
+              - 모바일에서 검색 드롭다운이 이 섹션 위에 표시되도록
+              - relative z-0으로 드롭다운(z-50)보다 아래에 위치
+              ======================================== */}
           {!hasQuery && (
-            <div className="py-8 text-center">
+            <div className="py-8 text-center relative z-0">
               {/* 검색 안내 아이콘 */}
               <div className="w-16 h-16 mx-auto bg-blue-50 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
                 <svg
