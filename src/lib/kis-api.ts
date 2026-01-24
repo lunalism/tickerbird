@@ -9,14 +9,19 @@
  * 2. 공통 헤더 생성
  * 3. API 호출 유틸리티
  *
+ * 토큰 캐싱 전략 (Vercel 서버리스 대응):
+ * 1. Upstash Redis: 모든 서버리스 인스턴스가 토큰 공유 (권장)
+ * 2. 파일 캐시: 로컬 개발 환경용 백업
+ * 3. 메모리 캐시: 같은 인스턴스 내 빠른 접근
+ *
  * 환경변수 (.env.local):
  * - KIS_APP_KEY: 앱키 (Open API 포털에서 발급)
  * - KIS_APP_SECRET: 앱시크릿 (Open API 포털에서 발급)
  * - KIS_ACCOUNT_NO: 계좌번호 (8자리)
  * - KIS_PROD_CODE: 상품코드 (01: 주식, 02: 선물옵션 등)
  * - KIS_BASE_URL: API 기본 URL
- *     실전투자: https://openapi.koreainvestment.com:9443
- *     모의투자: https://openapivts.koreainvestment.com:29443
+ * - UPSTASH_REDIS_REST_URL: Upstash Redis URL (Vercel 환경)
+ * - UPSTASH_REDIS_REST_TOKEN: Upstash Redis 토큰 (Vercel 환경)
  *
  * Rate Limit 주의사항:
  * - 토큰 재발급: 1분당 1회 제한
@@ -33,6 +38,16 @@ import type {
   IndexPriceData,
 } from '@/types/kis';
 
+import {
+  getCachedToken,
+  saveToken,
+  clearTokenCache as clearRedisTokenCache,
+  acquireTokenLock,
+  releaseTokenLock,
+  waitForTokenLock,
+  isRedisAvailable,
+} from './token-cache';
+
 // ==================== 환경변수 ====================
 
 const KIS_APP_KEY = process.env.KIS_APP_KEY;
@@ -41,170 +56,17 @@ const KIS_ACCOUNT_NO = process.env.KIS_ACCOUNT_NO;
 const KIS_PROD_CODE = process.env.KIS_PROD_CODE || '01';
 const KIS_BASE_URL = process.env.KIS_BASE_URL || 'https://openapi.koreainvestment.com:9443';
 
-// ==================== 토큰 캐싱 ====================
-
-import fs from 'fs';
-import path from 'path';
+// ==================== 토큰 캐싱 (메모리 + Redis) ====================
 
 /**
- * Vercel/서버리스 환경 감지
- *
- * @description
- * Vercel 서버리스 환경에서는 파일시스템이 read-only이므로
- * /tmp 디렉토리만 쓰기가 가능합니다.
+ * 메모리 토큰 캐시 (같은 인스턴스 내 빠른 접근)
  */
-const IS_VERCEL = process.env.VERCEL === '1';
+let memoryTokenCache: CachedToken | null = null;
 
 /**
- * 토큰 캐시 파일 경로
- *
- * @description
- * 토큰을 파일에 저장하여 서버 재시작 후에도 토큰을 재사용합니다.
- *
- * 환경별 경로:
- * - Vercel (서버리스): /tmp/kis-token.json (read-only 제약으로 /tmp만 사용 가능)
- * - 로컬 개발: .next/cache/kis-token.json
- *
- * 파일 저장 이유:
- * 1. 서버 재시작 시에도 토큰 유지 (메모리 캐시는 초기화됨)
- * 2. 개발 중 HMR(Hot Module Replacement)에도 토큰 유지
- * 3. Rate limit (1분당 1회) 에러 방지
- *
- * 주의: Vercel 서버리스 환경에서는 cold start 시 /tmp 디렉토리도 초기화됨
- */
-const TOKEN_CACHE_FILE = IS_VERCEL
-  ? '/tmp/kis-token.json'
-  : path.join(process.cwd(), '.next', 'cache', 'kis-token.json');
-
-/**
- * 토큰 캐시 (메모리 + 파일 이중 저장)
- *
- * @description
- * 한국투자증권 API는 토큰 발급에 1분당 1회 제한이 있으므로
- * 토큰을 캐싱하여 재사용해야 합니다.
- *
- * 이중 캐싱 전략:
- * 1. 메모리 캐시: 빠른 접근 (현재 프로세스 내)
- * 2. 파일 캐시: 서버 재시작 후에도 유지
- *
- * 캐싱 흐름:
- * 1. 메모리 캐시 확인 → 있으면 사용
- * 2. 파일 캐시 확인 → 있으면 메모리에 로드 후 사용
- * 3. 둘 다 없으면 새 토큰 발급 후 메모리+파일에 저장
- *
- * 토큰 유효 기간:
- * - 토큰은 24시간(86400초) 유효
- * - 만료 10분 전까지 캐시된 토큰 재사용
- */
-let tokenCache: CachedToken | null = null;
-
-/**
- * 토큰 발급 진행 중인 Promise
- *
- * @description
- * 여러 API가 동시에 호출될 때 토큰 발급이 중복되지 않도록
- * 첫 번째 요청만 실제 발급을 수행하고, 나머지는 대기 후 결과를 공유합니다.
- *
- * 동작 방식:
- * 1. 첫 번째 요청: tokenPromise가 null → 토큰 발급 시작, Promise 저장
- * 2. 동시 요청: tokenPromise가 존재 → 기존 Promise 대기
- * 3. 발급 완료: Promise resolve, tokenPromise를 null로 초기화
+ * 토큰 발급 진행 중인 Promise (같은 인스턴스 내 동시 요청 방지)
  */
 let tokenPromise: Promise<string> | null = null;
-
-// ==================== 파일 캐시 함수 ====================
-
-/**
- * 파일에서 캐시된 토큰 로드
- *
- * @description
- * 서버 재시작 시 메모리 캐시가 초기화되므로
- * 파일에서 저장된 토큰을 읽어 메모리에 복원합니다.
- *
- * Vercel 서버리스 환경에서는 cold start 시 /tmp가 초기화되어
- * 파일이 없을 수 있습니다. 이 경우 새로 토큰을 발급받습니다.
- *
- * @returns 유효한 토큰이 있으면 CachedToken, 없으면 null
- */
-function loadTokenFromFile(): CachedToken | null {
-  try {
-    // 파일 존재 확인
-    if (!fs.existsSync(TOKEN_CACHE_FILE)) {
-      console.log(`[KIS API] 토큰 캐시 파일 없음 (경로: ${TOKEN_CACHE_FILE}, Vercel: ${IS_VERCEL})`);
-      return null;
-    }
-
-    // 파일에서 토큰 읽기
-    const data = fs.readFileSync(TOKEN_CACHE_FILE, 'utf-8');
-    const parsed = JSON.parse(data);
-
-    // expiresAt을 Date 객체로 변환
-    const cachedToken: CachedToken = {
-      accessToken: parsed.accessToken,
-      expiresAt: new Date(parsed.expiresAt),
-    };
-
-    // 토큰 유효성 확인 (만료된 토큰은 무시)
-    const now = new Date();
-    if (cachedToken.expiresAt.getTime() <= now.getTime()) {
-      console.log('[KIS API] 파일 캐시 토큰 만료됨, 삭제');
-      fs.unlinkSync(TOKEN_CACHE_FILE);
-      return null;
-    }
-
-    console.log(`[KIS API] 파일에서 토큰 로드 성공, 만료: ${cachedToken.expiresAt.toISOString()} (Vercel: ${IS_VERCEL})`);
-    return cachedToken;
-  } catch (error) {
-    console.error(`[KIS API] 파일 캐시 로드 실패 (Vercel: ${IS_VERCEL}):`, error);
-    return null;
-  }
-}
-
-/**
- * 토큰을 파일에 저장
- *
- * @description
- * 새 토큰 발급 시 파일에 저장하여
- * 서버 재시작 후에도 토큰을 재사용할 수 있도록 합니다.
- *
- * Vercel 서버리스 환경에서는 /tmp에 저장합니다.
- * /tmp도 cold start 시 초기화되지만, warm 상태에서는 유지됩니다.
- *
- * @param token 저장할 토큰 정보
- */
-function saveTokenToFile(token: CachedToken): void {
-  try {
-    // /tmp는 이미 존재하므로 Vercel에서는 디렉토리 생성 스킵
-    if (!IS_VERCEL) {
-      // 로컬 환경에서만 디렉토리 생성
-      const dir = path.dirname(TOKEN_CACHE_FILE);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-    }
-
-    // 토큰 저장 (JSON 형식)
-    const data = JSON.stringify({
-      accessToken: token.accessToken,
-      expiresAt: token.expiresAt.toISOString(),
-    }, null, 2);
-
-    fs.writeFileSync(TOKEN_CACHE_FILE, data, 'utf-8');
-    console.log(`[KIS API] 토큰 파일 저장 완료: ${TOKEN_CACHE_FILE} (Vercel: ${IS_VERCEL})`);
-  } catch (error) {
-    // 파일 저장 실패해도 메모리 캐시는 유지되므로 경고만 출력
-    console.warn(`[KIS API] 토큰 파일 저장 실패 (메모리 캐시는 유지됨, Vercel: ${IS_VERCEL}):`, error);
-  }
-}
-
-/**
- * Rate limit 에러 발생 시간
- *
- * @description
- * 토큰 발급 rate limit(1분당 1회)에 걸린 경우
- * 1분 동안 추가 발급 시도를 차단합니다.
- */
-let rateLimitUntil: Date | null = null;
 
 /**
  * 환경변수 검증
@@ -221,73 +83,37 @@ function validateEnv(): void {
 }
 
 /**
- * 캐시된 토큰이 유효한지 확인 (메모리 + 파일)
- *
- * @description
- * 메모리 캐시 → 파일 캐시 순으로 확인합니다.
- * 토큰 만료 10분 전까지는 유효하다고 판단합니다.
- * 이를 통해 만료 직전 API 호출 중 토큰이 만료되는 것을 방지합니다.
- *
- * 확인 순서:
- * 1. 메모리 캐시 확인 (가장 빠름)
- * 2. 메모리 캐시 없으면 파일 캐시 확인
- * 3. 파일 캐시 있으면 메모리에 복원 후 사용
+ * 캐시된 토큰이 유효한지 확인 (메모리 → Redis 순서)
  *
  * @returns 유효한 토큰이 있으면 토큰 문자열, 없으면 null
  */
-function getCachedTokenIfValid(): string | null {
+async function getCachedTokenIfValid(): Promise<string | null> {
   const now = new Date();
   const bufferTime = 10 * 60 * 1000; // 10분 버퍼 (만료 10분 전에 갱신)
 
-  // 1단계: 메모리 캐시 확인
-  if (tokenCache) {
-    if (tokenCache.expiresAt.getTime() - bufferTime > now.getTime()) {
-      return tokenCache.accessToken;
+  // 1단계: 메모리 캐시 확인 (가장 빠름)
+  if (memoryTokenCache) {
+    if (memoryTokenCache.expiresAt.getTime() - bufferTime > now.getTime()) {
+      console.log('[KIS API] 메모리 캐시 토큰 사용');
+      return memoryTokenCache.accessToken;
     }
-    console.log('[KIS API] 메모리 캐시 토큰 만료 임박, 재발급 필요');
+    console.log('[KIS API] 메모리 캐시 토큰 만료 임박');
   }
 
-  // 2단계: 메모리 캐시 없거나 만료 임박 → 파일 캐시 확인
-  if (!tokenCache) {
-    const fileToken = loadTokenFromFile();
-    if (fileToken) {
-      // 파일 캐시를 메모리에 복원
-      tokenCache = fileToken;
-
-      // 유효성 다시 확인
-      if (tokenCache.expiresAt.getTime() - bufferTime > now.getTime()) {
-        console.log('[KIS API] 파일 캐시에서 토큰 복원 성공');
-        return tokenCache.accessToken;
-      }
-      console.log('[KIS API] 파일 캐시 토큰 만료 임박, 재발급 필요');
+  // 2단계: Redis/파일 캐시 확인
+  try {
+    const cachedTokenData = await getCachedToken();
+    if (cachedTokenData) {
+      // 캐시를 메모리에도 복원
+      memoryTokenCache = cachedTokenData;
+      console.log('[KIS API] Redis/파일 캐시에서 토큰 복원 성공');
+      return cachedTokenData.accessToken;
     }
+  } catch (error) {
+    console.error('[KIS API] 캐시 조회 실패:', error);
   }
 
   return null;
-}
-
-/**
- * Rate limit 상태인지 확인
- *
- * @description
- * 토큰 발급 rate limit(1분당 1회)에 걸린 경우
- * 에러가 발생한 시점부터 1분 동안 true를 반환합니다.
- *
- * @returns rate limit 상태면 true
- */
-function isRateLimited(): boolean {
-  if (!rateLimitUntil) return false;
-
-  const now = new Date();
-  if (now < rateLimitUntil) {
-    const remainingSeconds = Math.ceil((rateLimitUntil.getTime() - now.getTime()) / 1000);
-    console.log(`[KIS API] Rate limit 상태, ${remainingSeconds}초 후 재시도 가능`);
-    return true;
-  }
-
-  // Rate limit 해제
-  rateLimitUntil = null;
-  return false;
 }
 
 /**
@@ -295,87 +121,118 @@ function isRateLimited(): boolean {
  *
  * @description
  * 한국투자증권 OAuth2 토큰 발급 API를 호출합니다.
- * 이 함수는 직접 호출하지 않고 getAccessToken()을 통해 호출됩니다.
+ * Redis 분산 락을 사용하여 여러 인스턴스의 동시 발급을 방지합니다.
  *
  * @returns 접근토큰
  * @throws 토큰 발급 실패 시 에러
  */
 async function fetchNewToken(): Promise<string> {
-  console.log('[KIS API] 새 토큰 발급 중...');
+  console.log('[KIS API] 새 토큰 발급 시도...');
 
-  const response = await fetch(`${KIS_BASE_URL}/oauth2/tokenP`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-    },
-    body: JSON.stringify({
-      grant_type: 'client_credentials',
-      appkey: KIS_APP_KEY,
-      appsecret: KIS_APP_SECRET,
-    }),
-  });
+  // Redis 분산 락 획득 시도
+  const lockAcquired = await acquireTokenLock(30);
 
-  // Rate limit 에러 처리 (EGW00133: 1분당 1회 제한)
-  if (response.status === 403) {
-    const errorText = await response.text();
-    console.error('[KIS API] 토큰 발급 실패 (Rate Limit):', errorText);
+  if (!lockAcquired) {
+    // 다른 인스턴스가 토큰 발급 중 - 대기 후 캐시 확인
+    console.log('[KIS API] 다른 인스턴스가 토큰 발급 중, 대기...');
+    await waitForTokenLock(10000, 500);
 
-    // Rate limit 에러 코드 확인
-    if (errorText.includes('EGW00133')) {
-      // 1분 동안 추가 발급 시도 차단
-      rateLimitUntil = new Date(Date.now() + 60 * 1000);
-      console.log('[KIS API] Rate limit 설정, 해제 시간:', rateLimitUntil.toISOString());
+    // 대기 후 캐시 확인
+    const cachedTokenData = await getCachedToken();
+    if (cachedTokenData) {
+      memoryTokenCache = cachedTokenData;
+      console.log('[KIS API] 대기 후 캐시에서 토큰 발견');
+      return cachedTokenData.accessToken;
     }
 
-    throw new Error(`토큰 발급 실패 (Rate Limit): ${response.status} ${errorText}`);
+    // 캐시에 없으면 직접 발급 시도
+    console.log('[KIS API] 캐시에 토큰 없음, 직접 발급 시도...');
   }
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('[KIS API] 토큰 발급 실패:', errorText);
-    throw new Error(`토큰 발급 실패: ${response.status} ${errorText}`);
+  try {
+    console.log('[KIS API] 한투 API에 토큰 요청 중...');
+    const response = await fetch(`${KIS_BASE_URL}/oauth2/tokenP`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+      },
+      body: JSON.stringify({
+        grant_type: 'client_credentials',
+        appkey: KIS_APP_KEY,
+        appsecret: KIS_APP_SECRET,
+      }),
+    });
+
+    // Rate limit 에러 처리 (EGW00133: 1분당 1회 제한)
+    if (response.status === 403) {
+      const errorText = await response.text();
+      console.error('[KIS API] 토큰 발급 실패 (Rate Limit):', errorText);
+
+      // Rate limit 에러 시 캐시 다시 확인 (다른 인스턴스가 발급했을 수 있음)
+      if (errorText.includes('EGW00133')) {
+        console.log('[KIS API] Rate limit 에러, 캐시 재확인...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        const cachedTokenData = await getCachedToken();
+        if (cachedTokenData) {
+          memoryTokenCache = cachedTokenData;
+          console.log('[KIS API] Rate limit 후 캐시에서 토큰 발견');
+          return cachedTokenData.accessToken;
+        }
+      }
+
+      throw new Error(`토큰 발급 실패 (Rate Limit): ${response.status} ${errorText}`);
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[KIS API] 토큰 발급 실패:', errorText);
+      throw new Error(`토큰 발급 실패: ${response.status} ${errorText}`);
+    }
+
+    const data: KISTokenResponse = await response.json();
+
+    // 토큰 캐싱 (메모리 + Redis + 파일)
+    const expiresAt = new Date(Date.now() + data.expires_in * 1000);
+    const tokenData: CachedToken = {
+      accessToken: data.access_token,
+      expiresAt,
+    };
+
+    // 메모리 캐시 업데이트
+    memoryTokenCache = tokenData;
+
+    // Redis/파일에 저장
+    await saveToken(tokenData);
+
+    console.log(`[KIS API] 토큰 발급 완료, 만료: ${expiresAt.toISOString()}, Redis: ${isRedisAvailable()}`);
+
+    return data.access_token;
+  } finally {
+    // 분산 락 해제
+    await releaseTokenLock();
   }
-
-  const data: KISTokenResponse = await response.json();
-
-  // 토큰 캐싱 (메모리 + 파일)
-  // expires_in은 초 단위 (보통 86400 = 24시간)
-  const expiresAt = new Date(Date.now() + data.expires_in * 1000);
-  tokenCache = {
-    accessToken: data.access_token,
-    expiresAt,
-  };
-
-  // 파일에도 저장 (서버 재시작 후에도 유지)
-  saveTokenToFile(tokenCache);
-
-  console.log('[KIS API] 토큰 발급 완료, 만료:', expiresAt.toISOString());
-
-  return data.access_token;
 }
 
 /**
- * 접근토큰 발급 (동시 요청 처리 + Rate Limit 재시도 포함)
+ * 접근토큰 발급 (Redis 분산 락 + 재시도 포함)
  *
  * @description
  * POST /oauth2/tokenP 엔드포인트로 토큰 발급
  * - 토큰은 24시간(86400초) 유효
  * - 1분당 1회 발급 제한이 있으므로 캐싱 필수
- * - 동시 요청 시 중복 발급 방지 (Promise 기반 락)
+ * - Redis 분산 락으로 여러 서버리스 인스턴스 간 동시 발급 방지
  *
  * Vercel 서버리스 환경 고려사항:
- * - 각 인스턴스는 독립적인 메모리/파일 캐시를 가짐
- * - 다른 인스턴스가 토큰을 발급했으면 Rate Limit 에러 발생
- * - Rate Limit 에러 시 재시도하여 파일 캐시 확인
+ * - Upstash Redis를 통해 모든 인스턴스가 토큰 공유
+ * - 분산 락으로 동시 발급 요청 방지
+ * - Rate Limit 에러 시 캐시 재확인 후 재시도
  *
  * 동작 흐름:
- * 1. 캐시된 토큰이 유효하면 즉시 반환
- * 2. Rate limit 상태면 대기 후 재시도
- * 3. 다른 요청이 토큰 발급 중이면 해당 Promise 대기
- * 4. 첫 번째 요청만 실제 토큰 발급 수행
- * 5. 발급 완료 후 모든 대기 중인 요청에 결과 전달
- *
- * @see https://apiportal.koreainvestment.com/apiservice/oauth2#L_5c87ba63-740a-4166-93ac-803510f9571d
+ * 1. 캐시된 토큰이 유효하면 즉시 반환 (메모리 → Redis)
+ * 2. 분산 락 획득 시도
+ * 3. 락 획득 실패 시 대기 후 캐시 확인
+ * 4. 토큰 발급 후 Redis에 저장
  *
  * @param retryCount 재시도 횟수 (내부용)
  * @returns 접근토큰
@@ -385,59 +242,27 @@ export async function getAccessToken(retryCount: number = 0): Promise<string> {
   validateEnv();
 
   // 1단계: 캐시된 토큰이 유효하면 즉시 반환
-  const cachedToken = getCachedTokenIfValid();
+  const cachedToken = await getCachedTokenIfValid();
   if (cachedToken) {
-    console.log('[KIS API] 캐시된 토큰 사용');
     return cachedToken;
   }
 
-  // 2단계: Rate limit 상태 확인
-  if (isRateLimited()) {
-    // Rate limit 상태지만 캐시된 토큰이 있으면 사용 (만료 임박해도)
-    if (tokenCache) {
-      console.log('[KIS API] Rate limit 상태, 기존 토큰 사용 (만료 임박)');
-      return tokenCache.accessToken;
-    }
-
-    // Vercel 서버리스: 다른 인스턴스가 발급한 토큰이 있을 수 있음
-    // 파일 캐시를 다시 확인 (다른 인스턴스가 저장했을 수 있음)
-    if (retryCount < 3) {
-      console.log(`[KIS API] Rate limit 상태, ${(retryCount + 1) * 2}초 후 재시도 (${retryCount + 1}/3)...`);
-      await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
-
-      // 파일 캐시 다시 확인
-      const fileToken = loadTokenFromFile();
-      if (fileToken) {
-        tokenCache = fileToken;
-        console.log('[KIS API] 재시도 후 파일 캐시에서 토큰 발견');
-        return fileToken.accessToken;
-      }
-
-      return getAccessToken(retryCount + 1);
-    }
-
-    throw new Error(
-      '토큰 발급 rate limit 상태입니다. 잠시 후 다시 시도해주세요. ' +
-      '(EGW00133: 접근토큰 발급 1분당 1회 제한)'
-    );
-  }
-
-  // 3단계: 다른 요청이 토큰 발급 중이면 대기
+  // 2단계: 같은 인스턴스 내 동시 요청 처리
   if (tokenPromise) {
-    console.log('[KIS API] 다른 요청이 토큰 발급 중, 대기...');
+    console.log('[KIS API] 같은 인스턴스 내 다른 요청이 토큰 발급 중, 대기...');
     try {
       return await tokenPromise;
     } catch {
       // 다른 요청이 실패해도 캐시된 토큰이 있으면 사용
-      if (tokenCache) {
+      if (memoryTokenCache) {
         console.log('[KIS API] 토큰 발급 실패, 기존 토큰 사용');
-        return tokenCache.accessToken;
+        return memoryTokenCache.accessToken;
       }
       throw new Error('토큰 발급 대기 중 에러 발생');
     }
   }
 
-  // 4단계: 토큰 발급 시작 (첫 번째 요청만)
+  // 3단계: 토큰 발급 시작 (첫 번째 요청만)
   tokenPromise = fetchNewToken()
     .catch(async (error) => {
       // Rate limit 에러 시 재시도
@@ -445,12 +270,12 @@ export async function getAccessToken(retryCount: number = 0): Promise<string> {
         console.log(`[KIS API] 토큰 발급 Rate Limit 에러, ${(retryCount + 1) * 2}초 후 재시도...`);
         await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
 
-        // 파일 캐시 다시 확인 (다른 프로세스가 저장했을 수 있음)
-        const fileToken = loadTokenFromFile();
-        if (fileToken) {
-          tokenCache = fileToken;
-          console.log('[KIS API] Rate Limit 에러 후 파일 캐시에서 토큰 발견');
-          return fileToken.accessToken;
+        // Redis/파일 캐시 다시 확인 (다른 인스턴스가 저장했을 수 있음)
+        const cachedTokenData = await getCachedToken();
+        if (cachedTokenData) {
+          memoryTokenCache = cachedTokenData;
+          console.log('[KIS API] Rate Limit 에러 후 캐시에서 토큰 발견');
+          return cachedTokenData.accessToken;
         }
 
         // 재시도
@@ -460,8 +285,7 @@ export async function getAccessToken(retryCount: number = 0): Promise<string> {
       throw error;
     })
     .finally(() => {
-      // 5단계: 발급 완료 후 Promise 초기화
-      // 다음 만료 시점에 새로운 발급 요청을 받을 수 있도록
+      // 발급 완료 후 Promise 초기화
       tokenPromise = null;
     });
 
@@ -473,28 +297,17 @@ export async function getAccessToken(retryCount: number = 0): Promise<string> {
  *
  * @description
  * 토큰이 유효하지 않을 때 (401 에러 등) 사용합니다.
- * 캐시된 토큰, 진행 중인 Promise, rate limit 상태를 모두 초기화합니다.
- *
- * 주의: rate limit도 초기화되므로 API 호출이 연속적으로 실패할 경우
- * rate limit 에러가 발생할 수 있습니다.
+ * 메모리, Redis, 파일 캐시를 모두 초기화합니다.
  */
-export function clearTokenCache(): void {
+export async function clearTokenCache(): Promise<void> {
   // 메모리 캐시 초기화
-  tokenCache = null;
+  memoryTokenCache = null;
   tokenPromise = null;
-  rateLimitUntil = null;
 
-  // 파일 캐시도 삭제
-  try {
-    if (fs.existsSync(TOKEN_CACHE_FILE)) {
-      fs.unlinkSync(TOKEN_CACHE_FILE);
-      console.log('[KIS API] 토큰 파일 캐시 삭제됨');
-    }
-  } catch (error) {
-    console.warn('[KIS API] 토큰 파일 캐시 삭제 실패:', error);
-  }
+  // Redis/파일 캐시 삭제
+  await clearRedisTokenCache();
 
-  console.log('[KIS API] 토큰 캐시 초기화됨 (메모리, 파일, Promise, rate limit 모두 초기화)');
+  console.log('[KIS API] 토큰 캐시 초기화됨 (메모리, Redis, 파일 모두 초기화)');
 }
 
 /**
@@ -505,16 +318,14 @@ export function clearTokenCache(): void {
 export function getTokenCacheStatus(): {
   hasToken: boolean;
   expiresAt: Date | null;
-  isRateLimited: boolean;
-  rateLimitUntil: Date | null;
   isPending: boolean;
+  isRedisAvailable: boolean;
 } {
   return {
-    hasToken: !!tokenCache,
-    expiresAt: tokenCache?.expiresAt || null,
-    isRateLimited: isRateLimited(),
-    rateLimitUntil: rateLimitUntil,
+    hasToken: !!memoryTokenCache,
+    expiresAt: memoryTokenCache?.expiresAt || null,
     isPending: !!tokenPromise,
+    isRedisAvailable: isRedisAvailable(),
   };
 }
 
