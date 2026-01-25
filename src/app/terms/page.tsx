@@ -4,13 +4,11 @@
  * 이용약관 페이지
  *
  * Firestore siteContent 컬렉션에서 콘텐츠를 불러와 표시합니다.
- * 마크다운 렌더링을 지원합니다.
+ * HTML 형식의 콘텐츠를 렌더링합니다.
  */
 
 import { useState } from 'react';
 import Link from 'next/link';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { Sidebar, BottomNav } from '@/components/layout';
 import { MobileSearchHeader, GlobalSearch } from '@/components/features/search';
 import { useSiteContent } from '@/hooks/useSiteContent';
@@ -78,13 +76,11 @@ export default function TermsPage() {
             </div>
           )}
 
-          {/* 콘텐츠 */}
+          {/* 콘텐츠 - HTML 렌더링 */}
           {!isLoading && !error && content && (
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 lg:p-8 shadow-sm border border-gray-100 dark:border-gray-700">
               <article className="prose prose-gray dark:prose-invert max-w-none prose-headings:scroll-mt-20">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {content.content}
-                </ReactMarkdown>
+                <div dangerouslySetInnerHTML={{ __html: content.content }} />
               </article>
 
               {/* 마지막 수정일 */}

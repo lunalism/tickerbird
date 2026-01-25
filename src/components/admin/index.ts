@@ -5,3 +5,4 @@
 export { AdminLayout } from './AdminLayout';
 export { AdminSidebar } from './AdminSidebar';
 export { ContentEditor } from './ContentEditor';
+export { RichTextEditor } from './RichTextEditor';
