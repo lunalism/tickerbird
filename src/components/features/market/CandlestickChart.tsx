@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   createChart,
   IChartApi,
@@ -11,6 +11,7 @@ import {
   CrosshairMode,
   CandlestickSeries,
   HistogramSeries,
+  MouseEventParams,
 } from 'lightweight-charts';
 
 /**
@@ -24,6 +25,20 @@ interface ChartDataPoint {
   low: number;    // 저가
   close: number;  // 종가
   volume: number; // 거래량
+}
+
+/**
+ * 툴팁에 표시할 데이터 인터페이스
+ */
+interface TooltipData {
+  date: string;       // 날짜 (포맷된 문자열)
+  open: number;       // 시가
+  high: number;       // 고가
+  low: number;        // 저가
+  close: number;      // 종가
+  volume: number;     // 거래량
+  change: number;     // 전일 대비 등락 금액
+  changePercent: number; // 전일 대비 등락률 (%)
 }
 
 /**
@@ -79,6 +94,10 @@ export default function CandlestickChart({ symbol, isOverseas = false, exchange 
   const [loading, setLoading] = useState(true);            // 로딩 상태
   const [error, setError] = useState<string | null>(null); // 에러 메시지
   const [isDarkMode, setIsDarkMode] = useState(false);     // 다크모드 여부
+  const [tooltipData, setTooltipData] = useState<TooltipData | null>(null); // 호버 툴팁 데이터
+
+  // 차트 데이터 저장 (툴팁용)
+  const chartDataRef = useRef<ChartDataPoint[]>([]);
 
   // 다크모드 감지 (HTML 요소의 'dark' 클래스 변화 감지)
   useEffect(() => {
@@ -167,6 +186,53 @@ export default function CandlestickChart({ symbol, isOverseas = false, exchange 
     });
     volumeSeriesRef.current = volumeSeries;
 
+    // ========================================
+    // 크로스헤어(십자선) 이동 이벤트 핸들러
+    // 마우스 호버 시 툴팁 데이터 업데이트
+    // ========================================
+    chart.subscribeCrosshairMove((param: MouseEventParams) => {
+      // 차트 영역 밖으로 나가면 툴팁 숨김
+      if (!param.time || !param.point || param.point.x < 0 || param.point.y < 0) {
+        setTooltipData(null);
+        return;
+      }
+
+      // 현재 호버 중인 캔들 데이터 가져오기
+      const data = chartDataRef.current;
+      const timeStr = param.time as string;
+
+      // 해당 날짜의 데이터 찾기
+      const candleData = data.find(d => d.time === timeStr);
+      if (!candleData) {
+        setTooltipData(null);
+        return;
+      }
+
+      // 전일 데이터 찾기 (등락 계산용)
+      const currentIndex = data.findIndex(d => d.time === timeStr);
+      const prevData = currentIndex > 0 ? data[currentIndex - 1] : null;
+
+      // 등락 계산 (전일 종가 대비)
+      const prevClose = prevData ? prevData.close : candleData.open;
+      const change = candleData.close - prevClose;
+      const changePercent = prevClose !== 0 ? (change / prevClose) * 100 : 0;
+
+      // 날짜 포맷팅 (YYYY-MM-DD → YYYY년 MM월 DD일)
+      const [year, month, day] = timeStr.split('-');
+      const formattedDate = `${year}년 ${parseInt(month)}월 ${parseInt(day)}일`;
+
+      setTooltipData({
+        date: formattedDate,
+        open: candleData.open,
+        high: candleData.high,
+        low: candleData.low,
+        close: candleData.close,
+        volume: candleData.volume,
+        change,
+        changePercent,
+      });
+    });
+
     // Handle resize
     const handleResize = () => {
       if (chartRef.current && container) {
@@ -218,6 +284,10 @@ export default function CandlestickChart({ symbol, isOverseas = false, exchange 
           setError('차트 데이터가 없습니다');
           return;
         }
+
+        // 차트 데이터 저장 (툴팁용) - 시간순 정렬 후 저장
+        const sortedData = [...data].sort((a, b) => a.time.localeCompare(b.time));
+        chartDataRef.current = sortedData;
 
         // 캔들스틱 데이터 변환 및 시간순 정렬
         const candleData: CandlestickData<string>[] = data
@@ -310,6 +380,87 @@ export default function CandlestickChart({ symbol, isOverseas = false, exchange 
         {error && !loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 z-10">
             <span className="text-red-500">{error}</span>
+          </div>
+        )}
+
+        {/* ========================================
+            호버 툴팁 (차트 상단에 고정 표시)
+            마우스 호버 시 해당 날짜의 OHLCV + 등락 정보 표시
+            ======================================== */}
+        {tooltipData && (
+          <div className="absolute top-2 left-2 z-20 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-200 dark:border-gray-700 text-sm">
+            {/* 날짜 */}
+            <p className="font-semibold text-gray-900 dark:text-white mb-2">
+              {tooltipData.date}
+            </p>
+
+            {/* OHLC 정보 */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mb-2">
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">시가</span>
+                <span className="text-gray-900 dark:text-white font-medium ml-2">
+                  {tooltipData.open.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">고가</span>
+                <span className="text-red-600 dark:text-red-400 font-medium ml-2">
+                  {tooltipData.high.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">저가</span>
+                <span className="text-blue-600 dark:text-blue-400 font-medium ml-2">
+                  {tooltipData.low.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">종가</span>
+                <span className="text-gray-900 dark:text-white font-medium ml-2">
+                  {tooltipData.close.toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            {/* 등락 정보 */}
+            <div className="border-t border-gray-100 dark:border-gray-700 pt-2 space-y-1">
+              {/* 등락 금액 */}
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500 dark:text-gray-400">등락</span>
+                <span className={`font-semibold ${
+                  tooltipData.change > 0
+                    ? 'text-red-600 dark:text-red-400'
+                    : tooltipData.change < 0
+                      ? 'text-blue-600 dark:text-blue-400'
+                      : 'text-gray-500 dark:text-gray-400'
+                }`}>
+                  {tooltipData.change > 0 ? '+' : ''}{tooltipData.change.toLocaleString()}
+                </span>
+              </div>
+              {/* 등락률 */}
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500 dark:text-gray-400">등락률</span>
+                <span className={`font-semibold px-1.5 py-0.5 rounded ${
+                  tooltipData.changePercent > 0
+                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                    : tooltipData.changePercent < 0
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                }`}>
+                  {tooltipData.changePercent > 0 ? '+' : ''}{tooltipData.changePercent.toFixed(2)}%
+                </span>
+              </div>
+            </div>
+
+            {/* 거래량 */}
+            <div className="border-t border-gray-100 dark:border-gray-700 pt-2 mt-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500 dark:text-gray-400">거래량</span>
+                <span className="text-gray-900 dark:text-white font-medium">
+                  {tooltipData.volume.toLocaleString()}
+                </span>
+              </div>
+            </div>
           </div>
         )}
 
