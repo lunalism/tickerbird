@@ -19,3 +19,4 @@ export {
   DEFAULT_RECENTLY_VIEWED_CONFIG,
 } from './recentlyViewed';
 export * from './crawled-news';
+export * from './admin';
