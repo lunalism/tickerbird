@@ -170,31 +170,83 @@ function CommoditySummary() {
 }
 
 /**
- * 환율 요약 섹션
- * 상위 4개 환율 표시
+ * 환율 요약 섹션 (원화 기준)
+ * 주요 4개 통화의 원화 환율 표시
+ *
+ * 표시 통화:
+ * - 달러/원 (USD/KRW)
+ * - 유로/원 (EUR/KRW = USD/KRW × EUR/USD)
+ * - 100엔/원 (JPY/KRW × 100)
+ * - 파운드/원 (GBP/KRW = USD/KRW × GBP/USD)
  */
 function ForexSummary() {
-  const topForex = forexData.slice(0, 4);
+  // 원본 데이터에서 필요한 환율 추출
+  const usdkrw = forexData.find(f => f.id === 'usdkrw');
+  const eurusd = forexData.find(f => f.id === 'eurusd');
+  const usdjpy = forexData.find(f => f.id === 'usdjpy');
+  const gbpusd = forexData.find(f => f.id === 'gbpusd');
 
-  const getCurrencyFlags = (pair: string): string => {
-    const flags: Record<string, string> = {
-      'USD/KRW': '🇺🇸🇰🇷',
-      'EUR/USD': '🇪🇺🇺🇸',
-      'USD/JPY': '🇺🇸🇯🇵',
-      'GBP/USD': '🇬🇧🇺🇸',
-      'DXY': '🇺🇸',
-    };
-    return flags[pair] || '💱';
+  // USD/KRW가 없으면 빈 상태 표시
+  if (!usdkrw) return null;
+
+  // 원화 기준 환율 계산
+  const krwForexList = [
+    // 달러/원 - 직접 사용
+    {
+      id: 'usdkrw',
+      pair: '달러/원',
+      name: '미국 달러',
+      krwRate: usdkrw.rate,
+      changePercent: usdkrw.changePercent,
+      chartData: usdkrw.chartData,
+      flags: '🇺🇸🇰🇷',
+    },
+    // 유로/원 = USD/KRW × EUR/USD
+    ...(eurusd ? [{
+      id: 'eurkrw',
+      pair: '유로/원',
+      name: '유럽 유로',
+      krwRate: usdkrw.rate * eurusd.rate,
+      changePercent: eurusd.changePercent + usdkrw.changePercent,
+      chartData: eurusd.chartData.map((rate, i) => usdkrw.chartData[i] * rate),
+      flags: '🇪🇺🇰🇷',
+    }] : []),
+    // 100엔/원 = (USD/KRW ÷ USD/JPY) × 100
+    ...(usdjpy ? [{
+      id: 'jpykrw',
+      pair: '100엔/원',
+      name: '일본 엔',
+      krwRate: (usdkrw.rate / usdjpy.rate) * 100,
+      changePercent: usdkrw.changePercent - usdjpy.changePercent,
+      chartData: usdjpy.chartData.map((rate, i) => (usdkrw.chartData[i] / rate) * 100),
+      flags: '🇯🇵🇰🇷',
+    }] : []),
+    // 파운드/원 = USD/KRW × GBP/USD
+    ...(gbpusd ? [{
+      id: 'gbpkrw',
+      pair: '파운드/원',
+      name: '영국 파운드',
+      krwRate: usdkrw.rate * gbpusd.rate,
+      changePercent: gbpusd.changePercent + usdkrw.changePercent,
+      chartData: gbpusd.chartData.map((rate, i) => usdkrw.chartData[i] * rate),
+      flags: '🇬🇧🇰🇷',
+    }] : []),
+  ];
+
+  /**
+   * 원화 환율 포맷팅 (예: 1,434.50원)
+   */
+  const formatKRWRate = (rate: number): string => {
+    return rate.toLocaleString('ko-KR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }) + '원';
   };
 
-  const formatRate = (rate: number) => {
-    if (rate >= 100) {
-      return rate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-    return rate.toFixed(4);
-  };
-
-  const formatPercent = (percent: number) => {
+  /**
+   * 변동률 포맷팅
+   */
+  const formatPercent = (percent: number): string => {
     const sign = percent >= 0 ? '+' : '';
     return `${sign}${percent.toFixed(2)}%`;
   };
@@ -204,10 +256,11 @@ function ForexSummary() {
       <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
         <span>💱</span>
         <span>환율</span>
+        <span className="text-xs font-normal text-gray-400">(원화 기준)</span>
       </h3>
       <div className="space-y-3">
-        {topForex.map((forex) => {
-          const isPositive = forex.change >= 0;
+        {krwForexList.map((forex) => {
+          const isPositive = forex.changePercent >= 0;
           return (
             <div
               key={forex.id}
@@ -215,7 +268,7 @@ function ForexSummary() {
             >
               <div className="flex items-center gap-3">
                 <div className="text-xl">
-                  {getCurrencyFlags(forex.pair)}
+                  {forex.flags}
                 </div>
                 <div>
                   <p className="font-medium text-gray-900 dark:text-white text-sm">{forex.pair}</p>
@@ -225,7 +278,7 @@ function ForexSummary() {
               <div className="flex items-center gap-3">
                 <MiniChart data={forex.chartData} isPositive={isPositive} />
                 <div className="text-right">
-                  <p className="font-semibold text-gray-900 dark:text-white text-sm">{formatRate(forex.rate)}</p>
+                  <p className="font-semibold text-gray-900 dark:text-white text-sm">{formatKRWRate(forex.krwRate)}</p>
                   <span className={`text-xs font-medium ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                     {formatPercent(forex.changePercent)}
                   </span>
