@@ -1,5 +1,6 @@
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 /* Tailwind v4: dark mode 활성화 (class 기반) */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -295,4 +296,116 @@ body {
   [data-sonner-toaster] [data-sonner-toast] {
     width: 100% !important;
   }
+}
+
+/* ========================================
+   Tiptap 에디터 및 콘텐츠 페이지 스타일
+   ======================================== */
+
+/**
+ * Tiptap 에디터 내부 스타일
+ * prose 클래스가 적용된 영역의 제목, 목록 등 스타일링
+ */
+.ProseMirror {
+  outline: none;
+}
+
+/* 에디터 플레이스홀더 */
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #9ca3af;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* prose 클래스 내부 제목 스타일 강화 */
+.prose h1 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.prose h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.prose h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+/* 다크 모드 prose 스타일 */
+.dark .prose h1,
+.dark .prose h2,
+.dark .prose h3 {
+  color: #f1f5f9;
+}
+
+.dark .prose p,
+.dark .prose li {
+  color: #cbd5e1;
+}
+
+/* prose 목록 스타일 */
+.prose ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose li {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+/* prose 단락 스타일 */
+.prose p {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.7;
+}
+
+/* prose 링크 스타일 */
+.prose a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.prose a:hover {
+  color: #1d4ed8;
+}
+
+.dark .prose a {
+  color: #60a5fa;
+}
+
+.dark .prose a:hover {
+  color: #93c5fd;
+}
+
+/* prose 강조 스타일 */
+.prose strong {
+  font-weight: 600;
+}
+
+.prose em {
+  font-style: italic;
 }

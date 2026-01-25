@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.71.2",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.87.1",
+    "@tailwindcss/typography": "^0.5.19",
     "@tiptap/extension-link": "^3.17.1",
     "@tiptap/extension-underline": "^3.17.1",
     "@tiptap/pm": "^3.17.1",
