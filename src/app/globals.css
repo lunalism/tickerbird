@@ -462,3 +462,47 @@ body {
 .dark .ProseMirror p.is-editor-empty:first-child::before {
   color: #6b7280;
 }
+
+/* ========================================
+   빈 줄 (엔터) 렌더링 스타일
+
+   Tiptap은 빈 줄을 다음과 같이 저장:
+   - <p></p>
+   - <p><br></p>
+   - <p><br class="ProseMirror-trailingBreak"></p>
+
+   이 빈 p 태그들이 높이를 가지도록 설정
+   ======================================== */
+
+/* prose 내부 빈 p 태그 최소 높이 설정 */
+.prose p:empty {
+  min-height: 1.5em;
+}
+
+/* br만 포함한 p 태그 (Tiptap 빈 줄) */
+.prose p:has(> br:only-child) {
+  min-height: 1.5em;
+}
+
+/* 연속된 문단 간격 유지 */
+.prose p + p {
+  margin-top: 0.75em;
+}
+
+/* ProseMirror 에디터 내부 빈 줄 스타일 */
+.ProseMirror p:empty,
+.ProseMirror p:has(> br:only-child) {
+  min-height: 1.5em;
+}
+
+/* Tiptap trailing break 클래스 처리 */
+.prose p:has(> br.ProseMirror-trailingBreak:only-child) {
+  min-height: 1.5em;
+}
+
+/* dangerouslySetInnerHTML로 렌더링된 콘텐츠용 */
+article.prose p:empty,
+article.prose p:has(> br:only-child) {
+  min-height: 1.5em;
+  display: block;
+}
