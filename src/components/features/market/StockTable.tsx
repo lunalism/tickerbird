@@ -6,6 +6,13 @@
  * 인기 종목을 반응형으로 표시하는 테이블/리스트 컴포넌트
  *
  * ============================================================
+ * 모바일 더보기/접기 기능:
+ * ============================================================
+ * - 모바일(768px 미만): 기본 5개만 표시, "더보기" 버튼 클릭 시 전체 표시
+ * - 데스크톱/태블릿(768px 이상): 전체 10개 표시
+ * - 애니메이션: 부드러운 확장/축소 트랜지션 적용
+ *
+ * ============================================================
  * 관심종목 기능:
  * ============================================================
  * - 각 종목에 ⭐ 버튼 표시
@@ -20,6 +27,7 @@
  * [모바일] 768px 미만 (md:hidden)
  * - 심플 리스트 UI (TopMovers/VolumeMovers와 동일한 스타일)
  * - UI가 통일되어 깔끔한 사용자 경험 제공
+ * - 기본 5개 표시 + 더보기 버튼
  *
  * [데스크톱] 768px 이상 (hidden md:block)
  * - 테이블 형태로 정보 밀도 높게 표시
@@ -35,11 +43,19 @@
  * - 등락률 배지: 라이트/다크 각각 스타일 적용
  */
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Stock, MarketRegion } from '@/types';
 import { CompanyLogo } from '@/components/common';
 import { useWatchlist } from '@/hooks';
 import { showSuccess, showError } from '@/lib/toast';
+
+// ============================================
+// 상수 정의
+// ============================================
+
+/** 모바일에서 기본으로 표시할 종목 수 */
+const MOBILE_DEFAULT_COUNT = 5;
 
 interface StockTableProps {
   stocks: Stock[];
@@ -96,6 +112,21 @@ function WatchlistButton({
 
 export function StockTable({ stocks, market }: StockTableProps) {
   const router = useRouter();
+
+  // ========================================
+  // 모바일 더보기/접기 상태 관리
+  // ========================================
+  // isExpanded: 모바일에서 전체 종목 표시 여부
+  // - false: 상위 5개만 표시 (기본값)
+  // - true: 전체 종목 표시
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // 모바일에서 표시할 종목 목록 계산
+  // 확장되지 않았으면 상위 5개만, 확장되었으면 전체 표시
+  const mobileStocks = isExpanded ? stocks : stocks.slice(0, MOBILE_DEFAULT_COUNT);
+
+  // 더보기 버튼 표시 여부 (전체 종목이 5개보다 많을 때만)
+  const showMoreButton = stocks.length > MOBILE_DEFAULT_COUNT;
 
   // ========================================
   // 관심종목 관리 훅
@@ -169,10 +200,12 @@ export function StockTable({ stocks, market }: StockTableProps) {
     <>
       {/* ========================================
           모바일 심플 리스트 레이아웃 (768px 미만)
+          - 기본 5개만 표시, 더보기 버튼으로 확장 가능
           ======================================== */}
       <div className="md:hidden bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
+        {/* 종목 리스트 - 애니메이션 적용 */}
         <div className="space-y-1">
-          {stocks.map((stock, idx) => {
+          {mobileStocks.map((stock, idx) => {
             const isPositive = stock.changePercent >= 0;
             const inWatchlist = isInWatchlist(stock.ticker);
 
@@ -233,6 +266,51 @@ export function StockTable({ stocks, market }: StockTableProps) {
             );
           })}
         </div>
+
+        {/* ========================================
+            더보기/접기 버튼
+            - 전체 종목이 5개보다 많을 때만 표시
+            - 클릭 시 확장/축소 토글
+            ======================================== */}
+        {showMoreButton && (
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full mt-3 py-2.5 flex items-center justify-center gap-1.5
+                       text-sm font-medium text-gray-600 dark:text-gray-400
+                       hover:text-gray-900 dark:hover:text-white
+                       hover:bg-gray-50 dark:hover:bg-gray-700
+                       rounded-xl transition-colors"
+          >
+            {isExpanded ? (
+              <>
+                {/* 접기 상태 */}
+                <span>접기</span>
+                <svg
+                  className="w-4 h-4 transition-transform"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+              </>
+            ) : (
+              <>
+                {/* 더보기 상태 */}
+                <span>더보기</span>
+                <svg
+                  className="w-4 h-4 transition-transform"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* ========================================
