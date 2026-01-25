@@ -36,6 +36,9 @@ export default function CalendarPage() {
     new Date().toISOString().split('T')[0]
   );
 
+  // 데스크톱 보기 모드 (월간/주간) - 데스크톱에서만 사용
+  const [desktopViewMode, setDesktopViewMode] = useState<'month' | 'week'>('month');
+
   // ========== API에서 이벤트 데이터 조회 ==========
   // useCalendarEvents 훅으로 /api/calendar/events API 호출
   // 현재는 정적 데이터(constants/calendar.ts)를 반환
@@ -224,32 +227,43 @@ export default function CalendarPage() {
           </div>
 
           {/* ========== 데스크톱 뷰 (1024px 이상) ========== */}
-          {/* 월간 그리드 캘린더 + 이벤트 상세 패널 */}
+          {/* 월간/주간 캘린더 + 이벤트 상세 패널 (전환 가능) */}
           <div className="hidden lg:block">
-            {/* 월 네비게이션 */}
+            {/* 캘린더 네비게이션 - 월/주 전환 탭 포함 */}
             <div className="mb-4">
               <CalendarNavigation
                 currentDate={currentDate}
-                onPrevious={handlePreviousMonth}
-                onNext={handleNextMonth}
+                onPrevious={desktopViewMode === 'month' ? handlePreviousMonth : handlePreviousWeek}
+                onNext={desktopViewMode === 'month' ? handleNextMonth : handleNextWeek}
                 onToday={handleToday}
-                viewMode="month"
+                viewMode={desktopViewMode}
+                onViewModeChange={setDesktopViewMode}
+                showViewModeToggle={true}
               />
             </div>
 
             {/* 2열 그리드: 캘린더 + 이벤트 패널 */}
             <div className="grid grid-cols-3 gap-6">
-              {/* 왼쪽: 월간 캘린더 (2/3) */}
+              {/* 왼쪽: 월간 또는 주간 캘린더 (2/3) */}
               <div className="col-span-2">
                 {isLoading ? (
                   renderCalendarSkeleton()
-                ) : (
+                ) : desktopViewMode === 'month' ? (
+                  /* 월간 캘린더 */
                   <MonthlyCalendar
                     currentDate={currentDate}
                     events={filteredEvents}
                     selectedDate={selectedDate}
                     onSelectDate={handleSelectDate}
                     activeFilter={activeFilter}
+                  />
+                ) : (
+                  /* 주간 캘린더 (데스크톱용) */
+                  <WeeklyCalendar
+                    currentDate={currentDate}
+                    events={filteredEvents}
+                    selectedDate={selectedDate}
+                    onSelectDate={handleSelectDate}
                   />
                 )}
               </div>

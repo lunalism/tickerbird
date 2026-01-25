@@ -4,6 +4,7 @@
  * 캘린더 네비게이션 컴포넌트
  *
  * 월/주 이동 버튼과 오늘로 돌아가기 버튼을 제공합니다.
+ * 데스크톱에서는 월/주 보기 전환 탭도 표시합니다.
  *
  * Props:
  * - currentDate: 현재 표시 중인 날짜
@@ -11,6 +12,8 @@
  * - onNext: 다음 기간으로 이동
  * - onToday: 오늘로 이동
  * - viewMode: 'month' | 'week' - 표시 모드
+ * - onViewModeChange: 보기 모드 변경 핸들러 (데스크톱 전용, 옵션)
+ * - showViewModeToggle: 보기 모드 토글 버튼 표시 여부 (데스크톱 전용)
  */
 interface CalendarNavigationProps {
   currentDate: Date;
@@ -18,6 +21,8 @@ interface CalendarNavigationProps {
   onNext: () => void;
   onToday: () => void;
   viewMode: 'month' | 'week';
+  onViewModeChange?: (mode: 'month' | 'week') => void;
+  showViewModeToggle?: boolean;
 }
 
 export function CalendarNavigation({
@@ -26,6 +31,8 @@ export function CalendarNavigation({
   onNext,
   onToday,
   viewMode,
+  onViewModeChange,
+  showViewModeToggle = false,
 }: CalendarNavigationProps) {
   // 월 표시 포맷
   const formatMonth = () => {
@@ -58,12 +65,43 @@ export function CalendarNavigation({
 
   return (
     <div className="flex items-center justify-between gap-4">
-      {/* 현재 기간 표시 */}
-      <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-        {viewMode === 'month' ? formatMonth() : formatWeek()}
-      </h2>
+      {/* 왼쪽: 기간 표시 + 보기 모드 토글 */}
+      <div className="flex items-center gap-4">
+        {/* 현재 기간 표시 */}
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          {viewMode === 'month' ? formatMonth() : formatWeek()}
+        </h2>
 
-      {/* 네비게이션 버튼 */}
+        {/* 월/주 보기 전환 탭 (데스크톱 전용) */}
+        {showViewModeToggle && onViewModeChange && (
+          <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+            {/* 월간 보기 버튼 */}
+            <button
+              onClick={() => onViewModeChange('month')}
+              className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${
+                viewMode === 'month'
+                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              월
+            </button>
+            {/* 주간 보기 버튼 */}
+            <button
+              onClick={() => onViewModeChange('week')}
+              className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${
+                viewMode === 'week'
+                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              주
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 오른쪽: 네비게이션 버튼 */}
       <div className="flex items-center gap-2">
         {/* 오늘 버튼 */}
         <button
