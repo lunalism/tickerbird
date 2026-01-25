@@ -7,6 +7,7 @@ import {
   MonthlyCalendar,
   WeeklyCalendar,
   EventDetailPanel,
+  WeeklyEventPanel,
   CalendarNavigation,
   MobileEventCard,
 } from '@/components/features/calendar';
@@ -269,11 +270,15 @@ export default function CalendarPage() {
               </div>
 
               {/* 오른쪽: 이벤트 상세 패널 (1/3) */}
+              {/* 월간 보기: 선택된 날짜의 이벤트만 표시 */}
+              {/* 주간 보기: 해당 주 전체 이벤트를 날짜별로 그룹화하여 표시 */}
               <div className="col-span-1">
                 {isLoading ? (
                   <EventDetailPanelSkeleton />
-                ) : (
+                ) : desktopViewMode === 'month' ? (
                   <EventDetailPanel selectedDate={selectedDate} events={selectedDateEvents} />
+                ) : (
+                  <WeeklyEventPanel currentDate={currentDate} events={filteredEvents} />
                 )}
               </div>
             </div>
