@@ -5,19 +5,20 @@
  *
  * @description
  * 2026년 경제 캘린더 이벤트를 Firestore에 초기화합니다.
- * 관리자만 실행 가능 (Firebase Auth 확인)
  *
- * 포함 이벤트:
- * - FOMC 회의 (8회/년)
- * - 미국 CPI 발표 (12회/년)
- * - 미국 GDP 발표 (4회/년)
- * - 한국은행 금융통화위원회 (8회/년)
- * - 한국 CPI 발표 (12회/년)
- * - 미국 고용보고서 (12회/년)
+ * 데이터 출처 (2026년 1월 검색 기준):
+ * - FOMC: Federal Reserve (federalreserve.gov)
+ * - CPI/Employment: Bureau of Labor Statistics (bls.gov)
+ * - GDP/PCE: Bureau of Economic Analysis (bea.gov)
+ * - BOK: 한국은행 (bok.or.kr)
+ * - ECB: European Central Bank (ecb.europa.eu)
+ * - BOJ: Bank of Japan (boj.or.jp)
+ * - 빅테크 실적: Nasdaq, Wall Street Horizon
+ * - 테크 컨퍼런스: 각 공식 웹사이트
  *
  * @example
  * POST /api/calendar/seed
- * Authorization: Bearer <admin-token>
+ * { "include2026": true }
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -25,75 +26,34 @@ import {
   calendarEventsCollection,
   createDocument,
   queryCollection,
-  serverTimestamp,
 } from '@/lib/firestore';
-import { calendarEvents as staticEvents } from '@/constants/calendar';
 
 // ==================== 2026년 경제 이벤트 데이터 ====================
+// 웹 검색을 통해 확인된 공식 일정 (2026년 1월 기준)
 
 /**
  * FOMC 회의 일정 2026년
+ * 출처: Federal Reserve (federalreserve.gov/monetarypolicy/fomccalendars.htm)
  * * 표시: SEP(경제전망요약) 발표 포함
- *
- * 발표 시간: 회의 둘째날 오후 2시 (동부) = 한국 시간 새벽 4시 (다음날)
+ * 발표 시간: 회의 둘째날 오후 2시 (동부) = 한국 시간 새벽 4시
  */
 const fomcMeetings2026 = [
-  {
-    date: '2026-01-28',
-    endDate: undefined, // 1월 27-28일
-    description: '2026년 첫 FOMC 정례회의',
-    hasSEP: false,
-  },
-  {
-    date: '2026-03-18',
-    endDate: undefined, // 3월 17-18일
-    description: '3월 FOMC 회의 + 경제전망(SEP) 발표',
-    hasSEP: true,
-  },
-  {
-    date: '2026-05-06',
-    endDate: undefined, // 5월 5-6일
-    description: '5월 FOMC 정례회의',
-    hasSEP: false,
-  },
-  {
-    date: '2026-06-17',
-    endDate: undefined, // 6월 16-17일
-    description: '6월 FOMC 회의 + 경제전망(SEP) 발표',
-    hasSEP: true,
-  },
-  {
-    date: '2026-07-29',
-    endDate: undefined, // 7월 28-29일
-    description: '7월 FOMC 정례회의',
-    hasSEP: false,
-  },
-  {
-    date: '2026-09-16',
-    endDate: undefined, // 9월 15-16일
-    description: '9월 FOMC 회의 + 경제전망(SEP) 발표',
-    hasSEP: true,
-  },
-  {
-    date: '2026-10-28',
-    endDate: undefined, // 10월 27-28일
-    description: '10월 FOMC 정례회의',
-    hasSEP: false,
-  },
-  {
-    date: '2026-12-09',
-    endDate: undefined, // 12월 8-9일
-    description: '12월 FOMC 회의 + 경제전망(SEP) 발표',
-    hasSEP: true,
-  },
+  { date: '2026-01-28', description: '2026년 첫 FOMC 정례회의 (1월 27-28일)', hasSEP: false },
+  { date: '2026-03-18', description: '3월 FOMC 회의 + 경제전망(SEP) 발표 (3월 17-18일)', hasSEP: true },
+  { date: '2026-05-06', description: '5월 FOMC 정례회의 (5월 5-6일)', hasSEP: false },
+  { date: '2026-06-17', description: '6월 FOMC 회의 + 경제전망(SEP) 발표 (6월 16-17일)', hasSEP: true },
+  { date: '2026-07-29', description: '7월 FOMC 정례회의 (7월 28-29일)', hasSEP: false },
+  { date: '2026-09-16', description: '9월 FOMC 회의 + 경제전망(SEP) 발표 (9월 15-16일)', hasSEP: true },
+  { date: '2026-10-28', description: '10월 FOMC 정례회의 (10월 27-28일)', hasSEP: false },
+  { date: '2026-12-09', description: '12월 FOMC 회의 + 경제전망(SEP) 발표 (12월 8-9일)', hasSEP: true },
 ];
 
 /**
  * 미국 CPI(소비자물가지수) 발표 일정 2026년
- * 발표 시간: 오전 8:30 (동부) = 한국 시간 22:30 (전날)
+ * 출처: Bureau of Labor Statistics (bls.gov/schedule/news_release/cpi.htm)
+ * 발표 시간: 오전 8:30 (동부) = 한국 시간 22:30 (같은 날)
  */
 const usCPI2026 = [
-  { date: '2026-01-13', dataMonth: '12월', description: '2025년 12월 소비자물가지수' },
   { date: '2026-02-11', dataMonth: '1월', description: '2026년 1월 소비자물가지수' },
   { date: '2026-03-11', dataMonth: '2월', description: '2026년 2월 소비자물가지수' },
   { date: '2026-04-14', dataMonth: '3월', description: '2026년 3월 소비자물가지수' },
@@ -109,46 +69,68 @@ const usCPI2026 = [
 
 /**
  * 미국 고용보고서 발표 일정 2026년
- * 매월 첫째 주 금요일
- * 발표 시간: 오전 8:30 (동부) = 한국 시간 22:30 (전날)
+ * 출처: Bureau of Labor Statistics (bls.gov/schedule/news_release/empsit.htm)
+ * 매월 첫째 주 금요일, 발표 시간: 오전 8:30 (동부) = 한국 시간 22:30 (같은 날)
  */
 const usEmployment2026 = [
-  { date: '2026-01-09', dataMonth: '12월', description: '2025년 12월 고용보고서 (비농업 고용, 실업률)' },
-  { date: '2026-02-06', dataMonth: '1월', description: '2026년 1월 고용보고서 (비농업 고용, 실업률)' },
-  { date: '2026-03-06', dataMonth: '2월', description: '2026년 2월 고용보고서 (비농업 고용, 실업률)' },
-  { date: '2026-04-03', dataMonth: '3월', description: '2026년 3월 고용보고서 (비농업 고용, 실업률)' },
-  { date: '2026-05-08', dataMonth: '4월', description: '2026년 4월 고용보고서 (비농업 고용, 실업률)' },
-  { date: '2026-06-05', dataMonth: '5월', description: '2026년 5월 고용보고서 (비농업 고용, 실업률)' },
-  { date: '2026-07-03', dataMonth: '6월', description: '2026년 6월 고용보고서 (비농업 고용, 실업률)' },
-  { date: '2026-08-07', dataMonth: '7월', description: '2026년 7월 고용보고서 (비농업 고용, 실업률)' },
-  { date: '2026-09-04', dataMonth: '8월', description: '2026년 8월 고용보고서 (비농업 고용, 실업률)' },
-  { date: '2026-10-02', dataMonth: '9월', description: '2026년 9월 고용보고서 (비농업 고용, 실업률)' },
-  { date: '2026-11-06', dataMonth: '10월', description: '2026년 10월 고용보고서 (비농업 고용, 실업률)' },
-  { date: '2026-12-04', dataMonth: '11월', description: '2026년 11월 고용보고서 (비농업 고용, 실업률)' },
+  { date: '2026-01-09', dataMonth: '12월', description: '2025년 12월 고용보고서' },
+  { date: '2026-02-06', dataMonth: '1월', description: '2026년 1월 고용보고서 + 연간 벤치마크 수정' },
+  { date: '2026-03-06', dataMonth: '2월', description: '2026년 2월 고용보고서' },
+  { date: '2026-04-03', dataMonth: '3월', description: '2026년 3월 고용보고서' },
+  { date: '2026-05-08', dataMonth: '4월', description: '2026년 4월 고용보고서' },
+  { date: '2026-06-05', dataMonth: '5월', description: '2026년 5월 고용보고서' },
+  { date: '2026-07-02', dataMonth: '6월', description: '2026년 6월 고용보고서' },
+  { date: '2026-08-07', dataMonth: '7월', description: '2026년 7월 고용보고서' },
+  { date: '2026-09-04', dataMonth: '8월', description: '2026년 8월 고용보고서' },
+  { date: '2026-10-02', dataMonth: '9월', description: '2026년 9월 고용보고서' },
+  { date: '2026-11-06', dataMonth: '10월', description: '2026년 10월 고용보고서' },
+  { date: '2026-12-04', dataMonth: '11월', description: '2026년 11월 고용보고서' },
 ];
 
 /**
  * 미국 GDP 발표 일정 2026년
- * 분기별 (속보 → 수정 → 확정)
- * 발표 시간: 오전 8:30 (동부) = 한국 시간 22:30 (전날)
+ * 출처: Bureau of Economic Analysis (bea.gov/news/schedule)
+ * 발표 시간: 오전 8:30 (동부) = 한국 시간 22:30 (같은 날)
+ * 참고: 2025년 정부 셧다운으로 일부 일정 변경됨
  */
 const usGDP2026 = [
-  { date: '2026-01-29', quarter: '4분기', type: '속보', description: '2025년 4분기 GDP 속보치' },
-  { date: '2026-02-26', quarter: '4분기', type: '수정', description: '2025년 4분기 GDP 수정치' },
-  { date: '2026-03-26', quarter: '4분기', type: '확정', description: '2025년 4분기 GDP 확정치' },
-  { date: '2026-04-29', quarter: '1분기', type: '속보', description: '2026년 1분기 GDP 속보치' },
-  { date: '2026-05-28', quarter: '1분기', type: '수정', description: '2026년 1분기 GDP 수정치' },
-  { date: '2026-06-25', quarter: '1분기', type: '확정', description: '2026년 1분기 GDP 확정치' },
-  { date: '2026-07-30', quarter: '2분기', type: '속보', description: '2026년 2분기 GDP 속보치' },
-  { date: '2026-08-27', quarter: '2분기', type: '수정', description: '2026년 2분기 GDP 수정치' },
-  { date: '2026-09-24', quarter: '2분기', type: '확정', description: '2026년 2분기 GDP 확정치' },
-  { date: '2026-10-29', quarter: '3분기', type: '속보', description: '2026년 3분기 GDP 속보치' },
-  { date: '2026-11-25', quarter: '3분기', type: '수정', description: '2026년 3분기 GDP 수정치' },
-  { date: '2026-12-23', quarter: '3분기', type: '확정', description: '2026년 3분기 GDP 확정치' },
+  { date: '2026-02-20', quarter: 'Q4 2025', type: '속보', description: 'Q4 2025 GDP 속보치 (Advance)' },
+  { date: '2026-03-26', quarter: 'Q4 2025', type: '수정', description: 'Q4 2025 GDP 수정치 (Second)' },
+  { date: '2026-04-09', quarter: 'Q4 2025', type: '확정', description: 'Q4 2025 GDP 확정치 (Third) + 주별 GDP 동시 발표' },
+  { date: '2026-04-30', quarter: 'Q1 2026', type: '속보', description: 'Q1 2026 GDP 속보치 (Advance)' },
+  { date: '2026-05-28', quarter: 'Q1 2026', type: '수정', description: 'Q1 2026 GDP 수정치 (Second)' },
+  { date: '2026-06-25', quarter: 'Q1 2026', type: '확정', description: 'Q1 2026 GDP 확정치 (Third)' },
+  { date: '2026-07-30', quarter: 'Q2 2026', type: '속보', description: 'Q2 2026 GDP 속보치 (Advance)' },
+  { date: '2026-08-27', quarter: 'Q2 2026', type: '수정', description: 'Q2 2026 GDP 수정치 (Second)' },
+  { date: '2026-09-24', quarter: 'Q2 2026', type: '확정', description: 'Q2 2026 GDP 확정치 (Third)' },
+  { date: '2026-10-29', quarter: 'Q3 2026', type: '속보', description: 'Q3 2026 GDP 속보치 (Advance)' },
+  { date: '2026-11-25', quarter: 'Q3 2026', type: '수정', description: 'Q3 2026 GDP 수정치 (Second)' },
+  { date: '2026-12-23', quarter: 'Q3 2026', type: '확정', description: 'Q3 2026 GDP 확정치 (Third)' },
+];
+
+/**
+ * 미국 PCE(개인소비지출) 발표 일정 2026년
+ * 출처: Bureau of Economic Analysis (bea.gov/news/schedule)
+ * 연준이 선호하는 인플레이션 지표
+ * 발표 시간: 오전 8:30 (동부) = 한국 시간 22:30 (같은 날)
+ */
+const usPCE2026 = [
+  { date: '2026-02-20', dataMonth: '12월', description: '2025년 12월 PCE 물가지수' },
+  { date: '2026-03-27', dataMonth: '2월', description: '2026년 2월 PCE 물가지수' },
+  { date: '2026-04-30', dataMonth: '3월', description: '2026년 3월 PCE 물가지수' },
+  { date: '2026-05-29', dataMonth: '4월', description: '2026년 4월 PCE 물가지수' },
+  { date: '2026-06-26', dataMonth: '5월', description: '2026년 5월 PCE 물가지수' },
+  { date: '2026-07-31', dataMonth: '6월', description: '2026년 6월 PCE 물가지수' },
+  { date: '2026-08-28', dataMonth: '7월', description: '2026년 7월 PCE 물가지수' },
+  { date: '2026-09-25', dataMonth: '8월', description: '2026년 8월 PCE 물가지수' },
+  { date: '2026-10-30', dataMonth: '9월', description: '2026년 9월 PCE 물가지수' },
+  { date: '2026-11-25', dataMonth: '10월', description: '2026년 10월 PCE 물가지수' },
+  { date: '2026-12-23', dataMonth: '11월', description: '2026년 11월 PCE 물가지수' },
 ];
 
 /**
  * 한국은행 금융통화위원회 일정 2026년
+ * 출처: 한국은행 (bok.or.kr)
  * 기준금리 결정 (연 8회)
  * 발표 시간: 오전 10:00 (한국시간)
  */
@@ -164,23 +146,89 @@ const bokMeetings2026 = [
 ];
 
 /**
- * 한국 CPI 발표 일정 2026년
- * 매월 초 (통계청 발표)
- * 발표 시간: 오전 8:00 (한국시간)
+ * ECB(유럽중앙은행) 통화정책 회의 일정 2026년
+ * 출처: European Central Bank (ecb.europa.eu)
+ * 6주 간격으로 8회 개최
+ * 발표 시간: 오후 2:15 (중앙유럽시간) = 한국 시간 22:15 (같은 날)
  */
-const krCPI2026 = [
-  { date: '2026-01-02', dataMonth: '12월', description: '2025년 12월 소비자물가지수' },
-  { date: '2026-02-03', dataMonth: '1월', description: '2026년 1월 소비자물가지수' },
-  { date: '2026-03-03', dataMonth: '2월', description: '2026년 2월 소비자물가지수' },
-  { date: '2026-04-02', dataMonth: '3월', description: '2026년 3월 소비자물가지수' },
-  { date: '2026-05-04', dataMonth: '4월', description: '2026년 4월 소비자물가지수' },
-  { date: '2026-06-02', dataMonth: '5월', description: '2026년 5월 소비자물가지수' },
-  { date: '2026-07-02', dataMonth: '6월', description: '2026년 6월 소비자물가지수' },
-  { date: '2026-08-04', dataMonth: '7월', description: '2026년 7월 소비자물가지수' },
-  { date: '2026-09-01', dataMonth: '8월', description: '2026년 8월 소비자물가지수' },
-  { date: '2026-10-06', dataMonth: '9월', description: '2026년 9월 소비자물가지수' },
-  { date: '2026-11-03', dataMonth: '10월', description: '2026년 10월 소비자물가지수' },
-  { date: '2026-12-01', dataMonth: '11월', description: '2026년 11월 소비자물가지수' },
+const ecbMeetings2026 = [
+  { date: '2026-01-25', description: '1월 ECB 통화정책회의' },
+  { date: '2026-03-05', description: '3월 ECB 통화정책회의' },
+  { date: '2026-04-16', description: '4월 ECB 통화정책회의' },
+  { date: '2026-06-04', description: '6월 ECB 통화정책회의' },
+  { date: '2026-07-16', description: '7월 ECB 통화정책회의' },
+  { date: '2026-09-10', description: '9월 ECB 통화정책회의 (분데스방크 개최)' },
+  { date: '2026-10-29', description: '10월 ECB 통화정책회의' },
+  { date: '2026-12-10', description: '12월 ECB 통화정책회의' },
+];
+
+/**
+ * BOJ(일본은행) 통화정책 회의 일정 2026년
+ * 출처: Bank of Japan (boj.or.jp/en/mopo/mpmsche_minu)
+ * 연 8회 개최 (2일간)
+ * 발표 시간: 둘째날 정오경 (일본시간) = 한국 시간 정오
+ */
+const bojMeetings2026 = [
+  { date: '2026-01-23', description: '1월 BOJ 통화정책회의 (1/22-23) + 전망보고서', hasOutlook: true },
+  { date: '2026-03-19', description: '3월 BOJ 통화정책회의 (3/18-19)', hasOutlook: false },
+  { date: '2026-04-28', description: '4월 BOJ 통화정책회의 (4/27-28) + 전망보고서', hasOutlook: true },
+  { date: '2026-06-16', description: '6월 BOJ 통화정책회의 (6/15-16) + JGB 매입 중간평가', hasOutlook: false },
+  { date: '2026-07-31', description: '7월 BOJ 통화정책회의 (7/30-31) + 전망보고서', hasOutlook: true },
+  { date: '2026-09-18', description: '9월 BOJ 통화정책회의 (9/17-18)', hasOutlook: false },
+  { date: '2026-10-30', description: '10월 BOJ 통화정책회의 (10/29-30) + 전망보고서', hasOutlook: true },
+  { date: '2026-12-18', description: '12월 BOJ 통화정책회의 (12/17-18)', hasOutlook: false },
+];
+
+/**
+ * 빅테크 실적발표 일정 2026년
+ * 출처: Nasdaq, Wall Street Horizon, 각 회사 IR
+ * 참고: Q2~Q4 실적 일정은 추후 확정
+ */
+const bigTechEarnings2026 = [
+  // Q4 2025 실적 (2026년 1-2월 발표)
+  { date: '2026-01-27', company: 'Tesla', ticker: 'TSLA', quarter: 'Q4 2025', description: '테슬라 Q4 2025 실적발표' },
+  { date: '2026-01-28', company: 'Microsoft', ticker: 'MSFT', quarter: 'FY26 Q2', description: '마이크로소프트 FY26 Q2 실적발표' },
+  { date: '2026-01-28', company: 'Meta', ticker: 'META', quarter: 'Q4 2025', description: '메타 Q4 2025 실적발표' },
+  { date: '2026-01-29', company: 'Apple', ticker: 'AAPL', quarter: 'FY26 Q1', description: '애플 FY26 Q1 실적발표' },
+  { date: '2026-02-04', company: 'Amazon', ticker: 'AMZN', quarter: 'Q4 2025', description: '아마존 Q4 2025 실적발표' },
+  { date: '2026-02-25', company: 'NVIDIA', ticker: 'NVDA', quarter: 'FY26 Q4', description: '엔비디아 FY26 Q4 실적발표' },
+  // Q1 2026 실적 (2026년 4-5월 발표 예정)
+  { date: '2026-04-28', company: 'Microsoft', ticker: 'MSFT', quarter: 'FY26 Q3', description: '마이크로소프트 FY26 Q3 실적발표 (예상)' },
+  { date: '2026-04-29', company: 'Meta', ticker: 'META', quarter: 'Q1 2026', description: '메타 Q1 2026 실적발표 (예상)' },
+  { date: '2026-04-30', company: 'Apple', ticker: 'AAPL', quarter: 'FY26 Q2', description: '애플 FY26 Q2 실적발표 (예상)' },
+  { date: '2026-04-30', company: 'Amazon', ticker: 'AMZN', quarter: 'Q1 2026', description: '아마존 Q1 2026 실적발표 (예상)' },
+  { date: '2026-05-27', company: 'NVIDIA', ticker: 'NVDA', quarter: 'FY27 Q1', description: '엔비디아 FY27 Q1 실적발표 (예상)' },
+];
+
+/**
+ * 한국 주요 기업 실적발표 일정 2026년
+ * 출처: 삼성전자 IR (samsung.com/sec/ir)
+ */
+const krEarnings2026 = [
+  { date: '2026-01-08', company: '삼성전자', ticker: '005930', quarter: 'Q4 2025', description: '삼성전자 Q4 2025 잠정실적 공시' },
+  { date: '2026-01-29', company: '삼성전자', ticker: '005930', quarter: 'Q4 2025', description: '삼성전자 Q4 2025 실적발표 컨퍼런스콜' },
+  { date: '2026-04-07', company: '삼성전자', ticker: '005930', quarter: 'Q1 2026', description: '삼성전자 Q1 2026 잠정실적 공시 (예상)' },
+  { date: '2026-04-29', company: '삼성전자', ticker: '005930', quarter: 'Q1 2026', description: '삼성전자 Q1 2026 실적발표 (예상)' },
+  { date: '2026-07-07', company: '삼성전자', ticker: '005930', quarter: 'Q2 2026', description: '삼성전자 Q2 2026 잠정실적 공시 (예상)' },
+  { date: '2026-07-29', company: '삼성전자', ticker: '005930', quarter: 'Q2 2026', description: '삼성전자 Q2 2026 실적발표 (예상)' },
+  { date: '2026-10-07', company: '삼성전자', ticker: '005930', quarter: 'Q3 2026', description: '삼성전자 Q3 2026 잠정실적 공시 (예상)' },
+  { date: '2026-10-29', company: '삼성전자', ticker: '005930', quarter: 'Q3 2026', description: '삼성전자 Q3 2026 실적발표 (예상)' },
+];
+
+/**
+ * 주요 테크 컨퍼런스 일정 2026년
+ * 출처: 각 컨퍼런스 공식 웹사이트
+ */
+const techConferences2026 = [
+  { date: '2026-01-06', endDate: '2026-01-09', title: 'CES 2026', titleEn: 'CES 2026', description: '세계 최대 가전/IT 박람회 (라스베가스)', importance: 'high' as const },
+  { date: '2026-02-25', title: 'Galaxy Unpacked', titleEn: 'Samsung Galaxy Unpacked', description: '삼성 갤럭시 신제품 발표 (예상)', importance: 'medium' as const },
+  { date: '2026-03-02', endDate: '2026-03-05', title: 'MWC 2026', titleEn: 'Mobile World Congress 2026', description: '세계 최대 모바일 박람회 (바르셀로나)', importance: 'high' as const },
+  { date: '2026-03-13', endDate: '2026-03-22', title: 'SXSW 2026', titleEn: 'SXSW 2026', description: '사우스바이사우스웨스트 (오스틴)', importance: 'medium' as const },
+  { date: '2026-03-16', endDate: '2026-03-19', title: 'NVIDIA GTC 2026', titleEn: 'NVIDIA GTC 2026', description: '엔비디아 GPU 테크놀로지 컨퍼런스', importance: 'high' as const },
+  { date: '2026-05-12', endDate: '2026-05-14', title: 'Google I/O 2026', titleEn: 'Google I/O 2026', description: '구글 개발자 컨퍼런스 (예상)', importance: 'high' as const },
+  { date: '2026-06-08', endDate: '2026-06-12', title: 'WWDC 2026', titleEn: 'Apple WWDC 2026', description: '애플 세계 개발자 컨퍼런스 (예상)', importance: 'high' as const },
+  { date: '2026-06-29', endDate: '2026-07-01', title: 'ECB Forum 2026', titleEn: 'ECB Forum on Central Banking', description: 'ECB 중앙은행 포럼 (신트라)', importance: 'medium' as const },
+  { date: '2026-09-08', title: 'Apple Event', titleEn: 'Apple September Event', description: '애플 9월 이벤트 - iPhone 18 발표 (예상)', importance: 'high' as const },
 ];
 
 /**
@@ -229,6 +277,7 @@ interface SeedEvent {
   endDate?: string;
   category: 'institution' | 'earnings' | 'corporate' | 'crypto';
   countryCode?: string;
+  companyDomain?: string;
   importance: 'high' | 'medium' | 'low';
   time?: string;
   description?: string;
@@ -236,10 +285,12 @@ interface SeedEvent {
 }
 
 /**
- * 2026년 이벤트 데이터 생성
+ * 2026년 전체 이벤트 데이터 생성
  */
 function generate2026Events(): SeedEvent[] {
   const events: SeedEvent[] = [];
+
+  // ========== 미국 경제지표 ==========
 
   // FOMC 회의
   fomcMeetings2026.forEach((meeting) => {
@@ -250,9 +301,9 @@ function generate2026Events(): SeedEvent[] {
       category: 'institution',
       countryCode: 'us',
       importance: 'high',
-      time: '04:00', // 한국 시간 새벽 4시 (다음날)
+      time: '04:00',
       description: meeting.description,
-      relatedTerms: ['FOMC', '기준금리', '연준', 'SEP'],
+      relatedTerms: ['FOMC', '기준금리', '연준', '파월'],
     });
   });
 
@@ -260,12 +311,12 @@ function generate2026Events(): SeedEvent[] {
   usCPI2026.forEach((cpi) => {
     events.push({
       title: `미국 CPI 발표 (${cpi.dataMonth})`,
-      titleEn: `US CPI (${cpi.dataMonth} data)`,
+      titleEn: `US CPI Release (${cpi.dataMonth} data)`,
       date: cpi.date,
       category: 'institution',
       countryCode: 'us',
       importance: 'high',
-      time: '22:30', // 한국 시간 22:30 (전날)
+      time: '22:30',
       description: cpi.description,
       relatedTerms: ['CPI', '소비자물가지수', '인플레이션'],
     });
@@ -281,8 +332,8 @@ function generate2026Events(): SeedEvent[] {
       countryCode: 'us',
       importance: 'high',
       time: '22:30',
-      description: emp.description,
-      relatedTerms: ['비농업 고용', '실업률', '고용지표'],
+      description: emp.description + ' (비농업 고용, 실업률)',
+      relatedTerms: ['비농업 고용', '실업률', '고용지표', 'NFP'],
     });
   });
 
@@ -290,7 +341,7 @@ function generate2026Events(): SeedEvent[] {
   usGDP2026.forEach((gdp) => {
     events.push({
       title: `미국 GDP ${gdp.type} (${gdp.quarter})`,
-      titleEn: `US GDP ${gdp.type === '속보' ? 'Advance' : gdp.type === '수정' ? 'Preliminary' : 'Final'} (Q${gdp.quarter.charAt(0)})`,
+      titleEn: `US GDP ${gdp.type === '속보' ? 'Advance' : gdp.type === '수정' ? 'Second' : 'Third'} (${gdp.quarter})`,
       date: gdp.date,
       category: 'institution',
       countryCode: 'us',
@@ -300,6 +351,23 @@ function generate2026Events(): SeedEvent[] {
       relatedTerms: ['GDP', '경제성장률'],
     });
   });
+
+  // 미국 PCE
+  usPCE2026.forEach((pce) => {
+    events.push({
+      title: `미국 PCE 발표 (${pce.dataMonth})`,
+      titleEn: `US PCE Release (${pce.dataMonth} data)`,
+      date: pce.date,
+      category: 'institution',
+      countryCode: 'us',
+      importance: 'high',
+      time: '22:30',
+      description: pce.description + ' (연준 선호 인플레이션 지표)',
+      relatedTerms: ['PCE', '개인소비지출', '인플레이션', '연준'],
+    });
+  });
+
+  // ========== 한국 경제지표 ==========
 
   // 한국은행 금융통화위원회
   bokMeetings2026.forEach((meeting) => {
@@ -316,20 +384,86 @@ function generate2026Events(): SeedEvent[] {
     });
   });
 
-  // 한국 CPI
-  krCPI2026.forEach((cpi) => {
+  // ========== 글로벌 중앙은행 ==========
+
+  // ECB 회의
+  ecbMeetings2026.forEach((meeting) => {
     events.push({
-      title: `한국 CPI 발표 (${cpi.dataMonth})`,
-      titleEn: `Korea CPI (${cpi.dataMonth} data)`,
-      date: cpi.date,
+      title: 'ECB 통화정책회의',
+      titleEn: 'ECB Monetary Policy Meeting',
+      date: meeting.date,
       category: 'institution',
-      countryCode: 'kr',
-      importance: 'medium',
-      time: '08:00',
-      description: cpi.description,
-      relatedTerms: ['CPI', '소비자물가지수', '물가'],
+      countryCode: 'eu',
+      importance: 'high',
+      time: '22:15',
+      description: meeting.description,
+      relatedTerms: ['ECB', '유럽중앙은행', '라가르드'],
     });
   });
+
+  // BOJ 회의
+  bojMeetings2026.forEach((meeting) => {
+    events.push({
+      title: meeting.hasOutlook ? 'BOJ 통화정책회의 + 전망보고서' : 'BOJ 통화정책회의',
+      titleEn: meeting.hasOutlook ? 'BOJ Meeting + Outlook Report' : 'BOJ Monetary Policy Meeting',
+      date: meeting.date,
+      category: 'institution',
+      countryCode: 'jp',
+      importance: 'high',
+      time: '12:00',
+      description: meeting.description,
+      relatedTerms: ['BOJ', '일본은행', '우에다'],
+    });
+  });
+
+  // ========== 빅테크 실적발표 ==========
+
+  bigTechEarnings2026.forEach((earning) => {
+    events.push({
+      title: `${earning.company} 실적발표 (${earning.quarter})`,
+      titleEn: `${earning.company} Earnings (${earning.quarter})`,
+      date: earning.date,
+      category: 'earnings',
+      companyDomain: earning.company.toLowerCase() + '.com',
+      importance: 'high',
+      time: '06:00', // 장 마감 후 발표 = 한국 다음날 새벽
+      description: earning.description,
+      relatedTerms: [earning.ticker, earning.company],
+    });
+  });
+
+  // ========== 한국 기업 실적발표 ==========
+
+  krEarnings2026.forEach((earning) => {
+    events.push({
+      title: `${earning.company} 실적발표 (${earning.quarter})`,
+      titleEn: `${earning.company} Earnings (${earning.quarter})`,
+      date: earning.date,
+      category: 'earnings',
+      countryCode: 'kr',
+      importance: 'high',
+      time: '10:00',
+      description: earning.description,
+      relatedTerms: [earning.ticker, earning.company],
+    });
+  });
+
+  // ========== 테크 컨퍼런스 ==========
+
+  techConferences2026.forEach((conf) => {
+    events.push({
+      title: conf.title,
+      titleEn: conf.titleEn,
+      date: conf.date,
+      endDate: conf.endDate,
+      category: 'corporate',
+      importance: conf.importance,
+      description: conf.description,
+      relatedTerms: [conf.title],
+    });
+  });
+
+  // ========== 휴장일 ==========
 
   // 한국 휴장일
   krHolidays2026.forEach((holiday) => {
@@ -370,7 +504,7 @@ function generate2026Events(): SeedEvent[] {
 export async function POST(request: NextRequest) {
   try {
     // 요청 본문에서 옵션 파싱
-    let options = { includeStatic: true, include2026: true };
+    let options = { include2026: true, clearExisting: false };
     try {
       const body = await request.json();
       options = { ...options, ...body };
@@ -379,33 +513,12 @@ export async function POST(request: NextRequest) {
     }
 
     const results = {
-      staticEventsAdded: 0,
       events2026Added: 0,
       errors: [] as string[],
+      categories: {} as Record<string, number>,
     };
 
-    // 기존 정적 데이터 시드 (선택)
-    if (options.includeStatic) {
-      for (const event of staticEvents) {
-        try {
-          await createDocument(calendarEventsCollection(), {
-            title: event.title,
-            date: event.date,
-            category: event.category,
-            countryCode: event.countryCode,
-            companyDomain: event.companyDomain,
-            importance: event.importance,
-            time: event.time,
-            description: event.description,
-          });
-          results.staticEventsAdded++;
-        } catch (error) {
-          results.errors.push(`정적 이벤트 추가 실패: ${event.id}`);
-        }
-      }
-    }
-
-    // 2026년 이벤트 시드 (선택)
+    // 2026년 이벤트 시드
     if (options.include2026) {
       const events2026 = generate2026Events();
 
@@ -418,25 +531,31 @@ export async function POST(request: NextRequest) {
             endDate: event.endDate,
             category: event.category,
             countryCode: event.countryCode,
+            companyDomain: event.companyDomain,
             importance: event.importance,
             time: event.time,
             description: event.description,
             relatedTerms: event.relatedTerms,
           });
           results.events2026Added++;
+
+          // 카테고리별 카운트
+          if (!results.categories[event.category]) {
+            results.categories[event.category] = 0;
+          }
+          results.categories[event.category]++;
         } catch (error) {
-          results.errors.push(`2026 이벤트 추가 실패: ${event.title} (${event.date})`);
+          results.errors.push(`이벤트 추가 실패: ${event.title} (${event.date})`);
         }
       }
     }
 
     return NextResponse.json({
       success: true,
-      message: '캘린더 이벤트 시드 완료',
+      message: '2026년 캘린더 이벤트 시드 완료',
       results: {
-        staticEventsAdded: results.staticEventsAdded,
-        events2026Added: results.events2026Added,
-        totalAdded: results.staticEventsAdded + results.events2026Added,
+        totalAdded: results.events2026Added,
+        byCategory: results.categories,
         errors: results.errors.length > 0 ? results.errors : undefined,
       },
     });
@@ -463,9 +582,18 @@ export async function GET() {
   try {
     const events = await queryCollection(calendarEventsCollection(), []);
 
+    // 카테고리별 카운트
+    const categories: Record<string, number> = {};
+    events.forEach((event) => {
+      const cat = (event as { category?: string }).category || 'unknown';
+      if (!categories[cat]) categories[cat] = 0;
+      categories[cat]++;
+    });
+
     return NextResponse.json({
       success: true,
       count: events.length,
+      byCategory: categories,
       message: `Firestore에 ${events.length}개의 캘린더 이벤트가 있습니다.`,
     });
   } catch (error) {
