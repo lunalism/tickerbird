@@ -53,10 +53,11 @@ export default function CalendarPage() {
   }, [apiError, source]);
 
   // ========== 필터링된 이벤트 ==========
+  // 주의: calendarEvents가 의존성 배열에 포함되어야 API 로딩 완료 시 재계산됨
   const filteredEvents = useMemo(() => {
     if (activeFilter === 'all') return calendarEvents;
     return calendarEvents.filter((event) => event.category === activeFilter);
-  }, [activeFilter]);
+  }, [activeFilter, calendarEvents]);
 
   // ========== 선택된 날짜의 이벤트 ==========
   const selectedDateEvents = useMemo(() => {
