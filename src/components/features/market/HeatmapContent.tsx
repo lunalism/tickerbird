@@ -813,6 +813,10 @@ export function HeatmapContent({ country }: HeatmapContentProps) {
             // 색상 설정 - 등락률 기반
             // pathComponents.length로 depth 계산: 2=섹터, 3=종목
             colors={(node) => {
+              // root 노드는 완전 투명 (보이지 않음)
+              if (node.pathComponents.length === 1) {
+                return 'transparent';
+              }
               // 섹터 노드는 어두운 회색 (pathComponents: [root, sector])
               if (node.pathComponents.length === 2) {
                 return '#1f2937';
@@ -824,19 +828,29 @@ export function HeatmapContent({ country }: HeatmapContentProps) {
             // 테두리 설정
             borderWidth={1}
             borderColor="#374151"
-            // 라벨 설정
-            // pathComponents.length로 depth 계산: 2=섹터, 3=종목
+            // ==================== 종목 라벨 설정 ====================
+            // 종목명 + 등락률 표시 (예: "삼성전자 +1.2%")
             label={(node) => {
-              // 섹터 라벨
-              if (node.pathComponents.length === 2) {
-                return node.id;
-              }
-              // 종목 라벨 - 이름만 표시
-              return node.data.name || node.id;
+              // 종목 노드만 라벨 표시 (pathComponents: [root, sector, stock])
+              const name = node.data.name || node.id;
+              const change = node.data.change ?? 0;
+              // 종목명 + 등락률
+              return `${name} ${formatPercent(change)}`;
             }}
-            labelSkipSize={20}
+            // 작은 박스에도 라벨 표시 (최소 크기 15px)
+            labelSkipSize={15}
             labelTextColor="#ffffff"
-            // 부모(섹터) 라벨 설정
+            // ==================== 부모(섹터/root) 라벨 설정 ====================
+            // root 라벨은 숨기고, 섹터 라벨만 표시
+            enableParentLabel={true}
+            parentLabel={(node) => {
+              // root 노드는 빈 문자열 (라벨 숨김)
+              if (node.pathComponents.length === 1) {
+                return '';
+              }
+              // 섹터 노드는 섹터명 표시
+              return node.id;
+            }}
             parentLabelPosition="top"
             parentLabelPadding={8}
             parentLabelTextColor="#9ca3af"
