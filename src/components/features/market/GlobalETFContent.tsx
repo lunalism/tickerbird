@@ -82,6 +82,11 @@ interface UnifiedETFData {
 
 // ==================== 포맷팅 함수 ====================
 
+/**
+ * 가격 포맷팅
+ * 미국 ETF: $626.33
+ * 한국 ETF: 24,750원
+ */
 function formatPrice(price: number, isUS: boolean): string {
   if (isUS) {
     return '$' + price.toFixed(2);
@@ -89,40 +94,124 @@ function formatPrice(price: number, isUS: boolean): string {
   return price.toLocaleString('ko-KR') + '원';
 }
 
+/**
+ * 등락률 포맷팅 (부호 포함)
+ */
 function formatPercent(percent: number): string {
   const sign = percent >= 0 ? '+' : '';
   return `${sign}${percent.toFixed(2)}%`;
 }
 
+/**
+ * 등락금액 포맷팅 (부호 포함)
+ * 미국 ETF: +$3.50
+ * 한국 ETF: -495원
+ */
+function formatChange(change: number, isUS: boolean): string {
+  const sign = change >= 0 ? '+' : '';
+  if (isUS) {
+    return `${sign}$${Math.abs(change).toFixed(2)}`;
+  }
+  return `${sign}${change.toLocaleString('ko-KR')}원`;
+}
+
+/**
+ * 차트 데이터 생성 (간단한 시뮬레이션)
+ *
+ * 현재가와 변동률을 기반으로 추세 데이터 생성
+ * (실제 API에서 차트 데이터를 제공하지 않으므로)
+ *
+ * @param currentPrice - 현재 가격
+ * @param changePercent - 변동률
+ * @returns 9개 포인트의 차트 데이터
+ */
+function generateChartData(currentPrice: number, changePercent: number): number[] {
+  const points = 9;
+  const data: number[] = [];
+
+  // 변동률 기반 추세 생성
+  const trend = changePercent / 100;
+  const volatility = Math.abs(trend) * 0.5;
+
+  for (let i = 0; i < points; i++) {
+    // 과거(0)에서 현재(8)로 갈수록 현재 가격에 수렴
+    const progress = i / (points - 1);
+    const baseChange = trend * (1 - progress);
+    const noise = (Math.random() - 0.5) * volatility * (1 - progress);
+    const price = currentPrice * (1 - baseChange + noise);
+    data.push(Math.round(price * 100) / 100);
+  }
+
+  return data;
+}
+
+// ==================== 미니 차트 컴포넌트 ====================
+
+/**
+ * 미니 차트 컴포넌트
+ * ETF의 최근 추이를 SVG 라인으로 시각화
+ */
+function MiniChart({ data, isPositive }: { data: number[]; isPositive: boolean }) {
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+
+  const points = data
+    .map((value, i) => {
+      const x = (i / (data.length - 1)) * 100;
+      const y = 100 - ((value - min) / range) * 100;
+      return `${x},${y}`;
+    })
+    .join(' ');
+
+  return (
+    <svg viewBox="0 0 100 100" className="w-20 h-10" preserveAspectRatio="none">
+      <polyline
+        fill="none"
+        stroke={isPositive ? '#22c55e' : '#ef4444'}
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        points={points}
+      />
+    </svg>
+  );
+}
+
 // ==================== 스켈레톤 컴포넌트 ====================
 
 /**
- * 컴팩트 카드 스켈레톤
+ * ETF 카드 스켈레톤 (환율 카드 스타일)
  */
-function CompactCardSkeleton() {
+function ETFCardSkeleton() {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700 animate-pulse">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-5 h-5 bg-gray-200 dark:bg-gray-700 rounded" />
-        <div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded" />
+    <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 animate-pulse">
+      {/* 헤더 */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-8 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div>
+            <div className="w-20 h-5 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+            <div className="w-16 h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+          </div>
+        </div>
+        <div className="w-20 h-10 bg-gray-200 dark:bg-gray-700 rounded" />
       </div>
-      <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
-      <div className="flex items-center justify-between">
-        <div className="h-5 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
-        <div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded" />
-      </div>
+      {/* 가격 */}
+      <div className="w-32 h-8 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+      <div className="w-24 h-5 bg-gray-200 dark:bg-gray-700 rounded" />
     </div>
   );
 }
 
 /**
- * 스켈레톤 그리드 (2열)
+ * 스켈레톤 그리드 (환율 스타일: 1~4열 반응형)
  */
 function SkeletonGrid({ count = 10 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {Array.from({ length: count }).map((_, idx) => (
-        <CompactCardSkeleton key={idx} />
+        <ETFCardSkeleton key={idx} />
       ))}
     </div>
   );
@@ -147,17 +236,16 @@ function HoldingsSkeleton() {
   );
 }
 
-// ==================== 컴팩트 ETF 카드 ====================
+// ==================== ETF 카드 (환율 스타일) ====================
 
 /**
- * 컴팩트 ETF 카드 (2열 그리드용)
+ * ETF 카드 컴포넌트 (환율 카드 스타일)
  *
- * 간결한 정보 표시:
- * - 국기 + 이름/티커
- *   - 미국 ETF: 티커 표시 (QQQ, SPY - 짧고 익숙함)
- *   - 한국 ETF: 이름 표시 (TIGER S&P500 - 종목코드보다 직관적)
+ * 환율 카드와 동일한 레이아웃:
+ * - 헤더: 국기 + 이름 / 미니차트
  * - 보조 정보 (설명/종목코드)
- * - 현재가 + 등락률
+ * - 가격 (text-2xl)
+ * - 등락금액 + 등락률
  */
 function CompactETFCard({
   etf,
@@ -175,43 +263,61 @@ function CompactETFCard({
   const displayName = etf.isUS ? etf.symbol : (ETF_DESCRIPTIONS[etf.symbol] || etf.name);
   const subText = etf.isUS ? (ETF_DESCRIPTIONS[etf.symbol] || '') : etf.symbol;
 
+  // 차트 데이터 생성 (현재가와 변동률 기반)
+  const chartData = useMemo(
+    () => generateChartData(etf.currentPrice, etf.changePercent),
+    [etf.currentPrice, etf.changePercent]
+  );
+
   return (
     <div
       onClick={onClick}
-      className={`bg-white dark:bg-gray-800 rounded-xl p-3 border cursor-pointer
-        transition-all duration-200 hover:shadow-md
+      className={`bg-white dark:bg-gray-800 rounded-2xl p-5 border cursor-pointer
+        transition-all duration-200 hover:shadow-lg
         ${isSelected
-          ? 'border-blue-400 dark:border-blue-500 ring-2 ring-blue-100 dark:ring-blue-900/30 shadow-md'
+          ? 'border-blue-400 dark:border-blue-500 ring-2 ring-blue-100 dark:ring-blue-900/30 shadow-lg'
           : 'border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600'
         }`}
     >
-      {/* 상단: 국기 + 이름/티커 */}
-      <div className="flex items-center gap-2 mb-1">
-        <span className="text-sm">{etf.isUS ? '🇺🇸' : '🇰🇷'}</span>
-        <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-bold rounded truncate max-w-[120px]">
-          {displayName}
-        </span>
+      {/* 헤더: 국기 + 이름 / 미니차트 */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          {/* 국기 */}
+          <div className="text-2xl">
+            {etf.isUS ? '🇺🇸' : '🇰🇷'}
+          </div>
+          <div>
+            {/* 이름/티커 */}
+            <h3 className="font-semibold text-gray-900 dark:text-white">{displayName}</h3>
+            {/* 보조 정보 (설명/종목코드) */}
+            <p className="text-sm text-gray-500 dark:text-gray-400">{subText}</p>
+          </div>
+        </div>
+        {/* 미니 차트 */}
+        <MiniChart data={chartData} isPositive={isPositive} />
       </div>
 
-      {/* 중간: 보조 정보 (설명/종목코드) */}
-      <p className="text-xs text-gray-500 dark:text-gray-400 truncate mb-2">
-        {subText}
-      </p>
-
-      {/* 하단: 가격 + 등락률 */}
-      <div className="flex items-center justify-between">
-        <span className="font-bold text-sm text-gray-900 dark:text-white">
+      {/* 가격 정보 */}
+      <div>
+        {/* 현재가 (큰 폰트) */}
+        <p className="text-2xl font-bold text-gray-900 dark:text-white">
           {formatPrice(etf.currentPrice, etf.isUS)}
-        </span>
-        <span
-          className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+        </p>
+        {/* 등락금액 + 등락률 */}
+        <div className="flex items-center gap-2 mt-1">
+          <span className={`text-sm font-medium ${
+            isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+          }`}>
+            {formatChange(etf.change, etf.isUS)}
+          </span>
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
             isPositive
               ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
               : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-          }`}
-        >
-          {formatPercent(etf.changePercent)}
-        </span>
+          }`}>
+            {formatPercent(etf.changePercent)}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -725,7 +831,7 @@ export function GlobalETFContent() {
               </div>
             </div>
           ) : (
-            // 2열 그리드 뷰
+            // 그리드 뷰 (환율 카드 스타일: 1~4열 반응형)
             <>
               {/* 미국 ETF */}
               {usETFs.length > 0 && (
@@ -733,7 +839,7 @@ export function GlobalETFContent() {
                   <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3 flex items-center gap-2">
                     <span>🇺🇸</span> 미국 ETF ({usETFs.length}개)
                   </h3>
-                  <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {usETFs.map((etf) => (
                       <CompactETFCard
                         key={etf.symbol}
@@ -752,7 +858,7 @@ export function GlobalETFContent() {
                   <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3 flex items-center gap-2">
                     <span>🇰🇷</span> 국내 상장 ETF ({krETFs.length}개)
                   </h3>
-                  <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {krETFs.map((etf) => (
                       <CompactETFCard
                         key={etf.symbol}
