@@ -565,11 +565,14 @@ function USETFCard({ etf }: { etf: USETFPriceData }) {
  * - 한국 (kr): 한국투자증권 API (실시간)
  * - 기타: 목업 데이터 (constants)
  */
+// 자동 새로고침 간격 (1분)
+const AUTO_REFRESH_INTERVAL = 60000;
+
 export function ETFContent({ market }: ETFContentProps) {
   // ========== 한국 시장: 실시간 API 데이터 ==========
   const [activeCategory, setActiveCategory] = useState<ETFCategory>('all');
 
-  // useKoreanETFs 훅 사용 (한국 시장일 때만 실제 호출)
+  // useKoreanETFs 훅 사용 (한국 시장일 때만 실제 호출, 1분 자동 새로고침)
   // 카테고리가 'all'이면 전체 조회, 그 외에는 해당 카테고리만 조회
   const apiCategory = activeCategory === 'all' ? 'all' : activeCategory;
   const {
@@ -577,19 +580,25 @@ export function ETFContent({ market }: ETFContentProps) {
     isLoading: isKoreanLoading,
     error: koreanError,
     refetch: refetchKorean,
-  } = useKoreanETFs(apiCategory);
+  } = useKoreanETFs(apiCategory, {
+    autoRefresh: true,
+    refreshInterval: AUTO_REFRESH_INTERVAL,
+  });
 
   // ========== 미국 시장: 실시간 API 데이터 ==========
   const [usActiveCategory, setUSActiveCategory] = useState<USETFCategory>('all');
 
-  // useUSETFs 훅 사용 (미국 시장일 때만 실제 호출)
+  // useUSETFs 훅 사용 (미국 시장일 때만 실제 호출, 1분 자동 새로고침)
   const usApiCategory = usActiveCategory === 'all' ? 'all' : usActiveCategory;
   const {
     etfs: usETFs,
     isLoading: isUSLoading,
     error: usError,
     refetch: refetchUS,
-  } = useUSETFs(usApiCategory);
+  } = useUSETFs(usApiCategory, {
+    autoRefresh: true,
+    refreshInterval: AUTO_REFRESH_INTERVAL,
+  });
 
   // ========== 한국 시장 렌더링 ==========
   if (market === 'kr') {

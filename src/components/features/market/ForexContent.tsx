@@ -24,9 +24,16 @@
  * 국기 순서: 🇰🇷(한국) + 외국 국기
  */
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { forexData } from '@/constants';
+
+// ============================================
+// 상수 정의
+// ============================================
+
+/** 환율 자동 새로고침 간격 (1분 = 60,000ms) */
+const FOREX_REFRESH_INTERVAL = 60000;
 
 // ============================================
 // 타입 정의
@@ -93,8 +100,8 @@ async function fetchBOKExchangeRate(): Promise<BOKAPIResponse | null> {
       headers: {
         'Content-Type': 'application/json',
       },
-      // 캐시: 5분
-      next: { revalidate: 300 },
+      // 캐시: 1분 (환율은 민감한 정보이므로 짧은 캐시)
+      next: { revalidate: 60 },
     });
 
     if (!response.ok) {
@@ -527,47 +534,80 @@ export function ForexContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dataSource, setDataSource] = useState<'api' | 'mock'>('mock');
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  // 한국은행 API 호출
-  useEffect(() => {
-    async function loadExchangeRates() {
+  // 자동 새로고침 타이머 ref
+  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  /**
+   * 환율 데이터 로드 함수
+   * - 초기 로드 및 자동 새로고침에서 사용
+   * - isRefresh: true면 로딩 스피너 표시 안함 (백그라운드 갱신)
+   */
+  const loadExchangeRates = useCallback(async (isRefresh = false) => {
+    // 초기 로드 시에만 로딩 표시
+    if (!isRefresh) {
       setIsLoading(true);
-      setError(null);
+    }
+    setError(null);
 
-      try {
-        // 한국은행 API 호출
-        const apiResponse = await fetchBOKExchangeRate();
+    try {
+      // 한국은행 API 호출
+      const apiResponse = await fetchBOKExchangeRate();
 
-        if (apiResponse?.success && apiResponse.data) {
-          // API 데이터 변환
-          const krwForexData = convertAPIDataToKRWForex(apiResponse.data);
-          setForexData(krwForexData);
-          setDataSource('api');
-          console.log('[ForexContent] 한국은행 API 데이터 로드 성공');
+      if (apiResponse?.success && apiResponse.data) {
+        // API 데이터 변환
+        const krwForexData = convertAPIDataToKRWForex(apiResponse.data);
+        setForexData(krwForexData);
+        setDataSource('api');
+        setLastUpdated(new Date());
+        if (isRefresh) {
+          console.log('[ForexContent] 환율 자동 갱신 완료');
         } else {
-          // API 실패 - mock 데이터 사용
-          console.warn('[ForexContent] API 실패, mock 데이터 사용');
-          const mockData = calculateMockKRWForexData();
-          setForexData(mockData);
-          setDataSource('mock');
-          if (apiResponse?.error) {
-            setError(apiResponse.error);
-          }
+          console.log('[ForexContent] 한국은행 API 데이터 로드 성공');
         }
-      } catch (err) {
-        // 예외 발생 - mock 데이터 사용
-        console.error('[ForexContent] 데이터 로드 실패:', err);
+      } else {
+        // API 실패 - mock 데이터 사용
+        console.warn('[ForexContent] API 실패, mock 데이터 사용');
         const mockData = calculateMockKRWForexData();
         setForexData(mockData);
         setDataSource('mock');
-        setError('환율 데이터를 불러오는데 실패했습니다.');
-      } finally {
+        if (apiResponse?.error) {
+          setError(apiResponse.error);
+        }
+      }
+    } catch (err) {
+      // 예외 발생 - mock 데이터 사용
+      console.error('[ForexContent] 데이터 로드 실패:', err);
+      const mockData = calculateMockKRWForexData();
+      setForexData(mockData);
+      setDataSource('mock');
+      setError('환율 데이터를 불러오는데 실패했습니다.');
+    } finally {
+      if (!isRefresh) {
         setIsLoading(false);
       }
     }
-
-    loadExchangeRates();
   }, []);
+
+  // 초기 로드 및 자동 새로고침 설정
+  useEffect(() => {
+    // 초기 로드
+    loadExchangeRates(false);
+
+    // 자동 새로고침 타이머 설정 (1분마다)
+    refreshTimerRef.current = setInterval(() => {
+      loadExchangeRates(true);
+    }, FOREX_REFRESH_INTERVAL);
+
+    // 클린업: 컴포넌트 언마운트 시 타이머 정리
+    return () => {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+    };
+  }, [loadExchangeRates]);
 
   // 로딩 중
   if (isLoading) {
@@ -588,12 +628,23 @@ export function ForexContent() {
     <section>
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-          환율
-          <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
-            (원화 기준)
-          </span>
-        </h2>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            환율
+            <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+              (원화 기준)
+            </span>
+            <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">
+              1분 자동갱신
+            </span>
+          </h2>
+          {/* 마지막 갱신 시간 */}
+          {lastUpdated && (
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+              마지막 갱신: {lastUpdated.toLocaleTimeString('ko-KR')}
+            </p>
+          )}
+        </div>
         {/* 데이터 소스 표시 */}
         <span className={`text-xs px-2 py-1 rounded-full ${
           dataSource === 'api'

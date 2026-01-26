@@ -309,29 +309,41 @@ export function StocksContent({ market }: StocksContentProps) {
     }
   };
 
-  // 한국 시장: 시가총액 순위 API 사용
+  // 자동 새로고침 간격 (1분)
+  const AUTO_REFRESH_INTERVAL = 60000;
+
+  // 한국 시장: 시가총액 순위 API 사용 (1분 자동 새로고침)
   const {
     data: marketCapData,
     isLoading: isMarketCapLoading,
     error: marketCapError,
     refetch: refetchMarketCap
-  } = useMarketCapRanking('all');
+  } = useMarketCapRanking('all', {
+    autoRefresh: true,
+    refreshInterval: AUTO_REFRESH_INTERVAL,
+  });
 
-  // 한국 시장: 기존 API 데이터 (폴백용)
+  // 한국 시장: 기존 API 데이터 (폴백용, 1분 자동 새로고침)
   const {
     stocks: koreanStocks,
     isLoading: isKoreanLoading,
     error: koreanError,
     refetch: refetchKorean
-  } = useKoreanStocks();
+  } = useKoreanStocks({
+    autoRefresh: true,
+    refreshInterval: AUTO_REFRESH_INTERVAL,
+  });
 
-  // 미국 시장: 개별 주식 시세 API 사용 (시가총액순위 API 폴백)
+  // 미국 시장: 개별 주식 시세 API 사용 (1분 자동 새로고침)
   const {
     stocks: usStockPrices,
     isLoading: isUSLoading,
     error: usError,
     refetch: refetchUS
-  } = useUSStocks();
+  } = useUSStocks('all', {
+    autoRefresh: true,
+    refreshInterval: AUTO_REFRESH_INTERVAL,
+  });
 
   // 한국 시장: 시가총액 순위 데이터를 Stock 형식으로 변환
   const koreanMarketCapStocks: Stock[] = marketCapData.length > 0

@@ -116,12 +116,21 @@ function IndexCard({ index }: { index: MarketIndex }) {
   );
 }
 
-export function IndicesContent({ market }: IndicesContentProps) {
-  // 한국 시장인 경우 실제 API 데이터 사용
-  const { indices: koreanIndices, isLoading: isKoreanLoading, error: koreanError, refetch: refetchKorean } = useKoreanIndices();
+// 자동 새로고침 간격 (1분)
+const AUTO_REFRESH_INTERVAL = 60000;
 
-  // 미국 시장인 경우 실제 API 데이터 사용
-  const { indices: usIndices, isLoading: isUSLoading, error: usError, refetch: refetchUS } = useUSIndices();
+export function IndicesContent({ market }: IndicesContentProps) {
+  // 한국 시장 지수 데이터 (1분 자동 새로고침)
+  const { indices: koreanIndices, isLoading: isKoreanLoading, error: koreanError, refetch: refetchKorean } = useKoreanIndices({
+    autoRefresh: true,
+    refreshInterval: AUTO_REFRESH_INTERVAL,
+  });
+
+  // 미국 시장 지수 데이터 (1분 자동 새로고침)
+  const { indices: usIndices, isLoading: isUSLoading, error: usError, refetch: refetchUS } = useUSIndices({
+    autoRefresh: true,
+    refreshInterval: AUTO_REFRESH_INTERVAL,
+  });
 
   // 차트 데이터 생성 함수 (현재값 기반)
   const generateChartData = (currentValue: number, changePercent: number): number[] => {

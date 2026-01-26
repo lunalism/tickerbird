@@ -682,15 +682,24 @@ function MobileAccordionCard({
  * - 선택 시 (데스크톱): 왼쪽 구성종목 + 오른쪽 ETF 리스트
  * - 선택 시 (모바일): 아코디언 방식
  */
+// 자동 새로고침 간격 (1분)
+const AUTO_REFRESH_INTERVAL = 60000;
+
 export function GlobalETFContent() {
   const router = useRouter();
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
-  // 미국 ETF 데이터 조회
-  const { etfs: allUSETFs, isLoading: isUSLoading, error: usError, refetch: refetchUS } = useUSETFs('all');
+  // 미국 ETF 데이터 조회 (1분 자동 새로고침)
+  const { etfs: allUSETFs, isLoading: isUSLoading, error: usError, refetch: refetchUS } = useUSETFs('all', {
+    autoRefresh: true,
+    refreshInterval: AUTO_REFRESH_INTERVAL,
+  });
 
-  // 국내 ETF 데이터 조회
-  const { etfs: allKRETFs, isLoading: isKRLoading, error: krError, refetch: refetchKR } = useKoreanETFs('all');
+  // 국내 ETF 데이터 조회 (1분 자동 새로고침)
+  const { etfs: allKRETFs, isLoading: isKRLoading, error: krError, refetch: refetchKR } = useKoreanETFs('all', {
+    autoRefresh: true,
+    refreshInterval: AUTO_REFRESH_INTERVAL,
+  });
 
   const isLoading = isUSLoading || isKRLoading;
   const error = usError || krError;
