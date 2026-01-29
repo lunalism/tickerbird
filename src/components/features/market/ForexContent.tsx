@@ -100,8 +100,8 @@ async function fetchBOKExchangeRate(): Promise<BOKAPIResponse | null> {
       headers: {
         'Content-Type': 'application/json',
       },
-      // 캐시: 1분 (환율은 민감한 정보이므로 짧은 캐시)
-      next: { revalidate: 60 },
+      // 캐시 비활성화: 항상 최신 환율 데이터 요청
+      cache: 'no-store',
     });
 
     if (!response.ok) {

@@ -139,8 +139,9 @@ async function fetchBOKData(
     headers: {
       'Accept': 'application/json',
     },
-    // 캐시 설정: 1분 (환율은 민감한 정보이므로 짧은 캐시)
-    next: { revalidate: 60 },
+    // 캐시 비활성화: 항상 최신 데이터를 가져오도록 설정
+    // Next.js의 fetch 캐시가 오래된 데이터를 반환하는 문제 해결
+    cache: 'no-store',
   });
 
   if (!response.ok) {
@@ -151,9 +152,14 @@ async function fetchBOKData(
 
   // API 응답 검증
   if (!data.StatisticSearch?.row) {
-    console.warn(`[BOK API] 데이터 없음: ${itemCode}`);
+    console.warn(`[BOK API] 데이터 없음: ${itemCode}`, JSON.stringify(data));
     return [];
   }
+
+  // 디버그: 실제 API 응답 데이터 출력
+  console.log(`[BOK API] 응답 데이터 (${itemCode}):`,
+    data.StatisticSearch.row.map(r => ({ date: r.TIME, value: r.DATA_VALUE }))
+  );
 
   return data.StatisticSearch.row;
 }
@@ -169,8 +175,7 @@ function parseExchangeRate(dataList: BOKDataItem[]): ExchangeRateData | null {
     return null;
   }
 
-  // 최신 데이터 (첫 번째 또는 마지막 - API에 따라 다름)
-  // 시간순 정렬 후 최신 데이터 추출
+  // 시간순 정렬 후 최신 데이터 추출 (내림차순 - 가장 최근 날짜가 첫 번째)
   const sortedData = [...dataList].sort((a, b) => b.TIME.localeCompare(a.TIME));
 
   const latest = sortedData[0];
@@ -182,6 +187,9 @@ function parseExchangeRate(dataList: BOKDataItem[]): ExchangeRateData | null {
   // 변동 계산
   const change = rate - prevRate;
   const changePercent = prevRate !== 0 ? (change / prevRate) * 100 : 0;
+
+  // 디버그: 최신 데이터 확인
+  console.log(`[BOK API] 파싱 결과: 최신=${latest.TIME}(${rate}), 전일=${previous?.TIME}(${prevRate})`);
 
   return {
     rate: Math.round(rate * 100) / 100,  // 소수점 2자리
