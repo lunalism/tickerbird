@@ -130,8 +130,12 @@ export function CrawledNewsCard({ news }: CrawledNewsCardProps) {
     (e: React.MouseEvent) => {
       e.preventDefault();
 
+      // 디버그: 요금제 상태 확인
+      console.log('[CrawledNewsCard] isPremium:', isPremium);
+
       // 무료 사용자: 원문 링크로 이동
       if (!isPremium) {
+        console.log('[CrawledNewsCard] 무료 사용자 - 원문으로 이동:', news.url);
         window.open(news.url, "_blank", "noopener,noreferrer");
         return;
       }

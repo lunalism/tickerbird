@@ -29,6 +29,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -502,6 +503,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       unsubscribe();
     };
   }, [checkUserProfile, isTestMode]);
+
+  /**
+   * 사용자 프로필 실시간 감지
+   *
+   * Firestore users/{uid} 문서의 변경사항을 실시간으로 감지합니다.
+   * 관리자가 요금제를 변경하면 즉시 반영됩니다.
+   */
+  useEffect(() => {
+    // 테스트 모드이거나 로그인하지 않은 경우 스킵
+    if (isTestMode || !user) return;
+
+    debug.log('[AuthProvider] 사용자 프로필 실시간 감지 시작:', user.uid);
+
+    const userDocRef = doc(db, 'users', user.uid);
+    const unsubscribe = onSnapshot(userDocRef, (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const userData = docSnapshot.data() as FirestoreUserData;
+        debug.log('[AuthProvider] 프로필 업데이트 감지:', { plan: userData.plan });
+
+        // 프로필 업데이트 (plan 변경 등 반영)
+        setUserProfile(createUserProfile(user, userData));
+
+        // 온보딩 상태도 업데이트
+        const isOnboardingComplete = userData.onboardingCompleted === true && !!userData.nickname;
+        setNeedsOnboarding(!isOnboardingComplete);
+      }
+    }, (error) => {
+      console.error('[AuthProvider] 프로필 실시간 감지 에러:', error);
+    });
+
+    return () => {
+      debug.log('[AuthProvider] 사용자 프로필 실시간 감지 해제');
+      unsubscribe();
+    };
+  }, [user, isTestMode]);
 
   /**
    * 테스트 모드 상태 변경 감지
