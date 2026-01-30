@@ -6,22 +6,46 @@
  * 좌측 사이드바 네비게이션입니다.
  * 전역 AuthContext를 사용하여 인증 상태를 표시합니다.
  * 페이지 이동해도 상태가 유지됩니다.
+ *
+ * ============================================================
+ * 새 공지사항 알림 배지:
+ * ============================================================
+ * - 사용자가 마지막으로 공지 페이지를 방문한 이후 새 공지가 있으면 표시
+ * - localStorage에 마지막 확인 시간 저장
+ * - 공지 페이지 방문 시 자동으로 배지 숨김
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { menuItems, infoMenuItems } from '@/constants';
 import { MenuIcon, UserAvatar } from '@/components/common';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useAdmin } from '@/hooks/useAdmin';
+import { useNewAnnouncement } from '@/hooks/useNewAnnouncement';
 
 interface SidebarProps {
   activeMenu: string;
   onMenuChange?: (id: string) => void;
 }
 
+/**
+ * 새 공지 알림 배지 컴포넌트
+ *
+ * 빨간 점으로 새 공지가 있음을 표시합니다.
+ */
+function NewBadge() {
+  return (
+    <span
+      className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full animate-pulse"
+      aria-label="새 공지사항"
+    />
+  );
+}
+
 export function Sidebar({ activeMenu, onMenuChange }: SidebarProps) {
   const [mounted, setMounted] = useState(false);
+  const pathname = usePathname();
 
   // 전역 인증 상태 사용 (자체 세션 체크 없음)
   const { userProfile, isLoading, isLoggedIn, isTestMode, isProfileLoading } = useAuth();
@@ -29,10 +53,20 @@ export function Sidebar({ activeMenu, onMenuChange }: SidebarProps) {
   // 관리자 권한 확인
   const { isAdmin } = useAdmin();
 
+  // 새 공지사항 확인
+  const { hasNewAnnouncement, markAsRead } = useNewAnnouncement();
+
   // 클라이언트 마운트 확인 (hydration 방지)
   useState(() => {
     setMounted(true);
   });
+
+  // 공지사항 페이지 방문 시 읽음 처리
+  useEffect(() => {
+    if (pathname === '/announcements') {
+      markAsRead();
+    }
+  }, [pathname, markAsRead]);
 
 
   // 사용자 정보 (우선순위: nickname > displayName > 기본값)
@@ -148,30 +182,49 @@ export function Sidebar({ activeMenu, onMenuChange }: SidebarProps) {
           공지사항/FAQ 2열 섹션
           - 로그인 버튼 위에 작게 2열로 표시
           - 아이콘 + 텍스트 (lg 이상에서만 텍스트 표시)
+          - 새 공지가 있으면 배지 표시
           ======================================== */}
       <div className="flex-shrink-0 px-3 py-2 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
         <div className="grid grid-cols-2 gap-1">
-          {infoMenuItems.map((item) => (
-            <Link
-              key={item.id}
-              href={item.href}
-              className={`group relative flex items-center justify-center lg:justify-start gap-1.5 px-2 py-2 rounded-lg text-xs transition-colors ${
-                activeMenu === item.id
-                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
-              title={item.label}
-            >
-              {/* 아이콘 */}
-              <span className="text-sm">{item.emoji}</span>
-              {/* 텍스트 (lg 이상에서만 표시) */}
-              <span className="hidden lg:inline font-medium">{item.label}</span>
-              {/* 툴팁 (접힌 상태에서 호버 시) */}
-              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap lg:hidden z-50">
-                {item.label}
-              </div>
-            </Link>
-          ))}
+          {infoMenuItems.map((item) => {
+            // 공지사항 메뉴에만 새 공지 배지 표시
+            const showBadge = item.id === 'announcements' && hasNewAnnouncement;
+
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
+                className={`group relative flex items-center justify-center lg:justify-start gap-1.5 px-2 py-2 rounded-lg text-xs transition-colors ${
+                  activeMenu === item.id
+                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+                title={item.label}
+              >
+                {/* 아이콘 (배지 포함) */}
+                <span className="relative text-sm">
+                  {item.emoji}
+                  {/* 새 공지 배지 */}
+                  {showBadge && <NewBadge />}
+                </span>
+                {/* 텍스트 (lg 이상에서만 표시) */}
+                <span className="hidden lg:inline font-medium">
+                  {item.label}
+                  {/* 텍스트 옆 N 배지 (lg 이상) */}
+                  {showBadge && (
+                    <span className="ml-1 px-1 py-0.5 text-[10px] font-bold bg-red-500 text-white rounded">
+                      N
+                    </span>
+                  )}
+                </span>
+                {/* 툴팁 (접힌 상태에서 호버 시) */}
+                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap lg:hidden z-50">
+                  {item.label}
+                  {showBadge && ' (새 글)'}
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </div>
 

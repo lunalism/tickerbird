@@ -79,3 +79,6 @@ export {
   type ETFHolding,
   type ETFHoldingsData,
 } from './useETFHoldings';
+
+// 새 공지사항 확인 훅
+export { useNewAnnouncement } from './useNewAnnouncement';
