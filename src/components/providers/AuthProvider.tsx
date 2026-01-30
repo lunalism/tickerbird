@@ -66,6 +66,8 @@ export interface UserProfile {
   avatarUrl?: string;
   // 온보딩 완료 여부
   onboardingCompleted: boolean;
+  // 요금제 (free 또는 premium)
+  plan: 'free' | 'premium';
 }
 
 /**
@@ -79,6 +81,7 @@ const TEST_USER_PROFILE: UserProfile = {
   displayName: 'Test User',
   avatarUrl: undefined,
   onboardingCompleted: true,
+  plan: 'premium', // 테스트 유저는 프리미엄 (테스트 목적)
 };
 
 /**
@@ -99,6 +102,8 @@ interface AuthContextType {
   isLoggedIn: boolean;
   // 테스트 모드 여부
   isTestMode: boolean;
+  // 프리미엄 사용자 여부 (AI 뉴스 등 고급 기능 사용 가능)
+  isPremium: boolean;
   // 온보딩 필요 여부 (nickname이 없거나 onboardingCompleted가 false)
   needsOnboarding: boolean;
   // Google 로그인 실행
@@ -131,6 +136,7 @@ interface FirestoreUserData {
   photoURL?: string;
   avatarId?: string; // 선택한 아바타 ID
   onboardingCompleted?: boolean;
+  plan?: 'free' | 'premium'; // 요금제
   createdAt?: unknown;
   updatedAt?: unknown;
 }
@@ -158,6 +164,8 @@ const createUserProfile = (
   avatarUrl: firestoreData?.photoURL || user.photoURL || undefined,
   // 온보딩 완료 여부 (기본값 false)
   onboardingCompleted: firestoreData?.onboardingCompleted ?? false,
+  // 요금제 (기본값 free)
+  plan: firestoreData?.plan || 'free',
 });
 
 /**
@@ -513,6 +521,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         avatarUrl: testUser.avatarUrl,
         // 테스트 모드는 온보딩 완료 상태
         onboardingCompleted: true,
+        // 테스트 모드는 프리미엄
+        plan: 'premium',
       });
       setNeedsOnboarding(false);
     } else if (!isTestMode && !user) {
@@ -538,11 +548,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         avatarUrl: testUser.avatarUrl,
         // 테스트 모드는 온보딩 완료 상태
         onboardingCompleted: true,
+        // 테스트 모드는 프리미엄 (테스트 목적)
+        plan: 'premium' as const,
       }
     : userProfile;
 
   // 최종 온보딩 필요 여부 (테스트 모드에서는 항상 false)
   const effectiveNeedsOnboarding = isTestMode ? false : needsOnboarding;
+
+  // 프리미엄 사용자 여부
+  const isPremium = effectiveProfile?.plan === 'premium';
 
   // Context 값
   const value: AuthContextType = {
@@ -552,6 +567,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isProfileLoading,
     isLoggedIn,
     isTestMode,
+    isPremium,
     needsOnboarding: effectiveNeedsOnboarding,
     signInWithGoogle: handleSignInWithGoogle,
     signOut: handleSignOut,

@@ -8,7 +8,7 @@
  * 표시 항목:
  * - 총 사용자 수
  * - 오늘 가입자 수
- * - 요금제별 사용자 수 (무료/베이직/프로/프리미엄)
+ * - 요금제별 사용자 수 (무료/프리미엄)
  * - 최근 가입한 사용자 5명
  */
 
@@ -63,8 +63,6 @@ function StatCard({
 function PlanStatsCard({ usersByPlan }: { usersByPlan: Record<PlanType, number> }) {
   const plans: { type: PlanType; color: string }[] = [
     { type: 'free', color: 'bg-gray-100 dark:bg-gray-700' },
-    { type: 'basic', color: 'bg-blue-100 dark:bg-blue-900/30' },
-    { type: 'pro', color: 'bg-purple-100 dark:bg-purple-900/30' },
     { type: 'premium', color: 'bg-yellow-100 dark:bg-yellow-900/30' },
   ];
 
@@ -122,8 +120,6 @@ function RecentUsersTable({
   // 요금제 배지 색상
   const planBadgeColors: Record<PlanType, string> = {
     free: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-    basic: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    pro: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
     premium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
   };
 
@@ -318,18 +314,6 @@ export default function AdminDashboardPage() {
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-            </svg>
-          }
-        />
-
-        {/* 유료 사용자 수 (베이직 + 프로 + 프리미엄) */}
-        <StatCard
-          title="유료 사용자"
-          value={stats.usersByPlan.basic + stats.usersByPlan.pro + stats.usersByPlan.premium}
-          color="purple"
-          icon={
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           }
         />

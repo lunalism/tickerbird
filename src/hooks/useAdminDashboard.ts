@@ -98,11 +98,9 @@ export function useAdminDashboard(): UseAdminDashboardReturn {
 
       // 3. 요금제별 사용자 수 조회
       // Firestore에서 count 쿼리로 각 요금제별 사용자 수 조회
-      const plans: PlanType[] = ['free', 'basic', 'pro', 'premium'];
+      const plans: PlanType[] = ['free', 'premium'];
       const usersByPlan: Record<PlanType, number> = {
         free: 0,
-        basic: 0,
-        pro: 0,
         premium: 0,
       };
 

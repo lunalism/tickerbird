@@ -234,8 +234,6 @@ export default function AdminUserDetailPage() {
                 className="w-full px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="free">{PLAN_INFO.free.label}</option>
-                <option value="basic">{PLAN_INFO.basic.label}</option>
-                <option value="pro">{PLAN_INFO.pro.label}</option>
                 <option value="premium">{PLAN_INFO.premium.label}</option>
               </select>
             </div>

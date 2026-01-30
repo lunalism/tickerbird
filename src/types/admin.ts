@@ -15,14 +15,12 @@ import { Timestamp } from 'firebase/firestore';
 /** 사용자 역할 - 일반 사용자 또는 관리자 */
 export type UserRole = 'user' | 'admin';
 
-/** 요금제 타입 - 무료, 베이직, 프로, 프리미엄 */
-export type PlanType = 'free' | 'basic' | 'pro' | 'premium';
+/** 요금제 타입 - 무료, 프리미엄 */
+export type PlanType = 'free' | 'premium';
 
 /** 요금제 정보 (표시용) */
 export const PLAN_INFO: Record<PlanType, { label: string; color: string }> = {
   free: { label: '무료', color: 'gray' },
-  basic: { label: '베이직', color: 'blue' },
-  pro: { label: '프로', color: 'purple' },
   premium: { label: '프리미엄', color: 'yellow' },
 };
 

@@ -4,10 +4,12 @@
  * 네이버 금융에서 크롤링한 뉴스를 표시하는 카드 컴포넌트입니다.
  *
  * ============================================================
- * 반응형 UX:
+ * 요금제별 UX:
  * ============================================================
- * - 데스크톱/태블릿 (≥768px): 클릭 시 AI 재작성 모달 표시
- * - 모바일 (<768px): 클릭 시 /news/crawled/[id] 페이지로 이동
+ * - 무료 사용자: 클릭 시 원문 링크로 이동 (새 탭)
+ * - 프리미엄 사용자:
+ *   - 데스크톱/태블릿 (≥768px): 클릭 시 AI 재작성 모달 표시
+ *   - 모바일 (<768px): 클릭 시 /news/crawled/[id] 페이지로 이동
  *
  * ============================================================
  * 기능:
@@ -16,7 +18,7 @@
  * - 언론사 및 발행 시간 표시
  * - 썸네일 이미지 (있는 경우) - object-contain으로 전체 이미지 표시
  * - 카테고리별 배지 (속보/시장/공시/해외/채권)
- * - AI 재작성 모달 (데스크톱)
+ * - AI 재작성 모달 (프리미엄 + 데스크톱)
  *
  * @example
  * ```tsx
@@ -32,6 +34,7 @@ import Image from "next/image";
 import type { CrawledNewsItem, CrawledNewsCategory } from "@/types/crawled-news";
 import { useFontSizeStore, FONT_SIZE_MAP } from "@/stores";
 import { NewsModal } from "@/components/news";
+import { useAuth } from "@/components/providers/AuthProvider";
 
 interface CrawledNewsCardProps {
   /** 뉴스 아이템 데이터 */
@@ -114,6 +117,9 @@ export function CrawledNewsCard({ news }: CrawledNewsCardProps) {
   // 사용자 설정 폰트 크기 가져오기 (접근성 지원)
   const { titleSize, bodySize } = useFontSizeStore();
 
+  // 프리미엄 사용자 여부 확인
+  const { isPremium } = useAuth();
+
   // 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -124,6 +130,13 @@ export function CrawledNewsCard({ news }: CrawledNewsCardProps) {
     (e: React.MouseEvent) => {
       e.preventDefault();
 
+      // 무료 사용자: 원문 링크로 이동
+      if (!isPremium) {
+        window.open(news.url, "_blank", "noopener,noreferrer");
+        return;
+      }
+
+      // 프리미엄 사용자: AI 재작성 콘텐츠 표시
       // 768px 기준으로 분기
       if (useIsMobile()) {
         // 모바일: 페이지로 이동
@@ -133,7 +146,7 @@ export function CrawledNewsCard({ news }: CrawledNewsCardProps) {
         setIsModalOpen(true);
       }
     },
-    [router, news.id]
+    [router, news.id, news.url, isPremium]
   );
 
   // ========================================
@@ -180,13 +193,15 @@ export function CrawledNewsCard({ news }: CrawledNewsCardProps) {
             </span>
           </div>
 
-          {/* AI 배지 (우측 상단) - 호버 시 표시 */}
-          <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-xs font-medium rounded-full backdrop-blur-sm">
-              <span>✨</span>
-              <span>AI 분석</span>
-            </span>
-          </div>
+          {/* AI 배지 (우측 상단) - 프리미엄 사용자에게만 호버 시 표시 */}
+          {isPremium && (
+            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-xs font-medium rounded-full backdrop-blur-sm">
+                <span>✨</span>
+                <span>AI 분석</span>
+              </span>
+            </div>
+          )}
         </div>
 
         {/*
