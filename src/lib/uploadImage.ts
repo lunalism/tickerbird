@@ -1,8 +1,20 @@
 /**
  * 이미지 업로드 유틸리티
  *
- * Firebase Storage를 사용하여 이미지를 업로드하고 다운로드 URL을 반환합니다.
- * Tiptap 에디터에서 이미지 삽입 시 사용됩니다.
+ * Next.js API Route를 통해 이미지를 서버로 전송하고,
+ * 서버에서 Firebase Storage에 업로드합니다.
+ *
+ * ============================================================
+ * 서버사이드 업로드 방식:
+ * ============================================================
+ * 클라이언트에서 Firebase Storage로 직접 업로드하면 CORS 에러가 발생합니다.
+ * 이를 우회하기 위해 서버(API Route)를 통해 업로드합니다.
+ *
+ * 흐름:
+ * 1. 클라이언트: 이미지 파일 → API Route (/api/upload)
+ * 2. 서버: API Route → Firebase Storage (Admin SDK)
+ * 3. 서버: 업로드 완료 → 공개 URL 반환
+ * 4. 클라이언트: URL을 에디터에 삽입
  *
  * ============================================================
  * 사용 방법:
@@ -23,13 +35,6 @@
  * - FAQ: content/faq/images/{timestamp}_{filename}
  * - 기타: content/general/images/{timestamp}_{filename}
  */
-
-import { storage } from '@/lib/firebase';
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-} from 'firebase/storage';
 
 // ==================== 상수 ====================
 
@@ -67,58 +72,13 @@ interface UploadError {
 /** 업로드 결과 타입 */
 export type UploadResult = UploadSuccess | UploadError;
 
-/** 업로드 진행 콜백 */
-export type UploadProgressCallback = (progress: number) => void;
-
-// ==================== 유틸 함수 ====================
-
-/**
- * 파일명에서 안전한 문자만 추출
- *
- * 특수문자, 공백 등을 제거하고 안전한 파일명으로 변환합니다.
- *
- * @param filename - 원본 파일명
- * @returns 안전한 파일명
- */
-function sanitizeFilename(filename: string): string {
-  // 확장자 분리
-  const lastDotIndex = filename.lastIndexOf('.');
-  const name = lastDotIndex > 0 ? filename.slice(0, lastDotIndex) : filename;
-  const ext = lastDotIndex > 0 ? filename.slice(lastDotIndex) : '';
-
-  // 파일명에서 안전하지 않은 문자 제거
-  const safeName = name
-    .replace(/[^a-zA-Z0-9가-힣_-]/g, '_') // 알파벳, 숫자, 한글, _, - 외 모두 _ 로 치환
-    .replace(/_+/g, '_') // 연속된 _ 를 하나로
-    .slice(0, 50); // 최대 50자
-
-  return `${safeName}${ext.toLowerCase()}`;
-}
-
-/**
- * 고유한 파일 경로 생성
- *
- * 타임스탬프와 랜덤 문자열을 조합하여 충돌 방지
- *
- * @param contentType - 컨텐츠 타입 (announcements, faq, general)
- * @param filename - 원본 파일명
- * @returns 고유한 Storage 경로
- */
-function generateUniquePath(contentType: ContentType, filename: string): string {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 8);
-  const safeFilename = sanitizeFilename(filename);
-
-  return `content/${contentType}/images/${timestamp}_${random}_${safeFilename}`;
-}
-
 // ==================== 메인 함수 ====================
 
 /**
  * 이미지 파일 업로드
  *
- * Firebase Storage에 이미지를 업로드하고 다운로드 URL을 반환합니다.
- * 파일 검증 (타입, 크기)을 수행하고 안전한 경로에 저장합니다.
+ * API Route를 통해 서버에서 Firebase Storage로 업로드합니다.
+ * 클라이언트에서 직접 업로드하지 않아 CORS 문제가 없습니다.
  *
  * @param file - 업로드할 File 객체
  * @param contentType - 컨텐츠 타입 (저장 경로 결정)
@@ -140,8 +100,10 @@ export async function uploadImage(
 ): Promise<UploadResult> {
   try {
     // ========================================
-    // 1. 파일 타입 검증
+    // 1. 클라이언트 측 사전 검증
     // ========================================
+
+    // 파일 타입 검증
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
       return {
         success: false,
@@ -149,9 +111,7 @@ export async function uploadImage(
       };
     }
 
-    // ========================================
-    // 2. 파일 크기 검증
-    // ========================================
+    // 파일 크기 검증
     if (file.size > MAX_FILE_SIZE) {
       const sizeMB = (file.size / 1024 / 1024).toFixed(1);
       return {
@@ -161,76 +121,69 @@ export async function uploadImage(
     }
 
     // ========================================
-    // 3. 고유 경로 생성
+    // 2. FormData 생성
     // ========================================
-    const storagePath = generateUniquePath(contentType, file.name);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('contentType', contentType);
 
-    // ========================================
-    // 4. Storage 참조 생성
-    // ========================================
-    const storageRef = ref(storage, storagePath);
-
-    // ========================================
-    // 5. 파일 업로드
-    // ========================================
     console.log('[uploadImage] 업로드 시작:', {
       filename: file.name,
       size: `${(file.size / 1024).toFixed(1)}KB`,
-      path: storagePath,
-    });
-
-    const snapshot = await uploadBytes(storageRef, file, {
-      contentType: file.type,
-      customMetadata: {
-        originalName: file.name,
-        uploadedAt: new Date().toISOString(),
-      },
+      type: file.type,
+      contentType,
     });
 
     // ========================================
-    // 6. 다운로드 URL 가져오기
+    // 3. API Route 호출
     // ========================================
-    const downloadUrl = await getDownloadURL(snapshot.ref);
-
-    console.log('[uploadImage] 업로드 완료:', {
-      url: downloadUrl,
-      path: storagePath,
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
     });
 
-    return {
-      success: true,
-      url: downloadUrl,
-      path: storagePath,
-      filename: file.name,
-    };
+    // ========================================
+    // 4. 응답 처리
+    // ========================================
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error('[uploadImage] 서버 에러:', result);
+      return {
+        success: false,
+        error: result.error || `서버 오류 (${response.status})`,
+      };
+    }
+
+    if (result.success) {
+      console.log('[uploadImage] 업로드 완료:', {
+        url: result.url,
+        path: result.path,
+      });
+      return {
+        success: true,
+        url: result.url,
+        path: result.path,
+        filename: result.filename,
+      };
+    } else {
+      return {
+        success: false,
+        error: result.error || '알 수 없는 오류가 발생했습니다.',
+      };
+    }
   } catch (error) {
     console.error('[uploadImage] 업로드 실패:', error);
 
-    // Firebase Storage 에러 처리
+    // 네트워크 에러 처리
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      return {
+        success: false,
+        error: '네트워크 연결을 확인해주세요.',
+      };
+    }
+
     const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
-
-    // 일반적인 에러 메시지로 변환
-    if (errorMessage.includes('storage/unauthorized')) {
-      return {
-        success: false,
-        error: '이미지 업로드 권한이 없습니다. 로그인 상태를 확인해주세요.',
-      };
-    }
-
-    if (errorMessage.includes('storage/canceled')) {
-      return {
-        success: false,
-        error: '업로드가 취소되었습니다.',
-      };
-    }
-
-    if (errorMessage.includes('storage/quota-exceeded')) {
-      return {
-        success: false,
-        error: '저장 공간이 부족합니다. 관리자에게 문의해주세요.',
-      };
-    }
-
     return {
       success: false,
       error: `이미지 업로드 중 오류가 발생했습니다: ${errorMessage}`,
