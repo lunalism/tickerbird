@@ -1,8 +1,16 @@
 /**
- * 이미지 업로드 API Route
+ * 이미지 업로드 API Route (Cloudinary)
  *
- * 클라이언트에서 이미지를 받아 Firebase Storage에 업로드합니다.
+ * 클라이언트에서 이미지를 받아 Cloudinary에 업로드합니다.
  * 서버사이드에서 처리하므로 CORS 문제가 발생하지 않습니다.
+ *
+ * ============================================================
+ * Cloudinary 무료 플랜:
+ * ============================================================
+ * - 25GB 저장 공간
+ * - 25GB 대역폭/월
+ * - 이미지 자동 최적화
+ * - CDN 제공
  *
  * ============================================================
  * 엔드포인트:
@@ -23,8 +31,8 @@
  * 성공 (200):
  * {
  *   success: true,
- *   url: "https://storage.googleapis.com/...",
- *   path: "content/announcements/images/...",
+ *   url: "https://res.cloudinary.com/...",
+ *   path: "alphaboard/announcements/...",
  *   filename: "original-filename.jpg"
  * }
  *
@@ -35,8 +43,16 @@
  * }
  */
 
+import { v2 as cloudinary } from 'cloudinary';
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminStorage } from '@/lib/firebaseAdmin';
+
+// ==================== Cloudinary 설정 ====================
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 // ==================== 상수 ====================
 
@@ -55,68 +71,24 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024;
 /** 컨텐츠 타입 */
 type ContentType = 'announcements' | 'faq' | 'general';
 
-// ==================== 유틸 함수 ====================
-
-/**
- * 파일명에서 안전한 문자만 추출
- */
-function sanitizeFilename(filename: string): string {
-  const lastDotIndex = filename.lastIndexOf('.');
-  const name = lastDotIndex > 0 ? filename.slice(0, lastDotIndex) : filename;
-  const ext = lastDotIndex > 0 ? filename.slice(lastDotIndex) : '';
-
-  const safeName = name
-    .replace(/[^a-zA-Z0-9가-힣_-]/g, '_')
-    .replace(/_+/g, '_')
-    .slice(0, 50);
-
-  return `${safeName}${ext.toLowerCase()}`;
-}
-
-/**
- * 고유한 파일 경로 생성
- */
-function generateUniquePath(contentType: ContentType, filename: string): string {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 8);
-  const safeFilename = sanitizeFilename(filename);
-
-  return `content/${contentType}/images/${timestamp}_${random}_${safeFilename}`;
-}
-
-/**
- * MIME 타입에서 확장자 추출
- */
-function getExtensionFromMimeType(mimeType: string): string {
-  const map: Record<string, string> = {
-    'image/jpeg': '.jpg',
-    'image/png': '.png',
-    'image/gif': '.gif',
-    'image/webp': '.webp',
-    'image/svg+xml': '.svg',
-  };
-  return map[mimeType] || '.jpg';
-}
-
 // ==================== API Handler ====================
 
 /**
  * POST /api/upload
  *
- * 이미지 파일을 Firebase Storage에 업로드합니다.
+ * 이미지 파일을 Cloudinary에 업로드합니다.
  */
 export async function POST(request: NextRequest) {
   try {
     // ========================================
-    // 1. Firebase Admin Storage 확인
+    // 1. Cloudinary 설정 확인
     // ========================================
-    const storage = getAdminStorage();
-    if (!storage) {
-      console.error('[API/upload] Firebase Admin Storage를 초기화할 수 없습니다.');
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY) {
+      console.error('[API/upload] Cloudinary 환경 변수가 설정되지 않았습니다.');
       return NextResponse.json(
         {
           success: false,
-          error: 'Firebase Storage 연결에 실패했습니다. 관리자에게 문의해주세요.',
+          error: 'Cloudinary 설정이 없습니다. 관리자에게 문의해주세요.',
         },
         { status: 500 }
       );
@@ -165,50 +137,42 @@ export async function POST(request: NextRequest) {
     }
 
     // ========================================
-    // 4. 파일 경로 생성
+    // 4. Cloudinary 폴더 경로 설정
     // ========================================
-    const originalFilename = file.name || `image${getExtensionFromMimeType(file.type)}`;
-    const storagePath = generateUniquePath(contentType, originalFilename);
+    const folder = `alphaboard/${contentType}`;
+    const originalFilename = file.name || 'image';
 
     console.log('[API/upload] 업로드 시작:', {
       filename: originalFilename,
       size: `${(file.size / 1024).toFixed(1)}KB`,
       type: file.type,
-      path: storagePath,
+      folder,
     });
 
     // ========================================
-    // 5. Firebase Storage에 업로드
+    // 5. File을 base64로 변환
     // ========================================
-    const bucket = storage.bucket();
-    const fileRef = bucket.file(storagePath);
-
-    // File을 Buffer로 변환
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    const base64 = `data:${file.type};base64,${buffer.toString('base64')}`;
 
-    // 업로드 실행
-    await fileRef.save(buffer, {
-      metadata: {
-        contentType: file.type,
-        metadata: {
-          originalName: originalFilename,
-          uploadedAt: new Date().toISOString(),
-        },
-      },
+    // ========================================
+    // 6. Cloudinary에 업로드
+    // ========================================
+    const result = await cloudinary.uploader.upload(base64, {
+      folder,
+      // 파일명에서 확장자 제거하고 public_id로 사용
+      public_id: `${Date.now()}_${originalFilename.replace(/\.[^/.]+$/, '')}`,
+      // 이미지 자동 최적화
+      transformation: [
+        { quality: 'auto' },
+        { fetch_format: 'auto' },
+      ],
     });
 
-    // 파일을 공개적으로 접근 가능하게 설정
-    await fileRef.makePublic();
-
-    // ========================================
-    // 6. 공개 URL 생성
-    // ========================================
-    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
-
     console.log('[API/upload] 업로드 완료:', {
-      url: publicUrl,
-      path: storagePath,
+      url: result.secure_url,
+      public_id: result.public_id,
     });
 
     // ========================================
@@ -216,8 +180,8 @@ export async function POST(request: NextRequest) {
     // ========================================
     return NextResponse.json({
       success: true,
-      url: publicUrl,
-      path: storagePath,
+      url: result.secure_url,
+      path: result.public_id,
       filename: originalFilename,
     });
   } catch (error) {
@@ -241,10 +205,15 @@ export async function POST(request: NextRequest) {
  * API 상태 확인용 (헬스 체크)
  */
 export async function GET() {
-  const storage = getAdminStorage();
+  const isConfigured = !!(
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET
+  );
 
   return NextResponse.json({
     status: 'ok',
-    storageAvailable: storage !== null,
+    provider: 'cloudinary',
+    configured: isConfigured,
   });
 }
