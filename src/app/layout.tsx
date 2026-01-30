@@ -79,7 +79,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "ko_KR",
-    url: "https://alphaboard.vercel.app",
+    url: "https://alphaboard-psi.vercel.app",
     siteName: "AlphaBoard",
     title: "AlphaBoard - 글로벌 투자 정보 플랫폼",
     description: "실시간 글로벌 투자 정보와 분석을 제공하는 플랫폼",
@@ -95,11 +95,27 @@ export const metadata: Metadata = {
 
   // Twitter Card
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "AlphaBoard - 글로벌 투자 정보 플랫폼",
     description: "실시간 글로벌 투자 정보와 분석을 제공하는 플랫폼",
     images: ["/icons/icon-512x512.png"],
   },
+
+  // 검색 엔진 크롤링 설정
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+
+  // 기타 메타 정보
+  category: 'finance',
 };
 
 // ==================== 뷰포트 설정 ====================

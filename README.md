@@ -14,12 +14,12 @@
 
 <br />
 
-[![Next.js](https://img.shields.io/badge/Next.js_16-000?logo=nextdotjs&logoColor=fff)](https://nextjs.org/)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-alphaboard-blue)](https://alphaboard-psi.vercel.app)
+[![Next.js](https://img.shields.io/badge/Next.js_15-000?logo=nextdotjs&logoColor=fff)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React_19-61DAFB?logo=react&logoColor=000)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript_5-3178C6?logo=typescript&logoColor=fff)](https://www.typescriptlang.org/)
 [![Tailwind](https://img.shields.io/badge/Tailwind_4-06B6D4?logo=tailwindcss&logoColor=fff)](https://tailwindcss.com/)
 [![Firebase](https://img.shields.io/badge/Firebase-DD2C00?logo=firebase&logoColor=fff)](https://firebase.google.com/)
-[![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?logo=supabase&logoColor=fff)](https://supabase.com/)
 
 <br />
 
@@ -60,11 +60,11 @@ Firebase 기반 안전한 인증
 </td>
 <td width="50%" valign="top">
 
-### 📰 News Feed
+### 📰 News & AI 분석
 AI 기반 글로벌 금융 뉴스
 - 카테고리별 뉴스 분류
 - **Claude AI 요약** 기능
-- 원문/번역 토글
+- 투자 관점 분석 (호재/악재/중립)
 
 </td>
 </tr>
@@ -75,7 +75,8 @@ AI 기반 글로벌 금융 뉴스
 한국투자증권 API 연동
 - 🇰🇷 KOSPI/KOSDAQ 실시간 시세
 - 🇺🇸 NYSE/NASDAQ 실시간 시세
-- 4대 지수 위젯 & 차트
+- ETF, 암호화폐, 환율, 원자재
+- 실시간 차트 & 등락률 랭킹
 
 </td>
 <td width="50%" valign="top">
@@ -120,10 +121,30 @@ AI 기반 글로벌 금융 뉴스
 </td>
 <td width="50%" valign="top">
 
+### 📅 경제 캘린더
+주요 경제 일정
+- 경제 지표 발표 일정
+- 실적 발표 일정
+- 중앙은행 회의 일정
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
 ### 🌙 Dark Mode
 눈 편한 다크 테마
 - 시스템 테마 자동 감지
 - 수동 테마 전환
+
+</td>
+<td width="50%" valign="top">
+
+### 📱 PWA 지원
+앱처럼 사용 가능
+- 홈 화면에 추가
+- 오프라인 기본 지원
+- 반응형 디자인
 
 </td>
 </tr>
@@ -150,15 +171,15 @@ AI 기반 글로벌 금융 뉴스
 
 | Category | Technologies |
 |:---------|:-------------|
-| **Framework** | Next.js 16, React 19 |
+| **Framework** | Next.js 15, React 19 |
 | **Language** | TypeScript 5 |
 | **Styling** | Tailwind CSS 4 |
-| **State** | Zustand 5 |
-| **Database** | Supabase (PostgreSQL) |
-| **Auth** | Firebase Authentication |
+| **Auth & DB** | Firebase (Auth, Firestore) |
 | **Charts** | Recharts 3 |
 | **AI** | Claude API (Anthropic) |
+| **Image** | Cloudinary |
 | **Stock API** | 한국투자증권 OpenAPI |
+| **Deploy** | Vercel |
 
 </details>
 
