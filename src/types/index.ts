@@ -20,3 +20,4 @@ export {
 } from './recentlyViewed';
 export * from './crawled-news';
 export * from './admin';
+export * from './feedback';

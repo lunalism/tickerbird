@@ -18,6 +18,7 @@ export const menuItems: MenuItem[] = [
   { id: "market", icon: "chart", label: "시세", emoji: "📊", href: "/market" },
   { id: "calendar", icon: "calendar", label: "캘린더", emoji: "📅", href: "/calendar" },
   { id: "community", icon: "chat", label: "커뮤니티", emoji: "💬", href: "/community" },
+  { id: "feedback", icon: "lightbulb", label: "피드백", emoji: "💡", href: "/feedback" },
   { id: "watchlist", icon: "checklist", label: "관심종목", emoji: "⭐", href: "/watchlist" },
   { id: "profile", icon: "profile", label: "프로필", emoji: "👤", href: "/profile" },
   // 가격 알림 메뉴 - 로그인 시에만 표시 (Sidebar에서 필터링)

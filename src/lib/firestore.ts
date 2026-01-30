@@ -164,6 +164,51 @@ export const etfHoldingsCollection = () => collection(db, 'etf_holdings');
 export const etfHoldingsDoc = (symbol: string) => doc(db, 'etf_holdings', symbol);
 
 /**
+ * feedbacks 컬렉션 참조
+ * 피드백(건의사항/불편사항) 저장
+ *
+ * 문서 구조:
+ * - userId: 작성자 ID
+ * - userEmail: 작성자 이메일
+ * - userName: 작성자 이름
+ * - userPhoto: 프로필 사진
+ * - category: 카테고리 (bug, feature, complaint, praise, other)
+ * - title: 제목
+ * - content: 내용
+ * - isPrivate: 비공개 여부
+ * - status: 상태 (received, reviewing, resolved, rejected)
+ * - adminResponse: 운영진 답변
+ * - adminRespondedAt: 답변 시간
+ * - likes: 공감한 userId 배열
+ * - likeCount: 공감 수
+ * - commentCount: 댓글 수
+ * - createdAt: 작성일
+ * - updatedAt: 수정일
+ */
+export const feedbacksCollection = () => collection(db, 'feedbacks');
+
+/**
+ * 특정 피드백 문서 참조
+ * @param feedbackId - 피드백 ID
+ */
+export const feedbackDoc = (feedbackId: string) => doc(db, 'feedbacks', feedbackId);
+
+/**
+ * 특정 피드백의 comments 서브컬렉션 참조
+ * @param feedbackId - 피드백 ID
+ */
+export const feedbackCommentsCollection = (feedbackId: string) =>
+  collection(db, 'feedbacks', feedbackId, 'comments');
+
+/**
+ * 특정 피드백 댓글 문서 참조
+ * @param feedbackId - 피드백 ID
+ * @param commentId - 댓글 ID
+ */
+export const feedbackCommentDoc = (feedbackId: string, commentId: string) =>
+  doc(db, 'feedbacks', feedbackId, 'comments', commentId);
+
+/**
  * announcements 컬렉션 참조
  * 공지사항 저장
  *
