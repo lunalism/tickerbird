@@ -539,6 +539,7 @@ export const usETFList: USETFInfo[] = [
   { symbol: 'VTV', name: 'Vanguard Value ETF', category: 'index', exchange: 'NYS', issuer: 'Vanguard' },
   { symbol: 'VUG', name: 'Vanguard Growth ETF', category: 'index', exchange: 'NYS', issuer: 'Vanguard' },
   { symbol: 'ITOT', name: 'iShares Core S&P Total US Stock', category: 'index', exchange: 'NYS', issuer: 'BlackRock' },
+  { symbol: 'ACWI', name: 'iShares MSCI ACWI ETF', category: 'index', exchange: 'NAS', issuer: 'BlackRock' },
 
   // ========== 섹터/테마 ETF ==========
   // 특정 산업이나 테마에 집중 투자
@@ -612,6 +613,7 @@ export const usETFList: USETFInfo[] = [
   { symbol: 'IAU', name: 'iShares Gold Trust', category: 'commodity', exchange: 'NYS', issuer: 'BlackRock' },
   { symbol: 'UNG', name: 'United States Natural Gas Fund', category: 'commodity', exchange: 'NYS', issuer: 'US Commodity Funds' },
   { symbol: 'PDBC', name: 'Invesco Optimum Yield Diversified', category: 'commodity', exchange: 'NAS', issuer: 'Invesco' },
+  { symbol: 'DBA', name: 'Invesco DB Agriculture Fund', category: 'commodity', exchange: 'NYS', issuer: 'Invesco' },
 
   // ========== 해외 지수 ETF ==========
   { symbol: 'EFA', name: 'iShares MSCI EAFE ETF', category: 'international', exchange: 'NYS', issuer: 'BlackRock' },
@@ -630,6 +632,8 @@ export const usETFList: USETFInfo[] = [
   { symbol: 'EWU', name: 'iShares MSCI United Kingdom ETF', category: 'international', exchange: 'NYS', issuer: 'BlackRock' },
   { symbol: 'INDA', name: 'iShares MSCI India ETF', category: 'international', exchange: 'NYS', issuer: 'BlackRock' },
   { symbol: 'FXI', name: 'iShares China Large-Cap ETF', category: 'international', exchange: 'NYS', issuer: 'BlackRock' },
+  { symbol: 'EWA', name: 'iShares MSCI Australia ETF', category: 'international', exchange: 'NYS', issuer: 'BlackRock' },
+  { symbol: 'EWC', name: 'iShares MSCI Canada ETF', category: 'international', exchange: 'NYS', issuer: 'BlackRock' },
 
   // ========== 테마/혁신 ETF (추가) ==========
   // 인기 테마 ETF 추가
@@ -651,6 +655,8 @@ export const usETFList: USETFInfo[] = [
   { symbol: 'DRIV', name: 'Global X Autonomous & EV ETF', category: 'sector', exchange: 'NAS', issuer: 'Global X' },
   { symbol: 'QCLN', name: 'First Trust NASDAQ Clean Edge', category: 'sector', exchange: 'NAS', issuer: 'First Trust' },
   { symbol: 'PBW', name: 'Invesco WilderHill Clean Energy', category: 'sector', exchange: 'NYS', issuer: 'Invesco' },
+  { symbol: 'BLOK', name: 'Amplify Transformational Data Sharing', category: 'sector', exchange: 'NYS', issuer: 'Amplify' },
+  { symbol: 'AIQ', name: 'Global X Artificial Intelligence ETF', category: 'sector', exchange: 'NAS', issuer: 'Global X' },
 
   // ========== 배당/인컴 ETF (추가) ==========
   { symbol: 'VYM', name: 'Vanguard High Dividend Yield', category: 'index', exchange: 'NYS', issuer: 'Vanguard' },
