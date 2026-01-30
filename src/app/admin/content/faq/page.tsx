@@ -409,6 +409,7 @@ export default function AdminFAQPage() {
                 content={formData.answer}
                 onChange={(html) => setFormData({ ...formData, answer: html })}
                 placeholder="질문에 대한 답변을 입력하세요..."
+                contentType="faq"
               />
             </div>
 

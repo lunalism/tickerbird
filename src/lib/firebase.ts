@@ -8,14 +8,16 @@
  * - Firebase 앱 초기화 (싱글톤 패턴)
  * - Auth 인스턴스 제공 (Google 로그인용)
  * - Firestore 인스턴스 제공 (사용자 프로필 저장용)
+ * - Storage 인스턴스 제공 (이미지 업로드용)
  *
  * 사용법:
- * import { auth, db } from '@/lib/firebase';
+ * import { auth, db, storage } from '@/lib/firebase';
  */
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 /**
  * Firebase 설정 객체
@@ -68,6 +70,14 @@ export const auth: Auth = getAuth(app);
  * 추후 관심종목 등 다른 데이터도 Firestore로 마이그레이션 예정
  */
 export const db: Firestore = getFirestore(app);
+
+/**
+ * Firebase Storage 인스턴스
+ *
+ * 이미지 파일 업로드에 사용
+ * 공지사항, FAQ 등의 본문에 삽입되는 이미지 저장
+ */
+export const storage: FirebaseStorage = getStorage(app);
 
 /**
  * Firebase 앱 인스턴스 (필요시 직접 접근용)

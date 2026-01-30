@@ -384,6 +384,7 @@ export default function AdminAnnouncementsPage() {
                 content={formData.content}
                 onChange={(html) => setFormData({ ...formData, content: html })}
                 placeholder="공지사항 내용을 입력하세요..."
+                contentType="announcements"
               />
             </div>
 

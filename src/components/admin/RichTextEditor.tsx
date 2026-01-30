@@ -15,6 +15,7 @@
  * - 링크: URL 링크 추가/제거
  * - 테이블: 삽입, 행/열 추가/삭제
  * - 정렬: 좌/중앙/우 정렬
+ * - 이미지: Firebase Storage 업로드 및 삽입
  * - 높이 고정 + 스크롤
  */
 
@@ -24,15 +25,20 @@ import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
 import Placeholder from '@tiptap/extension-placeholder';
+import Image from '@tiptap/extension-image';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { useCallback, useEffect, useState, useRef } from 'react';
+import { uploadImage, getAllowedImageTypes } from '@/lib/uploadImage';
 
 // ============================================
 // 타입 정의
 // ============================================
+
+/** 이미지 업로드 시 사용할 컨텐츠 타입 */
+type ContentType = 'announcements' | 'faq' | 'general';
 
 interface RichTextEditorProps {
   /** 에디터 내용 (HTML 형식) */
@@ -41,6 +47,8 @@ interface RichTextEditorProps {
   onChange: (html: string) => void;
   /** 플레이스홀더 텍스트 */
   placeholder?: string;
+  /** 이미지 업로드 시 저장 경로 (기본: 'general') */
+  contentType?: ContentType;
 }
 
 // ============================================
@@ -184,6 +192,21 @@ const AlignCenterIcon = () => (
 const AlignRightIcon = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M10 12h10M6 18h14" />
+  </svg>
+);
+
+/** 이미지 아이콘 */
+const ImageIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+  </svg>
+);
+
+/** 로딩 스피너 아이콘 */
+const LoadingIcon = () => (
+  <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <circle className="opacity-25" cx="12" cy="12" r="10" strokeWidth="4" />
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
   </svg>
 );
 
@@ -370,9 +393,17 @@ export function RichTextEditor({
   content,
   onChange,
   placeholder = '내용을 입력하세요...',
+  contentType = 'general',
 }: RichTextEditorProps) {
   // 테이블 메뉴 열림 상태
   const [isTableMenuOpen, setIsTableMenuOpen] = useState(false);
+
+  // 이미지 업로드 상태
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // 파일 입력 참조
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Tiptap 에디터 인스턴스 생성
   const editor = useEditor({
@@ -395,6 +426,14 @@ export function RichTextEditor({
         defaultProtocol: 'https',
         HTMLAttributes: {
           class: 'text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300',
+        },
+      }),
+      // 이미지 확장
+      Image.configure({
+        inline: false,
+        allowBase64: false,
+        HTMLAttributes: {
+          class: 'max-w-full h-auto rounded-lg my-4',
         },
       }),
       // 텍스트 정렬 확장
@@ -452,6 +491,73 @@ export function RichTextEditor({
 
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
   }, [editor]);
+
+  /**
+   * 이미지 버튼 클릭 핸들러
+   *
+   * 숨겨진 파일 입력을 트리거합니다.
+   */
+  const handleImageButtonClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  /**
+   * 이미지 파일 선택 핸들러
+   *
+   * 파일을 Firebase Storage에 업로드하고 에디터에 삽입합니다.
+   */
+  const handleImageUpload = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      if (!editor) return;
+
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      // 파일 입력 초기화 (같은 파일 다시 선택 가능하게)
+      event.target.value = '';
+
+      // 업로드 상태 시작
+      setIsUploading(true);
+      setUploadError(null);
+
+      try {
+        // Firebase Storage에 업로드
+        const result = await uploadImage(file, contentType);
+
+        if (result.success) {
+          // 이미지를 에디터에 삽입
+          editor
+            .chain()
+            .focus()
+            .setImage({
+              src: result.url,
+              alt: result.filename,
+            })
+            .run();
+
+          console.log('[RichTextEditor] 이미지 삽입 완료:', result.url);
+        } else {
+          // 업로드 실패
+          setUploadError(result.error);
+          console.error('[RichTextEditor] 이미지 업로드 실패:', result.error);
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+        setUploadError(errorMessage);
+        console.error('[RichTextEditor] 이미지 업로드 오류:', error);
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [editor, contentType]
+  );
+
+  /**
+   * 에러 메시지 닫기
+   */
+  const clearUploadError = useCallback(() => {
+    setUploadError(null);
+  }, []);
 
   // 에디터가 아직 초기화되지 않은 경우
   if (!editor) {
@@ -624,6 +730,25 @@ export function RichTextEditor({
           />
         </div>
 
+        {/* 이미지 업로드 버튼 */}
+        <ToolbarButton
+          onClick={handleImageButtonClick}
+          disabled={isUploading}
+          title="이미지 삽입 (최대 5MB)"
+        >
+          {isUploading ? <LoadingIcon /> : <ImageIcon />}
+        </ToolbarButton>
+
+        {/* 숨겨진 파일 입력 */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={getAllowedImageTypes()}
+          onChange={handleImageUpload}
+          className="hidden"
+          aria-label="이미지 파일 선택"
+        />
+
         <ToolbarDivider />
 
         {/* 정렬 그룹 */}
@@ -649,6 +774,39 @@ export function RichTextEditor({
           <AlignRightIcon />
         </ToolbarButton>
       </div>
+
+      {/* ========================================
+          이미지 업로드 에러 메시지
+          ======================================== */}
+      {uploadError && (
+        <div className="flex items-center justify-between px-4 py-2 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
+          <span className="text-sm text-red-600 dark:text-red-400">
+            {uploadError}
+          </span>
+          <button
+            type="button"
+            onClick={clearUploadError}
+            className="text-red-500 hover:text-red-700 dark:hover:text-red-300"
+            title="닫기"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* ========================================
+          이미지 업로드 중 오버레이
+          ======================================== */}
+      {isUploading && (
+        <div className="flex items-center justify-center px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800">
+          <LoadingIcon />
+          <span className="ml-2 text-sm text-blue-600 dark:text-blue-400">
+            이미지 업로드 중...
+          </span>
+        </div>
+      )}
 
       {/* ========================================
           에디터 영역
