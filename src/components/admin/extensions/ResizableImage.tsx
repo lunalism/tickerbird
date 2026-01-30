@@ -1,11 +1,12 @@
 'use client';
 
 /**
- * ResizableImage - Tiptap 이미지 리사이즈 확장
+ * ResizableImage - Tiptap 이미지 드래그 리사이즈 확장
  *
- * 이미지 선택 시 크기 조절 UI를 표시합니다.
- * - 프리셋 버튼: 25%, 50%, 75%, 100%
- * - 드래그로 자유롭게 크기 조절
+ * 이미지 선택 시 4개 모서리에 리사이즈 핸들을 표시합니다.
+ * - 핸들 드래그로 자유롭게 크기 조절
+ * - Shift 키 누르면 비율 유지
+ * - 삭제 버튼으로 이미지 제거
  *
  * @see https://tiptap.dev/docs/editor/extensions/nodes/image
  */
@@ -29,6 +30,15 @@ interface SetImageOptions {
 }
 
 /**
+ * 리사이즈 핸들 위치 타입
+ * - nw: 좌상단 (north-west)
+ * - ne: 우상단 (north-east)
+ * - sw: 좌하단 (south-west)
+ * - se: 우하단 (south-east)
+ */
+type HandlePosition = 'nw' | 'ne' | 'sw' | 'se';
+
+/**
  * Tiptap Commands 인터페이스 확장
  * setImage 커맨드를 전역으로 사용할 수 있도록 선언
  */
@@ -50,117 +60,177 @@ declare module '@tiptap/core' {
 /**
  * 이미지 리사이즈 컴포넌트
  *
- * 이미지 클릭 시 리사이즈 UI를 표시하고,
- * 프리셋 버튼 또는 드래그로 크기를 조절할 수 있습니다.
+ * 이미지 클릭 시 4개 모서리에 리사이즈 핸들을 표시하고,
+ * 드래그로 크기를 조절할 수 있습니다.
  */
 function ResizableImageComponent({ node, updateAttributes, selected, deleteNode }: NodeViewProps) {
+  // ========================================
+  // 상태 관리
+  // ========================================
+
   // 드래그 상태
   const [isResizing, setIsResizing] = useState(false);
-  const [initialWidth, setInitialWidth] = useState(0);
-  const [initialX, setInitialX] = useState(0);
-
-  // 현재 너비 상태 (실시간 표시용)
-  const [displayWidth, setDisplayWidth] = useState<number | null>(null);
+  // 현재 드래그 중인 핸들 위치
+  const [activeHandle, setActiveHandle] = useState<HandlePosition | null>(null);
+  // 드래그 시작 시 이미지 크기
+  const [startSize, setStartSize] = useState({ width: 0, height: 0 });
+  // 드래그 시작 시 마우스 위치
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+  // 원본 이미지 비율
+  const [aspectRatio, setAspectRatio] = useState(1);
+  // 현재 표시 크기
+  const [displaySize, setDisplaySize] = useState<{ width: number; height: number } | null>(null);
 
   // 이미지 참조
   const imageRef = useRef<HTMLImageElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // 속성에서 값 추출
   const { src, alt, width } = node.attrs;
 
-  // 이미지 로드 후 너비 업데이트
+  // ========================================
+  // 이미지 로드 핸들러
+  // ========================================
+
+  /**
+   * 이미지 로드 완료 시 비율 계산 및 크기 설정
+   */
+  const handleImageLoad = useCallback(() => {
+    if (imageRef.current) {
+      const img = imageRef.current;
+      // 원본 이미지 비율 저장
+      setAspectRatio(img.naturalWidth / img.naturalHeight);
+      // 현재 표시 크기 저장
+      setDisplaySize({
+        width: img.offsetWidth,
+        height: img.offsetHeight,
+      });
+    }
+  }, []);
+
+  // 너비 변경 시 표시 크기 업데이트
   useEffect(() => {
     if (imageRef.current && imageRef.current.complete) {
-      setDisplayWidth(imageRef.current.offsetWidth);
+      setDisplaySize({
+        width: imageRef.current.offsetWidth,
+        height: imageRef.current.offsetHeight,
+      });
     }
   }, [width]);
 
-  /**
-   * 프리셋 크기로 변경
-   * @param percentage - 원본 대비 비율 (예: 50 = 50%)
-   */
-  const setPresetSize = useCallback(
-    (percentage: number) => {
-      if (!imageRef.current) return;
-
-      // 원본 이미지 크기 가져오기 (naturalWidth)
-      const naturalWidth = imageRef.current.naturalWidth;
-
-      if (percentage === 100) {
-        // 100%는 auto로 설정 (최대 너비는 CSS로 제한)
-        updateAttributes({ width: 'auto' });
-        setDisplayWidth(null);
-      } else {
-        // 퍼센트에 맞는 픽셀 값 계산
-        const newWidth = Math.round(naturalWidth * (percentage / 100));
-        updateAttributes({ width: `${newWidth}px` });
-        setDisplayWidth(newWidth);
-      }
-    },
-    [updateAttributes]
-  );
+  // ========================================
+  // 드래그 리사이즈 핸들러
+  // ========================================
 
   /**
-   * 드래그 시작 핸들러
+   * 리사이즈 핸들 마우스 다운 - 드래그 시작
    */
   const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
+    (e: React.MouseEvent, position: HandlePosition) => {
       e.preventDefault();
       e.stopPropagation();
 
-      const currentWidth = imageRef.current?.offsetWidth || 0;
+      if (!imageRef.current) return;
+
+      // 드래그 상태 시작
       setIsResizing(true);
-      setInitialWidth(currentWidth);
-      setInitialX(e.clientX);
+      setActiveHandle(position);
+
+      // 시작 위치 및 크기 저장
+      setStartPos({ x: e.clientX, y: e.clientY });
+      setStartSize({
+        width: imageRef.current.offsetWidth,
+        height: imageRef.current.offsetHeight,
+      });
     },
     []
   );
 
   /**
-   * 드래그 중 핸들러
+   * 마우스 이동 및 마우스 업 이벤트 처리
    */
   useEffect(() => {
-    if (!isResizing) return;
+    if (!isResizing || !activeHandle) return;
 
+    /**
+     * 마우스 이동 - 크기 계산 및 업데이트
+     */
     const handleMouseMove = (e: MouseEvent) => {
-      const deltaX = e.clientX - initialX;
-      const newWidth = Math.max(50, initialWidth + deltaX); // 최소 50px
-      updateAttributes({ width: `${newWidth}px` });
-      setDisplayWidth(newWidth);
+      // 마우스 이동량 계산
+      const deltaX = e.clientX - startPos.x;
+      const deltaY = e.clientY - startPos.y;
+
+      let newWidth = startSize.width;
+      let newHeight = startSize.height;
+
+      // 핸들 위치에 따른 크기 계산
+      switch (activeHandle) {
+        case 'se': // 우하단: 우측+하단으로 확장
+          newWidth = startSize.width + deltaX;
+          newHeight = startSize.height + deltaY;
+          break;
+        case 'sw': // 좌하단: 좌측+하단으로 확장
+          newWidth = startSize.width - deltaX;
+          newHeight = startSize.height + deltaY;
+          break;
+        case 'ne': // 우상단: 우측+상단으로 확장
+          newWidth = startSize.width + deltaX;
+          newHeight = startSize.height - deltaY;
+          break;
+        case 'nw': // 좌상단: 좌측+상단으로 확장
+          newWidth = startSize.width - deltaX;
+          newHeight = startSize.height - deltaY;
+          break;
+      }
+
+      // Shift 키를 누르고 있으면 비율 유지
+      if (e.shiftKey) {
+        // 너비 기준으로 높이 계산
+        newHeight = newWidth / aspectRatio;
+      }
+
+      // 최소 크기 제한 (50px)
+      newWidth = Math.max(50, newWidth);
+      newHeight = Math.max(50, newHeight);
+
+      // 에디터에 너비 업데이트 (높이는 auto로 비율 유지)
+      updateAttributes({ width: `${Math.round(newWidth)}px` });
+
+      // 표시 크기 업데이트
+      setDisplaySize({ width: Math.round(newWidth), height: Math.round(newHeight) });
     };
 
+    /**
+     * 마우스 업 - 드래그 종료
+     */
     const handleMouseUp = () => {
       setIsResizing(false);
+      setActiveHandle(null);
     };
 
+    // 이벤트 리스너 등록
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
 
+    // 클린업
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isResizing, initialX, initialWidth, updateAttributes]);
+  }, [isResizing, activeHandle, startPos, startSize, aspectRatio, updateAttributes]);
 
-  /**
-   * 이미지 로드 완료 핸들러
-   */
-  const handleImageLoad = useCallback(() => {
-    if (imageRef.current) {
-      setDisplayWidth(imageRef.current.offsetWidth);
-    }
-  }, []);
+  // ========================================
+  // 렌더링
+  // ========================================
 
   return (
-    <NodeViewWrapper className="relative inline-block my-4">
+    <NodeViewWrapper className="my-4" style={{ display: 'inline-block' }}>
       <div
-        ref={containerRef}
         className={`
           relative inline-block
-          ${selected ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
-          ${isResizing ? 'select-none' : ''}
+          ${selected ? 'outline outline-2 outline-blue-500 outline-offset-2' : ''}
+          ${isResizing ? 'select-none cursor-crosshair' : ''}
         `}
+        style={{ lineHeight: 0 }}
       >
         {/* 이미지 */}
         <img
@@ -172,92 +242,82 @@ function ResizableImageComponent({ node, updateAttributes, selected, deleteNode 
             width: width === 'auto' ? 'auto' : width,
             maxWidth: '100%',
             height: 'auto',
+            display: 'block',
           }}
-          className="rounded-lg block"
+          className="rounded-lg"
           draggable={false}
         />
 
-        {/* 선택 시 리사이즈 UI 표시 */}
+        {/* 선택 시 리사이즈 핸들 표시 */}
         {selected && (
           <>
-            {/* 크기 조절 프리셋 버튼 */}
-            <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 flex items-center gap-1 bg-gray-900/90 rounded-lg px-2 py-1 shadow-lg">
-              <button
-                type="button"
-                onClick={() => setPresetSize(25)}
-                className="px-2 py-0.5 text-xs text-white hover:bg-white/20 rounded transition-colors"
-                title="25% 크기"
-              >
-                25%
-              </button>
-              <button
-                type="button"
-                onClick={() => setPresetSize(50)}
-                className="px-2 py-0.5 text-xs text-white hover:bg-white/20 rounded transition-colors"
-                title="50% 크기"
-              >
-                50%
-              </button>
-              <button
-                type="button"
-                onClick={() => setPresetSize(75)}
-                className="px-2 py-0.5 text-xs text-white hover:bg-white/20 rounded transition-colors"
-                title="75% 크기"
-              >
-                75%
-              </button>
-              <button
-                type="button"
-                onClick={() => setPresetSize(100)}
-                className="px-2 py-0.5 text-xs text-white hover:bg-white/20 rounded transition-colors"
-                title="원본 크기"
-              >
-                100%
-              </button>
-
-              {/* 현재 크기 표시 */}
-              <span className="px-2 text-xs text-gray-400 border-l border-gray-600 ml-1">
-                {displayWidth ? `${displayWidth}px` : width === 'auto' ? '자동' : width}
-              </span>
-            </div>
-
-            {/* 우측 하단 리사이즈 핸들 */}
+            {/* 리사이즈 핸들 - 좌상단 (nw) */}
             <div
-              onMouseDown={handleMouseDown}
+              onMouseDown={(e) => handleMouseDown(e, 'nw')}
               className={`
-                absolute bottom-0 right-0 w-4 h-4
-                bg-blue-500 rounded-tl-md cursor-se-resize
-                flex items-center justify-center
+                absolute -top-1.5 -left-1.5 w-3 h-3
+                bg-blue-500 border-2 border-white rounded-sm
+                cursor-nw-resize shadow-md
                 hover:bg-blue-600 transition-colors
-                ${isResizing ? 'bg-blue-600' : ''}
+                ${activeHandle === 'nw' ? 'bg-blue-600 scale-110' : ''}
               `}
-              title="드래그하여 크기 조절"
-            >
-              <svg
-                className="w-2.5 h-2.5 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={3}
-                  d="M19 13l-7 7-7-7m14-8l-7 7-7-7"
-                />
-              </svg>
-            </div>
+              title="드래그하여 크기 조절 (Shift: 비율 유지)"
+            />
 
-            {/* 좌측 상단 삭제 버튼 */}
+            {/* 리사이즈 핸들 - 우상단 (ne) */}
+            <div
+              onMouseDown={(e) => handleMouseDown(e, 'ne')}
+              className={`
+                absolute -top-1.5 -right-1.5 w-3 h-3
+                bg-blue-500 border-2 border-white rounded-sm
+                cursor-ne-resize shadow-md
+                hover:bg-blue-600 transition-colors
+                ${activeHandle === 'ne' ? 'bg-blue-600 scale-110' : ''}
+              `}
+              title="드래그하여 크기 조절 (Shift: 비율 유지)"
+            />
+
+            {/* 리사이즈 핸들 - 좌하단 (sw) */}
+            <div
+              onMouseDown={(e) => handleMouseDown(e, 'sw')}
+              className={`
+                absolute -bottom-1.5 -left-1.5 w-3 h-3
+                bg-blue-500 border-2 border-white rounded-sm
+                cursor-sw-resize shadow-md
+                hover:bg-blue-600 transition-colors
+                ${activeHandle === 'sw' ? 'bg-blue-600 scale-110' : ''}
+              `}
+              title="드래그하여 크기 조절 (Shift: 비율 유지)"
+            />
+
+            {/* 리사이즈 핸들 - 우하단 (se) */}
+            <div
+              onMouseDown={(e) => handleMouseDown(e, 'se')}
+              className={`
+                absolute -bottom-1.5 -right-1.5 w-3 h-3
+                bg-blue-500 border-2 border-white rounded-sm
+                cursor-se-resize shadow-md
+                hover:bg-blue-600 transition-colors
+                ${activeHandle === 'se' ? 'bg-blue-600 scale-110' : ''}
+              `}
+              title="드래그하여 크기 조절 (Shift: 비율 유지)"
+            />
+
+            {/* 삭제 버튼 */}
             <button
               type="button"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                // deleteNode 함수로 이미지 노드 삭제
                 deleteNode();
               }}
-              className="absolute -top-2 -left-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shadow-md"
+              className="
+                absolute -top-3 -right-3 w-6 h-6
+                bg-red-500 rounded-full
+                flex items-center justify-center
+                hover:bg-red-600 transition-colors
+                shadow-md z-10
+              "
               title="이미지 삭제"
             >
               <svg
@@ -274,6 +334,13 @@ function ResizableImageComponent({ node, updateAttributes, selected, deleteNode 
                 />
               </svg>
             </button>
+
+            {/* 현재 크기 표시 (리사이즈 중에만) */}
+            {isResizing && displaySize && (
+              <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-900/90 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                {displaySize.width} × {displaySize.height}px
+              </div>
+            )}
           </>
         )}
       </div>
@@ -288,7 +355,7 @@ function ResizableImageComponent({ node, updateAttributes, selected, deleteNode 
 /**
  * ResizableImage 확장
  *
- * 기본 Image 확장을 대체하여 리사이즈 기능을 추가합니다.
+ * 기본 Image 확장을 대체하여 드래그 리사이즈 기능을 추가합니다.
  */
 export const ResizableImage = Node.create({
   name: 'image',
