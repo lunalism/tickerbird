@@ -405,6 +405,10 @@ export function RichTextEditor({
   // 파일 입력 참조
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 이미지 삽입 위치 저장 (파일 선택 전 커서 위치)
+  // 파일 다이얼로그가 열리면 에디터가 포커스를 잃으므로 미리 저장해둠
+  const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
+
   // Tiptap 에디터 인스턴스 생성
   const editor = useEditor({
     extensions: [
@@ -495,16 +499,28 @@ export function RichTextEditor({
   /**
    * 이미지 버튼 클릭 핸들러
    *
-   * 숨겨진 파일 입력을 트리거합니다.
+   * 파일 다이얼로그를 열기 전에 현재 커서 위치를 저장합니다.
+   * 이렇게 해야 이미지가 사용자가 원하는 위치(글 중간)에 삽입됩니다.
    */
   const handleImageButtonClick = useCallback(() => {
+    if (!editor) return;
+
+    // 현재 선택 영역(커서 위치) 저장
+    // 파일 다이얼로그가 열리면 에디터가 포커스를 잃어서 선택이 사라짐
+    const { from, to } = editor.state.selection;
+    savedSelectionRef.current = { from, to };
+
+    console.log('[RichTextEditor] 커서 위치 저장:', { from, to });
+
+    // 파일 선택 다이얼로그 열기
     fileInputRef.current?.click();
-  }, []);
+  }, [editor]);
 
   /**
    * 이미지 파일 선택 핸들러
    *
-   * 파일을 Firebase Storage에 업로드하고 에디터에 삽입합니다.
+   * 파일을 Firebase Storage에 업로드하고 에디터의 저장된 커서 위치에 삽입합니다.
+   * 커서 위치는 handleImageButtonClick에서 미리 저장해둔 값을 사용합니다.
    */
   const handleImageUpload = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -525,15 +541,39 @@ export function RichTextEditor({
         const result = await uploadImage(file, contentType);
 
         if (result.success) {
-          // 이미지를 에디터에 삽입
-          editor
-            .chain()
-            .focus()
-            .setImage({
-              src: result.url,
-              alt: result.filename,
-            })
-            .run();
+          // 저장해둔 커서 위치 복원 후 이미지 삽입
+          // 이렇게 해야 글 중간에도 이미지가 삽입됨
+          const savedSelection = savedSelectionRef.current;
+
+          if (savedSelection) {
+            // 저장된 위치로 커서 이동 후 이미지 삽입
+            console.log('[RichTextEditor] 저장된 위치에 이미지 삽입:', savedSelection);
+
+            editor
+              .chain()
+              .focus()
+              .setTextSelection(savedSelection.from)
+              .setImage({
+                src: result.url,
+                alt: result.filename,
+              })
+              .run();
+          } else {
+            // 저장된 위치가 없으면 현재 위치에 삽입
+            console.log('[RichTextEditor] 현재 위치에 이미지 삽입');
+
+            editor
+              .chain()
+              .focus()
+              .setImage({
+                src: result.url,
+                alt: result.filename,
+              })
+              .run();
+          }
+
+          // 저장된 위치 초기화
+          savedSelectionRef.current = null;
 
           console.log('[RichTextEditor] 이미지 삽입 완료:', result.url);
         } else {
