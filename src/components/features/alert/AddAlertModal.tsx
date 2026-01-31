@@ -136,9 +136,10 @@ export function AddAlertModal({
       // 성공 콜백 호출 (부모 컴포넌트에서 알림 상태 업데이트)
       onSuccess?.();
       onClose();
-    } else {
-      setError(result.error || '알림 추가에 실패했습니다');
-      showError(result.error || '알림 추가에 실패했습니다');
+    } else if (result.error) {
+      // 에러 메시지가 있을 때만 토스트 표시 (제한 초과는 훅에서 이미 표시됨)
+      setError(result.error);
+      showError(result.error);
     }
   };
 

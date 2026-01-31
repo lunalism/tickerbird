@@ -168,7 +168,8 @@ export function useAlerts(): UseAlertsReturn {
       if (!canAddAlert(isPremium, alerts.length)) {
         debug.log('[useAlerts] 무료 회원 알림 제한 초과');
         showAlertLimitReached();
-        return { success: false, error: '무료 회원은 가격 알림을 최대 3개까지 등록할 수 있습니다' };
+        // error를 반환하지 않아 호출처에서 중복 토스트 표시 방지
+        return { success: false };
       }
 
       try {
