@@ -9,6 +9,7 @@ export const eventCategoryFilters: EventCategoryFilter[] = [
   { id: 'options', label: '옵션만기', emoji: '📈' },
   { id: 'dividend', label: '배당', emoji: '💰' },
   { id: 'holiday', label: '휴장일', emoji: '🚫' },
+  { id: 'conference', label: '컨퍼런스', emoji: '🎤' },
 ];
 
 export const calendarEvents: CalendarEvent[] = [
@@ -289,16 +290,6 @@ export const calendarEvents: CalendarEvent[] = [
   },
 
   // 기업이벤트
-  {
-    id: 'ces-2025',
-    date: '2025-01-07',
-    title: 'CES 2025',
-    category: 'corporate',
-    companyDomain: 'ces.tech',
-    importance: 'high',
-    time: '09:00',
-    description: '세계 최대 가전·IT 박람회 개막',
-  },
   {
     id: 'samsung-s25-unpacked',
     date: '2025-01-22',
@@ -659,6 +650,37 @@ export const calendarEvents: CalendarEvent[] = [
     description: 'Chinese New Year (춘절 연휴)',
   },
 
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'ces-2025',
+    date: '2025-01-07',
+    endDate: '2025-01-10',
+    title: 'CES 2025',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: '세계 최대 가전·IT 박람회 (라스베가스). 관련: 삼성전자, LG전자, NVDA, QCOM',
+  },
+  {
+    id: 'detroit-auto-2025',
+    date: '2025-01-11',
+    endDate: '2025-01-20',
+    title: '디트로이트 오토쇼 2025',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '북미 국제 자동차 박람회 (디트로이트). 관련: GM, F, TSLA, 현대차, 기아',
+  },
+  {
+    id: 'galaxy-unpack-jan-2025',
+    date: '2025-01-22',
+    title: '삼성 갤럭시 언팩 (1월)',
+    category: 'conference',
+    countryCode: 'kr',
+    importance: 'high',
+    description: '삼성전자 Galaxy S25 시리즈 신제품 발표. 관련: 삼성전자',
+  },
+
 // ==================== 2025년 2월 ====================
   // 경제지표
   {
@@ -902,16 +924,6 @@ export const calendarEvents: CalendarEvent[] = [
   },
 
   // 기업이벤트
-  {
-    id: 'mwc-2025',
-    date: '2025-02-24',
-    title: 'MWC 2025',
-    category: 'corporate',
-    companyDomain: 'mwcbarcelona.com',
-    importance: 'high',
-    time: '18:00',
-    description: '모바일 월드 콩그레스 개막',
-  },
 
   // 실적발표
   {
@@ -1475,6 +1487,48 @@ export const calendarEvents: CalendarEvent[] = [
     countryCode: 'jp',
     importance: 'high',
     description: '春分の日 (춘분의 날)',
+  },
+
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'mwc-2025',
+    date: '2025-03-03',
+    endDate: '2025-03-06',
+    title: 'MWC 2025',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: '모바일 월드 콩그레스 (바르셀로나). 세계 최대 모바일 박람회. 관련: 삼성, QCOM, AAPL',
+  },
+  {
+    id: 'gdc-2025',
+    date: '2025-03-17',
+    endDate: '2025-03-21',
+    title: 'GDC 2025',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '게임 개발자 컨퍼런스 (샌프란시스코). 관련: MSFT, NVDA, EA, TTWO',
+  },
+  {
+    id: 'nvidia-gtc-2025',
+    date: '2025-03-17',
+    endDate: '2025-03-21',
+    title: 'NVIDIA GTC 2025',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: 'GPU 기술 컨퍼런스. AI·GPU 신기술 발표. 관련: NVDA, AMD, TSM',
+  },
+  {
+    id: 'seoul-mobility-2025',
+    date: '2025-03-28',
+    endDate: '2025-04-06',
+    title: '서울 모빌리티 쇼 2025',
+    category: 'conference',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '한국 자동차·모빌리티 박람회 (킨텍스). 관련: 현대차, 기아, 삼성SDI',
   },
 
 // ==================== 2025년 4월 ====================
@@ -2319,16 +2373,6 @@ export const calendarEvents: CalendarEvent[] = [
   },
 
   // 기업이벤트
-  {
-    id: 'google-io-2025',
-    date: '2025-05-14',
-    title: 'Google I/O 2025',
-    category: 'corporate',
-    companyDomain: 'google.com',
-    importance: 'high',
-    time: '02:00',
-    description: 'Google 개발자 컨퍼런스',
-  },
 
   
   // 실적발표
@@ -2542,6 +2586,18 @@ export const calendarEvents: CalendarEvent[] = [
     countryCode: 'hk',
     importance: 'high',
     description: 'Buddha\'s Birthday (부처님오신날)',
+  },
+
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'google-io-2025',
+    date: '2025-05-20',
+    endDate: '2025-05-21',
+    title: 'Google I/O 2025',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: '구글 개발자 컨퍼런스. Android, AI, Cloud 신기술 발표. 관련: GOOGL',
   },
 
 // ==================== 2025년 6월 ====================
@@ -2920,6 +2976,27 @@ export const calendarEvents: CalendarEvent[] = [
     countryCode: 'hk',
     importance: 'high',
     description: 'Tuen Ng Festival (단오절, 6/2 대체)',
+  },
+
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'wwdc-2025',
+    date: '2025-06-09',
+    endDate: '2025-06-13',
+    title: 'WWDC 2025',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: '애플 세계 개발자 컨퍼런스. iOS, macOS 차기 버전 발표. 관련: AAPL',
+  },
+  {
+    id: 'summer-game-fest-2025',
+    date: '2025-06-07',
+    title: 'Summer Game Fest 2025',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '여름 게임 축제 (E3 후속). 주요 게임 신작 공개. 관련: EA, TTWO, MSFT, NTDOY',
   },
 
   // ==================== 2025년 7월 ====================
@@ -3466,6 +3543,27 @@ export const calendarEvents: CalendarEvent[] = [
     description: 'HKSAR Establishment Day',
   },
 
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'galaxy-unpack-jul-2025',
+    date: '2025-07-09',
+    title: '삼성 갤럭시 언팩 (7월)',
+    category: 'conference',
+    countryCode: 'kr',
+    importance: 'high',
+    description: '삼성전자 Galaxy Z Fold/Flip 신제품 발표. 관련: 삼성전자',
+  },
+  {
+    id: 'prime-day-2025',
+    date: '2025-07-15',
+    endDate: '2025-07-16',
+    title: '아마존 프라임데이 2025',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '아마존 연중 최대 할인 행사. 관련: AMZN',
+  },
+
 // ==================== 2025년 8월 ====================
   // 경제지표
   {
@@ -3880,6 +3978,18 @@ export const calendarEvents: CalendarEvent[] = [
     description: '山の日 (산의 날)',
   },
 
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'gamescom-2025',
+    date: '2025-08-20',
+    endDate: '2025-08-24',
+    title: 'Gamescom 2025',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '유럽 최대 게임 박람회 (독일 쾰른). 관련: EA, TTWO, MSFT, NTDOY',
+  },
+
 // ==================== 2025년 9월 ====================
   // 경제지표
   {
@@ -4280,6 +4390,27 @@ export const calendarEvents: CalendarEvent[] = [
     countryCode: 'jp',
     importance: 'high',
     description: '秋分の日 (추분의 날)',
+  },
+
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'apple-iphone-2025',
+    date: '2025-09-09',
+    title: '애플 아이폰 발표 이벤트',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: 'iPhone 17 시리즈 및 Apple Watch 발표 예상. 관련: AAPL',
+  },
+  {
+    id: 'tgs-2025',
+    date: '2025-09-25',
+    endDate: '2025-09-28',
+    title: '도쿄 게임쇼 2025',
+    category: 'conference',
+    countryCode: 'jp',
+    importance: 'medium',
+    description: '일본 최대 게임 박람회 (도쿄). 관련: NTDOY, 소니',
   },
 
 // ==================== 2025년 10월 ====================
@@ -4869,6 +5000,26 @@ export const calendarEvents: CalendarEvent[] = [
     description: 'Chung Yeung Festival (중양절)',
   },
 
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'apple-mac-2025',
+    date: '2025-10-28',
+    title: '애플 맥/아이패드 이벤트',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'medium',
+    description: 'M4 칩 Mac, iPad Pro 발표 예상. 관련: AAPL',
+  },
+  {
+    id: 'tesla-ai-day-2025',
+    date: '2025-10-16',
+    title: '테슬라 AI Day 2025',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: 'FSD, Optimus 로봇, Dojo 슈퍼컴퓨터 업데이트 발표. 관련: TSLA',
+  },
+
 // ==================== 2025년 11월 ====================
   // 경제지표
   {
@@ -5279,6 +5430,26 @@ export const calendarEvents: CalendarEvent[] = [
     countryCode: 'jp',
     importance: 'high',
     description: '勤労感謝の日 대체휴일 (11/23 일요일 → 11/24 월요일)',
+  },
+
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'singles-day-2025',
+    date: '2025-11-11',
+    title: '광군제 (Singles Day)',
+    category: 'conference',
+    countryCode: 'hk',
+    importance: 'medium',
+    description: '중국 최대 온라인 쇼핑 축제. 알리바바·징동 매출 지표. 관련: BABA, JD, PDD',
+  },
+  {
+    id: 'black-friday-2025',
+    date: '2025-11-28',
+    title: '블랙 프라이데이',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: '미국 연중 최대 오프라인 쇼핑 시즌. 관련: WMT, AMZN, TGT, COST',
   },
 
 // ==================== 2025년 12월 ====================
@@ -5711,6 +5882,27 @@ export const calendarEvents: CalendarEvent[] = [
     description: 'Boxing Day (크리스마스 다음날)',
   },
 
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'cyber-monday-2025',
+    date: '2025-12-01',
+    title: '사이버 먼데이',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '미국 최대 온라인 쇼핑 이벤트 (블프 다음 월요일). 관련: AMZN, SHOP',
+  },
+  {
+    id: 'aws-reinvent-2025',
+    date: '2025-12-01',
+    endDate: '2025-12-05',
+    title: 'AWS re:Invent 2025',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: '아마존 클라우드 컨퍼런스 (라스베가스). AWS 신규 서비스 발표. 관련: AMZN',
+  },
+
   // ==================== 2026년 1월 ====================
   // 경제지표
   {
@@ -5984,16 +6176,6 @@ export const calendarEvents: CalendarEvent[] = [
   },
 
   // 기업이벤트
-  {
-    id: 'ces-2026',
-    date: '2026-01-06',
-    title: 'CES 2026',
-    category: 'corporate',
-    companyDomain: 'ces.tech',
-    importance: 'high',
-    time: '09:00',
-    description: '세계 최대 가전·IT 박람회 개막',
-  },
   {
     id: 'samsung-s26-unpacked',
     date: '2026-01-21',
@@ -6300,6 +6482,37 @@ export const calendarEvents: CalendarEvent[] = [
     description: 'New Year (신년)',
   },
 
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'ces-2026',
+    date: '2026-01-06',
+    endDate: '2026-01-09',
+    title: 'CES 2026',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: '세계 최대 가전·IT 박람회 (라스베가스). 관련: 삼성전자, LG전자, NVDA, QCOM',
+  },
+  {
+    id: 'detroit-auto-2026',
+    date: '2026-01-10',
+    endDate: '2026-01-19',
+    title: '디트로이트 오토쇼 2026',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '북미 국제 자동차 박람회 (디트로이트). 관련: GM, F, TSLA, 현대차, 기아',
+  },
+  {
+    id: 'galaxy-unpack-jan-2026',
+    date: '2026-01-21',
+    title: '삼성 갤럭시 언팩 (1월)',
+    category: 'conference',
+    countryCode: 'kr',
+    importance: 'high',
+    description: '삼성전자 Galaxy S26 시리즈 신제품 발표 예상. 관련: 삼성전자',
+  },
+
 // ==================== 2026년 2월 ====================
   // 경제지표
   {
@@ -6543,16 +6756,6 @@ export const calendarEvents: CalendarEvent[] = [
   },
 
   // 기업이벤트
-  {
-    id: 'mwc-2026',
-    date: '2026-02-23',
-    title: 'MWC 2026',
-    category: 'corporate',
-    companyDomain: 'mwcbarcelona.com',
-    importance: 'high',
-    time: '18:00',
-    description: '모바일 월드 콩그레스 개막',
-  },
 
   // 실적발표
   {
@@ -7169,6 +7372,38 @@ export const calendarEvents: CalendarEvent[] = [
     countryCode: 'jp',
     importance: 'high',
     description: '春分の日 (춘분의 날)',
+  },
+
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'mwc-2026',
+    date: '2026-03-02',
+    endDate: '2026-03-05',
+    title: 'MWC 2026',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: '모바일 월드 콩그레스 (바르셀로나). 세계 최대 모바일 박람회. 관련: 삼성, QCOM, AAPL',
+  },
+  {
+    id: 'gdc-2026',
+    date: '2026-03-16',
+    endDate: '2026-03-20',
+    title: 'GDC 2026',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '게임 개발자 컨퍼런스 (샌프란시스코). 관련: MSFT, NVDA, EA, TTWO',
+  },
+  {
+    id: 'nvidia-gtc-2026',
+    date: '2026-03-16',
+    endDate: '2026-03-20',
+    title: 'NVIDIA GTC 2026',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: 'GPU 기술 컨퍼런스. AI·GPU 신기술 발표. 관련: NVDA, AMD, TSM',
   },
 
 // ==================== 2026년 4월 ====================
@@ -8003,16 +8238,6 @@ export const calendarEvents: CalendarEvent[] = [
   },
 
   // 기업이벤트
-  {
-    id: 'google-io-2026',
-    date: '2026-05-13',
-    title: 'Google I/O 2026',
-    category: 'corporate',
-    companyDomain: 'google.com',
-    importance: 'high',
-    time: '02:00',
-    description: 'Google 개발자 컨퍼런스',
-  },
 
   
   // 실적발표
@@ -8226,6 +8451,18 @@ export const calendarEvents: CalendarEvent[] = [
     countryCode: 'hk',
     importance: 'high',
     description: 'Buddha\'s Birthday (부처님오신날)',
+  },
+
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'google-io-2026',
+    date: '2026-05-19',
+    endDate: '2026-05-20',
+    title: 'Google I/O 2026',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: '구글 개발자 컨퍼런스. Android, AI, Cloud 신기술 발표. 관련: GOOGL',
   },
 
 // ==================== 2026년 6월 ====================
@@ -8604,6 +8841,27 @@ export const calendarEvents: CalendarEvent[] = [
     countryCode: 'hk',
     importance: 'high',
     description: 'Tuen Ng Festival (단오절)',
+  },
+
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'wwdc-2026',
+    date: '2026-06-08',
+    endDate: '2026-06-12',
+    title: 'WWDC 2026',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: '애플 세계 개발자 컨퍼런스. iOS, macOS 차기 버전 발표. 관련: AAPL',
+  },
+  {
+    id: 'summer-game-fest-2026',
+    date: '2026-06-06',
+    title: 'Summer Game Fest 2026',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '여름 게임 축제. 주요 게임 신작 공개. 관련: EA, TTWO, MSFT, NTDOY',
   },
 
   // ==================== 2026년 7월 ====================
@@ -9180,6 +9438,27 @@ export const calendarEvents: CalendarEvent[] = [
     description: 'HKSAR Establishment Day',
   },
 
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'galaxy-unpack-jul-2026',
+    date: '2026-07-08',
+    title: '삼성 갤럭시 언팩 (7월)',
+    category: 'conference',
+    countryCode: 'kr',
+    importance: 'high',
+    description: '삼성전자 Galaxy Z Fold/Flip 신제품 발표 예상. 관련: 삼성전자',
+  },
+  {
+    id: 'prime-day-2026',
+    date: '2026-07-14',
+    endDate: '2026-07-15',
+    title: '아마존 프라임데이 2026',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '아마존 연중 최대 할인 행사. 관련: AMZN',
+  },
+
 // ==================== 2026년 8월 ====================
   // 경제지표
   {
@@ -9562,6 +9841,18 @@ export const calendarEvents: CalendarEvent[] = [
     countryCode: 'jp',
     importance: 'high',
     description: '山の日 (산의 날)',
+  },
+
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'gamescom-2026',
+    date: '2026-08-19',
+    endDate: '2026-08-23',
+    title: 'Gamescom 2026',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '유럽 최대 게임 박람회 (독일 쾰른). 관련: EA, TTWO, MSFT, NTDOY',
   },
 
 // ==================== 2026년 9월 ====================
@@ -9991,6 +10282,27 @@ export const calendarEvents: CalendarEvent[] = [
     countryCode: 'jp',
     importance: 'high',
     description: '秋分の日 (추분의 날)',
+  },
+
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'apple-iphone-2026',
+    date: '2026-09-08',
+    title: '애플 아이폰 발표 이벤트',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: 'iPhone 18 시리즈 및 Apple Watch 발표 예상. 관련: AAPL',
+  },
+  {
+    id: 'tgs-2026',
+    date: '2026-09-24',
+    endDate: '2026-09-27',
+    title: '도쿄 게임쇼 2026',
+    category: 'conference',
+    countryCode: 'jp',
+    importance: 'medium',
+    description: '일본 최대 게임 박람회 (도쿄). 관련: NTDOY, 소니',
   },
 
 // ==================== 2026년 10월 ====================
@@ -10553,6 +10865,26 @@ export const calendarEvents: CalendarEvent[] = [
     description: 'Chung Yeung Festival (중양절)',
   },
 
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'apple-mac-2026',
+    date: '2026-10-27',
+    title: '애플 맥/아이패드 이벤트',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'medium',
+    description: 'M5 칩 Mac, iPad Pro 발표 예상. 관련: AAPL',
+  },
+  {
+    id: 'tesla-ai-day-2026',
+    date: '2026-10-15',
+    title: '테슬라 AI Day 2026',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: 'FSD, Optimus 로봇, Dojo 슈퍼컴퓨터 업데이트 발표. 관련: TSLA',
+  },
+
 // ==================== 2026년 11월 ====================
   // 경제지표
   {
@@ -10954,6 +11286,45 @@ export const calendarEvents: CalendarEvent[] = [
     countryCode: 'jp',
     importance: 'high',
     description: '勤労感謝の日 (근로감사의 날)',
+  },
+
+  // 컨퍼런스 및 산업 이벤트
+  {
+    id: 'singles-day-2026',
+    date: '2026-11-11',
+    title: '광군제 (Singles Day)',
+    category: 'conference',
+    countryCode: 'hk',
+    importance: 'medium',
+    description: '중국 최대 온라인 쇼핑 축제. 알리바바·징동 매출 지표. 관련: BABA, JD, PDD',
+  },
+  {
+    id: 'black-friday-2026',
+    date: '2026-11-27',
+    title: '블랙 프라이데이',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: '미국 연중 최대 오프라인 쇼핑 시즌. 관련: WMT, AMZN, TGT, COST',
+  },
+  {
+    id: 'cyber-monday-2026',
+    date: '2026-11-30',
+    title: '사이버 먼데이',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '미국 최대 온라인 쇼핑 이벤트 (블프 다음 월요일). 관련: AMZN, SHOP',
+  },
+  {
+    id: 'aws-reinvent-2026',
+    date: '2026-11-30',
+    endDate: '2026-12-04',
+    title: 'AWS re:Invent 2026',
+    category: 'conference',
+    countryCode: 'us',
+    importance: 'high',
+    description: '아마존 클라우드 컨퍼런스 (라스베가스). AWS 신규 서비스 발표. 관련: AMZN',
   },
 
 // ==================== 2026년 12월 ====================

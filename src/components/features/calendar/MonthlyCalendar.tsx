@@ -115,6 +115,8 @@ export function MonthlyCalendar({
         return 'bg-amber-500';
       case 'holiday':
         return 'bg-gray-500';
+      case 'conference':
+        return 'bg-teal-500';
     }
   };
 
