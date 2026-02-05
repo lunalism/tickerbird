@@ -4,7 +4,7 @@
  * @route GET /api/calendar/events
  * @query from - 시작 날짜 (YYYY-MM-DD, 선택)
  * @query to - 종료 날짜 (YYYY-MM-DD, 선택)
- * @query category - 카테고리 필터 (institution, earnings, corporate, crypto, 선택)
+ * @query category - 카테고리 필터 (institution, earnings, corporate, crypto, options, dividend, 선택)
  *
  * @description
  * Firestore에서 경제 캘린더 이벤트 데이터를 조회합니다.
@@ -93,7 +93,7 @@ function isValidDate(dateStr: string): boolean {
  * @returns 유효한 카테고리이면 true
  */
 function isValidCategory(category: string): category is EventCategory {
-  const validCategories: EventCategory[] = ['institution', 'earnings', 'corporate', 'crypto'];
+  const validCategories: EventCategory[] = ['institution', 'earnings', 'corporate', 'crypto', 'options', 'dividend'];
   return validCategories.includes(category as EventCategory);
 }
 
@@ -215,7 +215,7 @@ export async function GET(
       {
         success: false,
         error: 'INVALID_CATEGORY',
-        message: `유효하지 않은 카테고리입니다. 가능한 값: institution, earnings, corporate, crypto`,
+        message: `유효하지 않은 카테고리입니다. 가능한 값: institution, earnings, corporate, crypto, options, dividend`,
       },
       { status: 400 }
     );

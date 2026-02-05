@@ -123,7 +123,7 @@ export const companyInfoDoc = (symbol: string) => doc(db, 'company_info', symbol
  * - titleEn: 영문 제목 (예: "FOMC Meeting")
  * - date: 날짜 (YYYY-MM-DD)
  * - endDate: 종료일 (2일 이상인 경우, 선택)
- * - category: 카테고리 (institution, earnings, corporate, crypto)
+ * - category: 카테고리 (institution, earnings, corporate, crypto, options, dividend)
  * - countryCode: 국가 코드 (us, kr, jp 등)
  * - importance: 중요도 (high, medium, low)
  * - time: 한국 시간 (HH:MM)
@@ -507,7 +507,7 @@ export interface FirestoreCalendarEvent {
   /** 종료일 (2일 이상인 경우, 선택) */
   endDate?: string;
   /** 카테고리 */
-  category: 'institution' | 'earnings' | 'corporate' | 'crypto';
+  category: 'institution' | 'earnings' | 'corporate' | 'crypto' | 'options' | 'dividend';
   /** 국가 코드 (us, kr, jp 등) - institution용 */
   countryCode?: string;
   /** 기업 도메인 (로고용) - earnings, corporate, crypto용 */

@@ -109,6 +109,10 @@ export function MonthlyCalendar({
         return 'bg-purple-500';
       case 'crypto':
         return 'bg-orange-500';
+      case 'options':
+        return 'bg-red-500';
+      case 'dividend':
+        return 'bg-amber-500';
     }
   };
 

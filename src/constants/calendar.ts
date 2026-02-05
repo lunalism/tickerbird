@@ -6,6 +6,8 @@ export const eventCategoryFilters: EventCategoryFilter[] = [
   { id: 'earnings', label: '실적발표', emoji: '📊' },
   { id: 'corporate', label: '기업이벤트', emoji: '🎉' },
   { id: 'crypto', label: '암호화폐', emoji: '🪙' },
+  { id: 'options', label: '옵션만기', emoji: '📈' },
+  { id: 'dividend', label: '배당', emoji: '💰' },
 ];
 
 export const calendarEvents: CalendarEvent[] = [
@@ -472,6 +474,62 @@ export const calendarEvents: CalendarEvent[] = [
     description: '2024년 4분기 실적 발표',
   },
 
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-jan-2025',
+    date: '2025-01-17',
+    title: '미국 월간 옵션만기',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '2025년 1월 주식·지수 옵션 만기일',
+  },
+  {
+    id: 'kr-options-jan-2025',
+    date: '2025-01-09',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2025년 1월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'pg-div-q1-2025',
+    date: '2025-01-23',
+    title: 'P&G 배당락일',
+    category: 'dividend',
+    companyDomain: 'pg.com',
+    importance: 'medium',
+    description: '2025년 1분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'att-div-q1-2025',
+    date: '2025-01-10',
+    title: 'AT&T 배당락일',
+    category: 'dividend',
+    companyDomain: 'att.com',
+    importance: 'medium',
+    description: '2025년 1분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'vz-div-q1-2025',
+    date: '2025-01-10',
+    title: 'Verizon 배당락일',
+    category: 'dividend',
+    companyDomain: 'verizon.com',
+    importance: 'medium',
+    description: '2025년 1분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-jan-2025',
+    date: '2025-01-31',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2025년 1월 배당락일 (월배당)',
+  },
+
 // ==================== 2025년 2월 ====================
   // 경제지표
   {
@@ -841,6 +899,44 @@ export const calendarEvents: CalendarEvent[] = [
     description: '2024년 4분기 실적 발표',
   },
 
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-feb-2025',
+    date: '2025-02-21',
+    title: '미국 월간 옵션만기',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '2025년 2월 주식·지수 옵션 만기일',
+  },
+  {
+    id: 'kr-options-feb-2025',
+    date: '2025-02-13',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2025년 2월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'jnj-div-q1-2025',
+    date: '2025-02-24',
+    title: 'J&J 배당락일',
+    category: 'dividend',
+    companyDomain: 'jnj.com',
+    importance: 'medium',
+    description: '2025년 1분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-feb-2025',
+    date: '2025-02-28',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2025년 2월 배당락일 (월배당)',
+  },
+
 // ==================== 2025년 3월 ====================
   // 경제지표
   {
@@ -1136,6 +1232,71 @@ export const calendarEvents: CalendarEvent[] = [
     importance: 'high',
     time: '06:00',
     description: '2025년 2분기 실적 발표',
+  },
+
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-mar-2025',
+    date: '2025-03-21',
+    title: '미국 쿼드러플위칭 (옵션만기)',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'high',
+    description: '2025년 3월 쿼드러플위칭 (주가지수선물·옵션, 개별주식선물·옵션 동시 만기)',
+  },
+  {
+    id: 'kr-options-mar-2025',
+    date: '2025-03-13',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2025년 3월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'ko-div-q1-2025',
+    date: '2025-03-14',
+    title: 'Coca-Cola 배당락일',
+    category: 'dividend',
+    companyDomain: 'coca-cola.com',
+    importance: 'medium',
+    description: '2025년 1분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-mar-2025',
+    date: '2025-03-31',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2025년 3월 배당락일 (월배당)',
+  },
+  {
+    id: 'samsung-div-q1-2025',
+    date: '2025-03-31',
+    title: '삼성전자 배당락일',
+    category: 'dividend',
+    companyDomain: 'samsung.com',
+    importance: 'medium',
+    description: '2025년 1분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'skt-div-q1-2025',
+    date: '2025-03-31',
+    title: 'SK텔레콤 배당락일',
+    category: 'dividend',
+    companyDomain: 'sktelecom.com',
+    importance: 'medium',
+    description: '2025년 1분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'ktg-div-q1-2025',
+    date: '2025-03-31',
+    title: 'KT&G 배당락일',
+    category: 'dividend',
+    companyDomain: 'ktng.com',
+    importance: 'medium',
+    description: '2025년 1분기 배당락일 (분기배당)',
   },
 
 // ==================== 2025년 4월 ====================
@@ -1575,6 +1736,62 @@ export const calendarEvents: CalendarEvent[] = [
     description: '2025년 1분기 실적 발표',
   },
 
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-apr-2025',
+    date: '2025-04-17',
+    title: '미국 월간 옵션만기',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '2025년 4월 주식·지수 옵션 만기일',
+  },
+  {
+    id: 'kr-options-apr-2025',
+    date: '2025-04-10',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2025년 4월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'pg-div-q2-2025',
+    date: '2025-04-24',
+    title: 'P&G 배당락일',
+    category: 'dividend',
+    companyDomain: 'pg.com',
+    importance: 'medium',
+    description: '2025년 2분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'att-div-q2-2025',
+    date: '2025-04-10',
+    title: 'AT&T 배당락일',
+    category: 'dividend',
+    companyDomain: 'att.com',
+    importance: 'medium',
+    description: '2025년 2분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'vz-div-q2-2025',
+    date: '2025-04-10',
+    title: 'Verizon 배당락일',
+    category: 'dividend',
+    companyDomain: 'verizon.com',
+    importance: 'medium',
+    description: '2025년 2분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-apr-2025',
+    date: '2025-04-30',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2025년 4월 배당락일 (월배당)',
+  },
+
 // ==================== 2025년 5월 ====================
   // 경제지표
   {
@@ -1963,6 +2180,44 @@ export const calendarEvents: CalendarEvent[] = [
     description: '2025년 1분기 실적 발표',
   },
 
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-may-2025',
+    date: '2025-05-16',
+    title: '미국 월간 옵션만기',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '2025년 5월 주식·지수 옵션 만기일',
+  },
+  {
+    id: 'kr-options-may-2025',
+    date: '2025-05-08',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2025년 5월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'jnj-div-q2-2025',
+    date: '2025-05-19',
+    title: 'J&J 배당락일',
+    category: 'dividend',
+    companyDomain: 'jnj.com',
+    importance: 'medium',
+    description: '2025년 2분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-may-2025',
+    date: '2025-05-30',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2025년 5월 배당락일 (월배당)',
+  },
+
 // ==================== 2025년 6월 ====================
   // 경제지표
   {
@@ -2245,6 +2500,71 @@ export const calendarEvents: CalendarEvent[] = [
     importance: 'high',
     time: '02:00',
     description: 'Apple 개발자 컨퍼런스',
+  },
+
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-jun-2025',
+    date: '2025-06-20',
+    title: '미국 쿼드러플위칭 (옵션만기)',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'high',
+    description: '2025년 6월 쿼드러플위칭 (주가지수선물·옵션, 개별주식선물·옵션 동시 만기)',
+  },
+  {
+    id: 'kr-options-jun-2025',
+    date: '2025-06-12',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2025년 6월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'ko-div-q2-2025',
+    date: '2025-06-13',
+    title: 'Coca-Cola 배당락일',
+    category: 'dividend',
+    companyDomain: 'coca-cola.com',
+    importance: 'medium',
+    description: '2025년 2분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-jun-2025',
+    date: '2025-06-30',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2025년 6월 배당락일 (월배당)',
+  },
+  {
+    id: 'samsung-div-q2-2025',
+    date: '2025-06-30',
+    title: '삼성전자 배당락일',
+    category: 'dividend',
+    companyDomain: 'samsung.com',
+    importance: 'medium',
+    description: '2025년 2분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'skt-div-q2-2025',
+    date: '2025-06-30',
+    title: 'SK텔레콤 배당락일',
+    category: 'dividend',
+    companyDomain: 'sktelecom.com',
+    importance: 'medium',
+    description: '2025년 2분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'ktg-div-q2-2025',
+    date: '2025-06-30',
+    title: 'KT&G 배당락일',
+    category: 'dividend',
+    companyDomain: 'ktng.com',
+    importance: 'medium',
+    description: '2025년 2분기 배당락일 (분기배당)',
   },
 
   // ==================== 2025년 7월 ====================
@@ -2706,6 +3026,62 @@ export const calendarEvents: CalendarEvent[] = [
     description: '2025년 2분기 실적 발표',
   },
 
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-jul-2025',
+    date: '2025-07-18',
+    title: '미국 월간 옵션만기',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '2025년 7월 주식·지수 옵션 만기일',
+  },
+  {
+    id: 'kr-options-jul-2025',
+    date: '2025-07-10',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2025년 7월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'pg-div-q3-2025',
+    date: '2025-07-24',
+    title: 'P&G 배당락일',
+    category: 'dividend',
+    companyDomain: 'pg.com',
+    importance: 'medium',
+    description: '2025년 3분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'att-div-q3-2025',
+    date: '2025-07-10',
+    title: 'AT&T 배당락일',
+    category: 'dividend',
+    companyDomain: 'att.com',
+    importance: 'medium',
+    description: '2025년 3분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'vz-div-q3-2025',
+    date: '2025-07-10',
+    title: 'Verizon 배당락일',
+    category: 'dividend',
+    companyDomain: 'verizon.com',
+    importance: 'medium',
+    description: '2025년 3분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-jul-2025',
+    date: '2025-07-31',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2025년 7월 배당락일 (월배당)',
+  },
+
 // ==================== 2025년 8월 ====================
   // 경제지표
   {
@@ -3062,6 +3438,44 @@ export const calendarEvents: CalendarEvent[] = [
     description: '2025년 2분기 실적 발표',
   },
 
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-aug-2025',
+    date: '2025-08-15',
+    title: '미국 월간 옵션만기',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '2025년 8월 주식·지수 옵션 만기일',
+  },
+  {
+    id: 'kr-options-aug-2025',
+    date: '2025-08-14',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2025년 8월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'jnj-div-q3-2025',
+    date: '2025-08-25',
+    title: 'J&J 배당락일',
+    category: 'dividend',
+    companyDomain: 'jnj.com',
+    importance: 'medium',
+    description: '2025년 3분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-aug-2025',
+    date: '2025-08-29',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2025년 8월 배당락일 (월배당)',
+  },
+
 // ==================== 2025년 9월 ====================
   // 경제지표
   {
@@ -3368,6 +3782,71 @@ export const calendarEvents: CalendarEvent[] = [
     importance: 'high',
     time: '06:00',
     description: '2025년 4분기 실적 발표',
+  },
+
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-sep-2025',
+    date: '2025-09-19',
+    title: '미국 쿼드러플위칭 (옵션만기)',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'high',
+    description: '2025년 9월 쿼드러플위칭 (주가지수선물·옵션, 개별주식선물·옵션 동시 만기)',
+  },
+  {
+    id: 'kr-options-sep-2025',
+    date: '2025-09-11',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2025년 9월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'ko-div-q3-2025',
+    date: '2025-09-12',
+    title: 'Coca-Cola 배당락일',
+    category: 'dividend',
+    companyDomain: 'coca-cola.com',
+    importance: 'medium',
+    description: '2025년 3분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-sep-2025',
+    date: '2025-09-30',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2025년 9월 배당락일 (월배당)',
+  },
+  {
+    id: 'samsung-div-q3-2025',
+    date: '2025-09-30',
+    title: '삼성전자 배당락일',
+    category: 'dividend',
+    companyDomain: 'samsung.com',
+    importance: 'medium',
+    description: '2025년 3분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'skt-div-q3-2025',
+    date: '2025-09-30',
+    title: 'SK텔레콤 배당락일',
+    category: 'dividend',
+    companyDomain: 'sktelecom.com',
+    importance: 'medium',
+    description: '2025년 3분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'ktg-div-q3-2025',
+    date: '2025-09-30',
+    title: 'KT&G 배당락일',
+    category: 'dividend',
+    companyDomain: 'ktng.com',
+    importance: 'medium',
+    description: '2025년 3분기 배당락일 (분기배당)',
   },
 
 // ==================== 2025년 10월 ====================
@@ -3827,6 +4306,62 @@ export const calendarEvents: CalendarEvent[] = [
     description: '2025년 3분기 실적 발표',
   },
 
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-oct-2025',
+    date: '2025-10-17',
+    title: '미국 월간 옵션만기',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '2025년 10월 주식·지수 옵션 만기일',
+  },
+  {
+    id: 'kr-options-oct-2025',
+    date: '2025-10-09',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2025년 10월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'pg-div-q4-2025',
+    date: '2025-10-23',
+    title: 'P&G 배당락일',
+    category: 'dividend',
+    companyDomain: 'pg.com',
+    importance: 'medium',
+    description: '2025년 4분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'att-div-q4-2025',
+    date: '2025-10-10',
+    title: 'AT&T 배당락일',
+    category: 'dividend',
+    companyDomain: 'att.com',
+    importance: 'medium',
+    description: '2025년 4분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'vz-div-q4-2025',
+    date: '2025-10-10',
+    title: 'Verizon 배당락일',
+    category: 'dividend',
+    companyDomain: 'verizon.com',
+    importance: 'medium',
+    description: '2025년 4분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-oct-2025',
+    date: '2025-10-31',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2025년 10월 배당락일 (월배당)',
+  },
+
 // ==================== 2025년 11월 ====================
   // 경제지표
   {
@@ -4163,6 +4698,44 @@ export const calendarEvents: CalendarEvent[] = [
     description: '2025년 3분기 실적 발표',
   },
 
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-nov-2025',
+    date: '2025-11-21',
+    title: '미국 월간 옵션만기',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '2025년 11월 주식·지수 옵션 만기일',
+  },
+  {
+    id: 'kr-options-nov-2025',
+    date: '2025-11-13',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2025년 11월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'jnj-div-q4-2025',
+    date: '2025-11-24',
+    title: 'J&J 배당락일',
+    category: 'dividend',
+    companyDomain: 'jnj.com',
+    importance: 'medium',
+    description: '2025년 4분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-nov-2025',
+    date: '2025-11-28',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2025년 11월 배당락일 (월배당)',
+  },
+
 // ==================== 2025년 12월 ====================
   // 경제지표
   {
@@ -4462,6 +5035,89 @@ export const calendarEvents: CalendarEvent[] = [
 // ╔════════════════════════════════════════════════════════════════════════════╗
   // ║                              2026년 이벤트                                  ║
   // ╚════════════════════════════════════════════════════════════════════════════╝
+
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-dec-2025',
+    date: '2025-12-19',
+    title: '미국 쿼드러플위칭 (옵션만기)',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'high',
+    description: '2025년 12월 쿼드러플위칭 (주가지수선물·옵션, 개별주식선물·옵션 동시 만기)',
+  },
+  {
+    id: 'kr-options-dec-2025',
+    date: '2025-12-11',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2025년 12월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'ko-div-q4-2025',
+    date: '2025-12-12',
+    title: 'Coca-Cola 배당락일',
+    category: 'dividend',
+    companyDomain: 'coca-cola.com',
+    importance: 'medium',
+    description: '2025년 4분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-dec-2025',
+    date: '2025-12-31',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2025년 12월 배당락일 (월배당)',
+  },
+  {
+    id: 'samsung-div-q4-2025',
+    date: '2025-12-29',
+    title: '삼성전자 배당락일',
+    category: 'dividend',
+    companyDomain: 'samsung.com',
+    importance: 'medium',
+    description: '2025년 4분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'skt-div-q4-2025',
+    date: '2025-12-29',
+    title: 'SK텔레콤 배당락일',
+    category: 'dividend',
+    companyDomain: 'sktelecom.com',
+    importance: 'medium',
+    description: '2025년 4분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'ktg-div-q4-2025',
+    date: '2025-12-29',
+    title: 'KT&G 배당락일',
+    category: 'dividend',
+    companyDomain: 'ktng.com',
+    importance: 'medium',
+    description: '2025년 4분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'hana-div-2025',
+    date: '2025-12-29',
+    title: '하나금융 배당락일',
+    category: 'dividend',
+    companyDomain: 'hanafn.com',
+    importance: 'medium',
+    description: '2025년 연간 배당락일',
+  },
+  {
+    id: 'kb-div-2025',
+    date: '2025-12-29',
+    title: 'KB금융 배당락일',
+    category: 'dividend',
+    companyDomain: 'kbfg.com',
+    importance: 'medium',
+    description: '2025년 연간 배당락일',
+  },
 
   // ==================== 2026년 1월 ====================
   // 경제지표
@@ -4922,6 +5578,62 @@ export const calendarEvents: CalendarEvent[] = [
     description: '2025년 4분기 실적 발표',
   },
 
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-jan-2026',
+    date: '2026-01-16',
+    title: '미국 월간 옵션만기',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '2026년 1월 주식·지수 옵션 만기일',
+  },
+  {
+    id: 'kr-options-jan-2026',
+    date: '2026-01-08',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2026년 1월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'pg-div-q1-2026',
+    date: '2026-01-22',
+    title: 'P&G 배당락일',
+    category: 'dividend',
+    companyDomain: 'pg.com',
+    importance: 'medium',
+    description: '2026년 1분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'att-div-q1-2026',
+    date: '2026-01-09',
+    title: 'AT&T 배당락일',
+    category: 'dividend',
+    companyDomain: 'att.com',
+    importance: 'medium',
+    description: '2026년 1분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'vz-div-q1-2026',
+    date: '2026-01-09',
+    title: 'Verizon 배당락일',
+    category: 'dividend',
+    companyDomain: 'verizon.com',
+    importance: 'medium',
+    description: '2026년 1분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-jan-2026',
+    date: '2026-01-30',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2026년 1월 배당락일 (월배당)',
+  },
+
 // ==================== 2026년 2월 ====================
   // 경제지표
   {
@@ -5291,6 +6003,44 @@ export const calendarEvents: CalendarEvent[] = [
     description: '2025년 4분기 실적 발표',
   },
 
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-feb-2026',
+    date: '2026-02-20',
+    title: '미국 월간 옵션만기',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '2026년 2월 주식·지수 옵션 만기일',
+  },
+  {
+    id: 'kr-options-feb-2026',
+    date: '2026-02-12',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2026년 2월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'jnj-div-q1-2026',
+    date: '2026-02-23',
+    title: 'J&J 배당락일',
+    category: 'dividend',
+    companyDomain: 'jnj.com',
+    importance: 'medium',
+    description: '2026년 1분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-feb-2026',
+    date: '2026-02-27',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2026년 2월 배당락일 (월배당)',
+  },
+
 // ==================== 2026년 3월 ====================
   // 경제지표
   {
@@ -5585,6 +6335,71 @@ export const calendarEvents: CalendarEvent[] = [
     importance: 'high',
     time: '06:00',
     description: '2026년 2분기 실적 발표',
+  },
+
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-mar-2026',
+    date: '2026-03-20',
+    title: '미국 쿼드러플위칭 (옵션만기)',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'high',
+    description: '2026년 3월 쿼드러플위칭 (주가지수선물·옵션, 개별주식선물·옵션 동시 만기)',
+  },
+  {
+    id: 'kr-options-mar-2026',
+    date: '2026-03-12',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2026년 3월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'ko-div-q1-2026',
+    date: '2026-03-13',
+    title: 'Coca-Cola 배당락일',
+    category: 'dividend',
+    companyDomain: 'coca-cola.com',
+    importance: 'medium',
+    description: '2026년 1분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-mar-2026',
+    date: '2026-03-31',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2026년 3월 배당락일 (월배당)',
+  },
+  {
+    id: 'samsung-div-q1-2026',
+    date: '2026-03-31',
+    title: '삼성전자 배당락일',
+    category: 'dividend',
+    companyDomain: 'samsung.com',
+    importance: 'medium',
+    description: '2026년 1분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'skt-div-q1-2026',
+    date: '2026-03-31',
+    title: 'SK텔레콤 배당락일',
+    category: 'dividend',
+    companyDomain: 'sktelecom.com',
+    importance: 'medium',
+    description: '2026년 1분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'ktg-div-q1-2026',
+    date: '2026-03-31',
+    title: 'KT&G 배당락일',
+    category: 'dividend',
+    companyDomain: 'ktng.com',
+    importance: 'medium',
+    description: '2026년 1분기 배당락일 (분기배당)',
   },
 
 // ==================== 2026년 4월 ====================
@@ -6014,6 +6829,62 @@ export const calendarEvents: CalendarEvent[] = [
     description: '2026년 1분기 실적 발표',
   },
 
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-apr-2026',
+    date: '2026-04-17',
+    title: '미국 월간 옵션만기',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '2026년 4월 주식·지수 옵션 만기일',
+  },
+  {
+    id: 'kr-options-apr-2026',
+    date: '2026-04-09',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2026년 4월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'pg-div-q2-2026',
+    date: '2026-04-23',
+    title: 'P&G 배당락일',
+    category: 'dividend',
+    companyDomain: 'pg.com',
+    importance: 'medium',
+    description: '2026년 2분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'att-div-q2-2026',
+    date: '2026-04-09',
+    title: 'AT&T 배당락일',
+    category: 'dividend',
+    companyDomain: 'att.com',
+    importance: 'medium',
+    description: '2026년 2분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'vz-div-q2-2026',
+    date: '2026-04-09',
+    title: 'Verizon 배당락일',
+    category: 'dividend',
+    companyDomain: 'verizon.com',
+    importance: 'medium',
+    description: '2026년 2분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-apr-2026',
+    date: '2026-04-30',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2026년 4월 배당락일 (월배당)',
+  },
+
 // ==================== 2026년 5월 ====================
   // 경제지표
   {
@@ -6402,6 +7273,44 @@ export const calendarEvents: CalendarEvent[] = [
     description: '2026년 1분기 실적 발표',
   },
 
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-may-2026',
+    date: '2026-05-15',
+    title: '미국 월간 옵션만기',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '2026년 5월 주식·지수 옵션 만기일',
+  },
+  {
+    id: 'kr-options-may-2026',
+    date: '2026-05-14',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2026년 5월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'jnj-div-q2-2026',
+    date: '2026-05-18',
+    title: 'J&J 배당락일',
+    category: 'dividend',
+    companyDomain: 'jnj.com',
+    importance: 'medium',
+    description: '2026년 2분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-may-2026',
+    date: '2026-05-29',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2026년 5월 배당락일 (월배당)',
+  },
+
 // ==================== 2026년 6월 ====================
   // 경제지표
   {
@@ -6684,6 +7593,71 @@ export const calendarEvents: CalendarEvent[] = [
     importance: 'high',
     time: '02:00',
     description: 'Apple 개발자 컨퍼런스',
+  },
+
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-jun-2026',
+    date: '2026-06-19',
+    title: '미국 쿼드러플위칭 (옵션만기)',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'high',
+    description: '2026년 6월 쿼드러플위칭 (주가지수선물·옵션, 개별주식선물·옵션 동시 만기)',
+  },
+  {
+    id: 'kr-options-jun-2026',
+    date: '2026-06-11',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2026년 6월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'ko-div-q2-2026',
+    date: '2026-06-12',
+    title: 'Coca-Cola 배당락일',
+    category: 'dividend',
+    companyDomain: 'coca-cola.com',
+    importance: 'medium',
+    description: '2026년 2분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-jun-2026',
+    date: '2026-06-30',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2026년 6월 배당락일 (월배당)',
+  },
+  {
+    id: 'samsung-div-q2-2026',
+    date: '2026-06-30',
+    title: '삼성전자 배당락일',
+    category: 'dividend',
+    companyDomain: 'samsung.com',
+    importance: 'medium',
+    description: '2026년 2분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'skt-div-q2-2026',
+    date: '2026-06-30',
+    title: 'SK텔레콤 배당락일',
+    category: 'dividend',
+    companyDomain: 'sktelecom.com',
+    importance: 'medium',
+    description: '2026년 2분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'ktg-div-q2-2026',
+    date: '2026-06-30',
+    title: 'KT&G 배당락일',
+    category: 'dividend',
+    companyDomain: 'ktng.com',
+    importance: 'medium',
+    description: '2026년 2분기 배당락일 (분기배당)',
   },
 
   // ==================== 2026년 7월 ====================
@@ -7175,6 +8149,62 @@ export const calendarEvents: CalendarEvent[] = [
     description: '2026년 2분기 실적 발표',
   },
 
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-jul-2026',
+    date: '2026-07-17',
+    title: '미국 월간 옵션만기',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '2026년 7월 주식·지수 옵션 만기일',
+  },
+  {
+    id: 'kr-options-jul-2026',
+    date: '2026-07-09',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2026년 7월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'pg-div-q3-2026',
+    date: '2026-07-23',
+    title: 'P&G 배당락일',
+    category: 'dividend',
+    companyDomain: 'pg.com',
+    importance: 'medium',
+    description: '2026년 3분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'att-div-q3-2026',
+    date: '2026-07-09',
+    title: 'AT&T 배당락일',
+    category: 'dividend',
+    companyDomain: 'att.com',
+    importance: 'medium',
+    description: '2026년 3분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'vz-div-q3-2026',
+    date: '2026-07-09',
+    title: 'Verizon 배당락일',
+    category: 'dividend',
+    companyDomain: 'verizon.com',
+    importance: 'medium',
+    description: '2026년 3분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-jul-2026',
+    date: '2026-07-31',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2026년 7월 배당락일 (월배당)',
+  },
+
 // ==================== 2026년 8월 ====================
   // 경제지표
   {
@@ -7501,6 +8531,44 @@ export const calendarEvents: CalendarEvent[] = [
     description: '2026년 2분기 실적 발표',
   },
 
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-aug-2026',
+    date: '2026-08-21',
+    title: '미국 월간 옵션만기',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '2026년 8월 주식·지수 옵션 만기일',
+  },
+  {
+    id: 'kr-options-aug-2026',
+    date: '2026-08-13',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2026년 8월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'jnj-div-q3-2026',
+    date: '2026-08-24',
+    title: 'J&J 배당락일',
+    category: 'dividend',
+    companyDomain: 'jnj.com',
+    importance: 'medium',
+    description: '2026년 3분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-aug-2026',
+    date: '2026-08-31',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2026년 8월 배당락일 (월배당)',
+  },
+
 // ==================== 2026년 9월 ====================
   // 경제지표
   {
@@ -7807,6 +8875,71 @@ export const calendarEvents: CalendarEvent[] = [
     importance: 'high',
     time: '06:00',
     description: '2026년 4분기 실적 발표',
+  },
+
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-sep-2026',
+    date: '2026-09-18',
+    title: '미국 쿼드러플위칭 (옵션만기)',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'high',
+    description: '2026년 9월 쿼드러플위칭 (주가지수선물·옵션, 개별주식선물·옵션 동시 만기)',
+  },
+  {
+    id: 'kr-options-sep-2026',
+    date: '2026-09-10',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2026년 9월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'ko-div-q3-2026',
+    date: '2026-09-11',
+    title: 'Coca-Cola 배당락일',
+    category: 'dividend',
+    companyDomain: 'coca-cola.com',
+    importance: 'medium',
+    description: '2026년 3분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-sep-2026',
+    date: '2026-09-30',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2026년 9월 배당락일 (월배당)',
+  },
+  {
+    id: 'samsung-div-q3-2026',
+    date: '2026-09-30',
+    title: '삼성전자 배당락일',
+    category: 'dividend',
+    companyDomain: 'samsung.com',
+    importance: 'medium',
+    description: '2026년 3분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'skt-div-q3-2026',
+    date: '2026-09-30',
+    title: 'SK텔레콤 배당락일',
+    category: 'dividend',
+    companyDomain: 'sktelecom.com',
+    importance: 'medium',
+    description: '2026년 3분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'ktg-div-q3-2026',
+    date: '2026-09-30',
+    title: 'KT&G 배당락일',
+    category: 'dividend',
+    companyDomain: 'ktng.com',
+    importance: 'medium',
+    description: '2026년 3분기 배당락일 (분기배당)',
   },
 
 // ==================== 2026년 10월 ====================
@@ -8266,6 +9399,62 @@ export const calendarEvents: CalendarEvent[] = [
     description: '2026년 3분기 실적 발표',
   },
 
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-oct-2026',
+    date: '2026-10-16',
+    title: '미국 월간 옵션만기',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '2026년 10월 주식·지수 옵션 만기일',
+  },
+  {
+    id: 'kr-options-oct-2026',
+    date: '2026-10-08',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2026년 10월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'pg-div-q4-2026',
+    date: '2026-10-22',
+    title: 'P&G 배당락일',
+    category: 'dividend',
+    companyDomain: 'pg.com',
+    importance: 'medium',
+    description: '2026년 4분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'att-div-q4-2026',
+    date: '2026-10-09',
+    title: 'AT&T 배당락일',
+    category: 'dividend',
+    companyDomain: 'att.com',
+    importance: 'medium',
+    description: '2026년 4분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'vz-div-q4-2026',
+    date: '2026-10-09',
+    title: 'Verizon 배당락일',
+    category: 'dividend',
+    companyDomain: 'verizon.com',
+    importance: 'medium',
+    description: '2026년 4분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-oct-2026',
+    date: '2026-10-30',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2026년 10월 배당락일 (월배당)',
+  },
+
 // ==================== 2026년 11월 ====================
   // 경제지표
   {
@@ -8600,6 +9789,44 @@ export const calendarEvents: CalendarEvent[] = [
     importance: 'high',
     time: '16:00',
     description: '2026년 3분기 실적 발표',
+  },
+
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-nov-2026',
+    date: '2026-11-20',
+    title: '미국 월간 옵션만기',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'medium',
+    description: '2026년 11월 주식·지수 옵션 만기일',
+  },
+  {
+    id: 'kr-options-nov-2026',
+    date: '2026-11-12',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2026년 11월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'jnj-div-q4-2026',
+    date: '2026-11-23',
+    title: 'J&J 배당락일',
+    category: 'dividend',
+    companyDomain: 'jnj.com',
+    importance: 'medium',
+    description: '2026년 4분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-nov-2026',
+    date: '2026-11-30',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2026년 11월 배당락일 (월배당)',
   },
 
 // ==================== 2026년 12월 ====================
@@ -8946,4 +10173,87 @@ export const calendarEvents: CalendarEvent[] = [
     importance: 'high',
     description: 'Jump Crypto 개발 검증자 클라이언트 출시 예정',
   },
+  // 옵션만기 및 배당락일
+  {
+    id: 'us-options-dec-2026',
+    date: '2026-12-18',
+    title: '미국 쿼드러플위칭 (옵션만기)',
+    category: 'options',
+    countryCode: 'us',
+    importance: 'high',
+    description: '2026년 12월 쿼드러플위칭 (주가지수선물·옵션, 개별주식선물·옵션 동시 만기)',
+  },
+  {
+    id: 'kr-options-dec-2026',
+    date: '2026-12-10',
+    title: '한국 선물옵션 만기일',
+    category: 'options',
+    countryCode: 'kr',
+    importance: 'medium',
+    description: '2026년 12월 KOSPI200 선물·옵션 만기일',
+  },
+  {
+    id: 'ko-div-q4-2026',
+    date: '2026-12-11',
+    title: 'Coca-Cola 배당락일',
+    category: 'dividend',
+    companyDomain: 'coca-cola.com',
+    importance: 'medium',
+    description: '2026년 4분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'o-div-dec-2026',
+    date: '2026-12-31',
+    title: 'Realty Income 배당락일',
+    category: 'dividend',
+    companyDomain: 'realtyincome.com',
+    importance: 'medium',
+    description: '2026년 12월 배당락일 (월배당)',
+  },
+  {
+    id: 'samsung-div-q4-2026',
+    date: '2026-12-29',
+    title: '삼성전자 배당락일',
+    category: 'dividend',
+    companyDomain: 'samsung.com',
+    importance: 'medium',
+    description: '2026년 4분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'skt-div-q4-2026',
+    date: '2026-12-29',
+    title: 'SK텔레콤 배당락일',
+    category: 'dividend',
+    companyDomain: 'sktelecom.com',
+    importance: 'medium',
+    description: '2026년 4분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'ktg-div-q4-2026',
+    date: '2026-12-29',
+    title: 'KT&G 배당락일',
+    category: 'dividend',
+    companyDomain: 'ktng.com',
+    importance: 'medium',
+    description: '2026년 4분기 배당락일 (분기배당)',
+  },
+  {
+    id: 'hana-div-2026',
+    date: '2026-12-29',
+    title: '하나금융 배당락일',
+    category: 'dividend',
+    companyDomain: 'hanafn.com',
+    importance: 'medium',
+    description: '2026년 연간 배당락일',
+  },
+  {
+    id: 'kb-div-2026',
+    date: '2026-12-29',
+    title: 'KB금융 배당락일',
+    category: 'dividend',
+    companyDomain: 'kbfg.com',
+    importance: 'medium',
+    description: '2026년 연간 배당락일',
+  },
+
 ];

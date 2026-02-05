@@ -2,7 +2,7 @@ import { Timestamp } from 'firebase/firestore';
 
 // ==================== 이벤트 카테고리 및 중요도 ====================
 
-export type EventCategory = 'institution' | 'earnings' | 'corporate' | 'crypto';
+export type EventCategory = 'institution' | 'earnings' | 'corporate' | 'crypto' | 'options' | 'dividend';
 export type EventImportance = 'high' | 'medium' | 'low';
 
 // ==================== 캘린더 이벤트 인터페이스 ====================
