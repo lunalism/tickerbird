@@ -12,8 +12,6 @@
  * - 로그아웃 (signOut)
  * - Firestore에 사용자 프로필 저장/조회
  * - 신규 사용자 온보딩 (닉네임 설정)
- * - 테스트 모드 로그인 지원 (Zustand 스토어 연동)
- *
  * Firebase SDK v9+ 모듈러 문법 사용
  */
 
@@ -33,7 +31,6 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { useAuthStore } from '@/stores/useAuthStore';
 import { OnboardingModal } from '@/components/features/onboarding';
 import { debug } from '@/lib/debug';
 
@@ -72,37 +69,21 @@ export interface UserProfile {
 }
 
 /**
- * 테스트 사용자 프로필 (테스트 모드용 기본값)
- * 테스트 모드에서는 온보딩이 이미 완료된 것으로 처리
- */
-const TEST_USER_PROFILE: UserProfile = {
-  id: 'test-user-id',
-  email: 'test@tickerbird.com',
-  nickname: '테스트 유저',
-  displayName: 'Test User',
-  avatarUrl: undefined,
-  onboardingCompleted: true,
-  plan: 'premium', // 테스트 유저는 프리미엄 (테스트 목적)
-};
-
-/**
  * Context 타입 정의
  *
  * 컴포넌트에서 useAuth() 훅으로 접근할 수 있는 값들
  */
 interface AuthContextType {
-  // Firebase Auth 원본 User 객체 (테스트 모드에서는 null)
+  // Firebase Auth 원본 User 객체
   user: FirebaseUser | null;
-  // 앱 내부용 프로필 (Firestore에서 조회 또는 테스트 유저)
+  // 앱 내부용 프로필 (Firestore에서 조회)
   userProfile: UserProfile | null;
   // 로딩 상태 (초기 세션 확인 중)
   isLoading: boolean;
   // 프로필 로딩 상태 (Firestore 조회 중)
   isProfileLoading: boolean;
-  // 로그인 여부 (Firebase 또는 테스트 모드)
+  // 로그인 여부
   isLoggedIn: boolean;
-  // 테스트 모드 여부
-  isTestMode: boolean;
   // 프리미엄 사용자 여부 (AI 뉴스 등 고급 기능 사용 가능)
   isPremium: boolean;
   // 온보딩 필요 여부 (nickname이 없거나 onboardingCompleted가 false)
@@ -188,14 +169,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   // 온보딩 필요 여부 (nickname이 없거나 onboardingCompleted가 false)
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
-
-  // Zustand 스토어에서 테스트 모드 상태 가져오기
-  const {
-    isTestMode,
-    isLoggedIn: isTestLoggedIn,
-    user: testUser,
-    testLogout,
-  } = useAuthStore();
 
   /**
    * Firestore users 컬렉션에서 사용자 프로필 조회
@@ -309,19 +282,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /**
    * 로그아웃 실행
    *
-   * Firebase Auth 세션 종료 및 테스트 모드 해제
+   * Firebase Auth 세션 종료
    * onAuthStateChanged에서 상태 초기화됨
    */
   const handleSignOut = useCallback(async () => {
     try {
       debug.log('[AuthProvider] 로그아웃 시작...');
-
-      // 테스트 모드면 테스트 로그아웃
-      if (isTestMode) {
-        testLogout();
-        debug.log('[AuthProvider] 테스트 모드 로그아웃 완료');
-        return;
-      }
 
       // Firebase 로그아웃
       await firebaseSignOut(auth);
@@ -331,7 +297,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('[AuthProvider] 로그아웃 에러:', err);
       throw err;
     }
-  }, [isTestMode, testLogout]);
+  }, []);
 
   /**
    * 온보딩 완료 처리 (닉네임 + 아바타 설정)
@@ -343,19 +309,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * @param avatarId - 선택한 아바타 ID (예: 'bull', 'bear' 등)
    */
   const completeOnboarding = useCallback(async (nickname: string, avatarId: string) => {
-    // 테스트 모드에서는 Firestore 업데이트 스킵
-    if (isTestMode) {
-      setUserProfile(prev => prev ? {
-        ...prev,
-        nickname,
-        avatarId,
-        onboardingCompleted: true,
-      } : null);
-      setNeedsOnboarding(false);
-      debug.log('[AuthProvider] 테스트 모드 온보딩 완료:', nickname, avatarId);
-      return;
-    }
-
     if (!user) {
       throw new Error('로그인이 필요합니다');
     }
@@ -383,7 +336,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('[AuthProvider] 온보딩 완료 에러:', err);
       throw err;
     }
-  }, [user, isTestMode]);
+  }, [user]);
 
   /**
    * 닉네임 업데이트 (프로필 수정에서 사용)
@@ -393,13 +346,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * @param nickname - 새 닉네임
    */
   const updateNickname = useCallback(async (nickname: string) => {
-    // 테스트 모드에서는 Firestore 업데이트 스킵
-    if (isTestMode) {
-      setUserProfile(prev => prev ? { ...prev, nickname } : null);
-      debug.log('[AuthProvider] 테스트 모드 닉네임 업데이트:', nickname);
-      return;
-    }
-
     if (!user) {
       throw new Error('로그인이 필요합니다');
     }
@@ -419,7 +365,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('[AuthProvider] 닉네임 업데이트 에러:', err);
       throw err;
     }
-  }, [user, isTestMode]);
+  }, [user]);
 
   /**
    * 아바타 ID 업데이트 (아바타 선택에서 사용)
@@ -429,13 +375,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * @param avatarId - 새 아바타 ID (예: 'bull', 'bear' 등)
    */
   const updateAvatarId = useCallback(async (avatarId: string) => {
-    // 테스트 모드에서는 Firestore 업데이트 스킵
-    if (isTestMode) {
-      setUserProfile(prev => prev ? { ...prev, avatarId } : null);
-      debug.log('[AuthProvider] 테스트 모드 아바타 업데이트:', avatarId);
-      return;
-    }
-
     if (!user) {
       throw new Error('로그인이 필요합니다');
     }
@@ -455,16 +394,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('[AuthProvider] 아바타 업데이트 에러:', err);
       throw err;
     }
-  }, [user, isTestMode]);
+  }, [user]);
 
   /**
    * 프로필 새로고침 (Firestore에서 최신 정보 가져오기)
    */
   const refreshProfile = useCallback(async () => {
-    if (isTestMode) return; // 테스트 모드에서는 스킵
     if (!user) return;
     await checkUserProfile(user);
-  }, [user, checkUserProfile, isTestMode]);
+  }, [user, checkUserProfile]);
 
   /**
    * Firebase Auth 상태 변경 감지
@@ -484,13 +422,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Firestore에서 프로필 조회 (신규/기존 사용자 판별)
         await checkUserProfile(firebaseUser);
       } else {
-        // 로그아웃 상태 - Firebase 상태만 초기화 (테스트 모드는 유지)
+        // 로그아웃 상태 - 프로필 초기화
         setUser(null);
-        // 테스트 모드가 아닌 경우에만 프로필 초기화
-        if (!isTestMode) {
-          setUserProfile(null);
-          setNeedsOnboarding(false);
-        }
+        setUserProfile(null);
+        setNeedsOnboarding(false);
       }
 
       // 초기 로딩 완료
@@ -502,7 +437,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       debug.log('[AuthProvider] Auth 상태 감지 해제');
       unsubscribe();
     };
-  }, [checkUserProfile, isTestMode]);
+  }, [checkUserProfile]);
 
   /**
    * 사용자 프로필 실시간 감지
@@ -511,8 +446,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * 관리자가 요금제를 변경하면 즉시 반영됩니다.
    */
   useEffect(() => {
-    // 테스트 모드이거나 로그인하지 않은 경우 스킵
-    if (isTestMode || !user) return;
+    if (!user) return;
 
     debug.log('[AuthProvider] 사용자 프로필 실시간 감지 시작:', user.uid);
 
@@ -537,74 +471,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       debug.log('[AuthProvider] 사용자 프로필 실시간 감지 해제');
       unsubscribe();
     };
-  }, [user, isTestMode]);
+  }, [user]);
 
-  /**
-   * 테스트 모드 상태 변경 감지
-   *
-   * Zustand 스토어의 테스트 모드 상태가 변경되면 프로필 업데이트
-   */
-  useEffect(() => {
-    if (isTestMode && isTestLoggedIn && testUser) {
-      // 테스트 모드로 로그인됨 - 테스트 유저 프로필 설정
-      debug.log('[AuthProvider] 테스트 모드 로그인 감지:', testUser.name);
-      setUserProfile({
-        id: testUser.id,
-        email: testUser.email,
-        // 테스트 유저는 nickname으로 testUser.name 사용
-        nickname: testUser.name,
-        displayName: testUser.name,
-        avatarUrl: testUser.avatarUrl,
-        // 테스트 모드는 온보딩 완료 상태
-        onboardingCompleted: true,
-        // 테스트 모드는 프리미엄
-        plan: 'premium',
-      });
-      setNeedsOnboarding(false);
-    } else if (!isTestMode && !user) {
-      // 테스트 모드 해제 + Firebase 로그아웃 상태 - 프로필 초기화
-      setUserProfile(null);
-      setNeedsOnboarding(false);
-    }
-  }, [isTestMode, isTestLoggedIn, testUser, user]);
-
-  // 로그인 여부 (Firebase user 또는 테스트 모드)
-  const isLoggedIn = !!user || (isTestMode && isTestLoggedIn);
-
-  // 최종 프로필 (테스트 모드면 테스트 유저, 아니면 Firebase 유저)
-  const effectiveProfile = isTestMode && isTestLoggedIn && testUser
-    ? {
-        id: testUser.id,
-        email: testUser.email,
-        // 테스트 유저는 nickname으로 testUser.name 사용
-        nickname: testUser.name,
-        displayName: testUser.name,
-        // 테스트 모드에서 userProfile의 avatarId 사용 (선택한 경우)
-        avatarId: userProfile?.avatarId,
-        avatarUrl: testUser.avatarUrl,
-        // 테스트 모드는 온보딩 완료 상태
-        onboardingCompleted: true,
-        // 테스트 모드는 프리미엄 (테스트 목적)
-        plan: 'premium' as const,
-      }
-    : userProfile;
-
-  // 최종 온보딩 필요 여부 (테스트 모드에서는 항상 false)
-  const effectiveNeedsOnboarding = isTestMode ? false : needsOnboarding;
+  // 로그인 여부
+  const isLoggedIn = !!user;
 
   // 프리미엄 사용자 여부
-  const isPremium = effectiveProfile?.plan === 'premium';
+  const isPremium = userProfile?.plan === 'premium';
 
   // Context 값
   const value: AuthContextType = {
     user,
-    userProfile: effectiveProfile,
+    userProfile,
     isLoading,
     isProfileLoading,
     isLoggedIn,
-    isTestMode,
     isPremium,
-    needsOnboarding: effectiveNeedsOnboarding,
+    needsOnboarding,
     signInWithGoogle: handleSignInWithGoogle,
     signOut: handleSignOut,
     refreshProfile,
@@ -617,7 +500,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={value}>
       {children}
       {/* 온보딩 모달 - 신규 사용자에게 닉네임 설정 요청 */}
-      {/* needsOnboarding이 true일 때만 표시됨 (테스트 모드 제외) */}
       <OnboardingModal />
     </AuthContext.Provider>
   );
@@ -630,7 +512,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
  * Sidebar, ProfilePage, OnboardingModal 등에서 사용합니다.
  *
  * @example
- * const { userProfile, isLoggedIn, needsOnboarding, isTestMode, signInWithGoogle, signOut, completeOnboarding } = useAuth();
+ * const { userProfile, isLoggedIn, needsOnboarding, signInWithGoogle, signOut, completeOnboarding } = useAuth();
  *
  * // Google 로그인
  * await signInWithGoogle();

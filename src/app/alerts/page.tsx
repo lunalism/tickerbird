@@ -440,22 +440,20 @@ export default function AlertsPage() {
    * 인증 상태 - useAuth() 훅 사용
    *
    * useAuthStore 대신 useAuth()를 사용하는 이유:
-   * - useAuth()는 Firebase Auth 상태와 테스트 모드를 모두 고려하여 isLoggedIn 계산
-   * - isLoggedIn = !!user || (isTestMode && isTestLoggedIn)
+   * - useAuth()는 Firebase Auth 상태를 관리
    * - isLoading은 Firebase Auth 초기화 상태를 나타냄 (초기화 중에는 로그인 여부 판단 불가)
    *
    * Sidebar도 동일하게 useAuth()를 사용하므로 일관성 유지
    */
-  const { isLoggedIn, isLoading: isAuthLoading, isTestMode } = useAuth();
+  const { isLoggedIn, isLoading: isAuthLoading } = useAuth();
 
   // 디버그 로그: 인증 상태 확인
   useEffect(() => {
     console.log('[AlertsPage] 인증 상태:', {
       isLoggedIn,
       isAuthLoading,
-      isTestMode,
     });
-  }, [isLoggedIn, isAuthLoading, isTestMode]);
+  }, [isLoggedIn, isAuthLoading]);
 
   // 알림 데이터 및 액션
   const { alerts, isLoading: isAlertsLoading, error, toggleAlert, deleteAlert, refetch } = useAlerts();

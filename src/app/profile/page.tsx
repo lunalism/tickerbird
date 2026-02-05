@@ -34,7 +34,7 @@ export default function ProfilePage() {
   const [activeMenu, setActiveMenu] = useState('profile');
 
   // 전역 인증 상태 사용 (Firebase Auth)
-  const { user, userProfile: authProfile, isLoading, isLoggedIn, isTestMode, isProfileLoading, signOut, updateAvatarId } = useAuth();
+  const { user, userProfile: authProfile, isLoading, isLoggedIn, isProfileLoading, signOut, updateAvatarId } = useAuth();
 
   // 로컬 상태
   const [settings, setSettings] = useState<UserSettings>(defaultUserSettings);
@@ -51,17 +51,6 @@ export default function ProfilePage() {
 
   // 가입일과 활동 통계 가져오기
   useEffect(() => {
-    // 테스트 모드에서는 Firestore 쿼리 스킵
-    if (isTestMode) {
-      setJoinDate('테스트 모드');
-      setActivitySummary({
-        posts: 3,
-        comments: 5,
-        watchlist: 2,
-      });
-      return;
-    }
-
     if (authProfile?.id) {
       const fetchUserData = async () => {
         // 1. Firebase에서 가입일 가져오기 (Firestore users 컬렉션)
@@ -125,7 +114,7 @@ export default function ProfilePage() {
       };
       fetchUserData();
     }
-  }, [authProfile?.id, user, isTestMode]);
+  }, [authProfile?.id, user]);
 
   // UI용 프로필 데이터 생성
   // nickname을 최우선으로 사용, 없으면 displayName 사용
@@ -206,11 +195,6 @@ export default function ProfilePage() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">프로필</h1>
-                {isTestMode && (
-                  <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-xs font-medium rounded-full">
-                    테스트 모드
-                  </span>
-                )}
               </div>
               <p className="text-gray-500 dark:text-gray-400 text-sm">계정 정보와 설정을 관리하세요</p>
             </div>
@@ -302,7 +286,6 @@ export default function ProfilePage() {
           userId={authProfile.id}
           currentAvatarId={authProfile.avatarId}
           onSave={handleAvatarSave}
-          isTestMode={isTestMode}
         />
       )}
     </div>

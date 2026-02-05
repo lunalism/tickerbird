@@ -39,8 +39,6 @@ interface UserAvatarProps {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   /** 추가 CSS 클래스 */
   className?: string;
-  /** 테스트 모드 여부 (테스트 모드 배지 표시) */
-  isTestMode?: boolean;
   /** 클릭 핸들러 */
   onClick?: () => void;
 }
@@ -82,7 +80,6 @@ export function UserAvatar({
   name = '사용자',
   size = 'md',
   className = '',
-  isTestMode = false,
   onClick,
 }: UserAvatarProps) {
   // 크기 스타일 가져오기
@@ -121,12 +118,6 @@ export function UserAvatar({
           className="w-full h-full object-cover rounded-full"
           priority={size === 'xl' || size === 'lg'}
         />
-        {/* 테스트 모드 배지 (xs, sm 크기에서만) */}
-        {isTestMode && (size === 'xs' || size === 'sm') && (
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
-            <span className="text-white text-[8px] font-bold">T</span>
-          </div>
-        )}
       </div>
     );
   }
@@ -140,12 +131,6 @@ export function UserAvatar({
           alt={`${name} 프로필`}
           className="w-full h-full object-cover rounded-full"
         />
-        {/* 테스트 모드 배지 */}
-        {isTestMode && (size === 'xs' || size === 'sm') && (
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
-            <span className="text-white text-[8px] font-bold">T</span>
-          </div>
-        )}
       </div>
     );
   }
@@ -156,10 +141,7 @@ export function UserAvatar({
       className={`
         relative
         ${containerClasses}
-        ${isTestMode
-          ? 'bg-gradient-to-br from-orange-500 to-orange-600'
-          : 'bg-gradient-to-br from-blue-500 to-blue-600'
-        }
+        bg-gradient-to-br from-blue-500 to-blue-600
         flex items-center justify-center
       `}
       onClick={onClick}
@@ -167,12 +149,6 @@ export function UserAvatar({
       <span className={`text-white font-bold ${sizeStyle.text}`}>
         {initial}
       </span>
-      {/* 테스트 모드 배지 */}
-      {isTestMode && (size === 'xs' || size === 'sm') && (
-        <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
-          <span className="text-white text-[8px] font-bold">T</span>
-        </div>
-      )}
     </div>
   );
 }

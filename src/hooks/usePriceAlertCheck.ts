@@ -13,7 +13,7 @@
  * 3. 이미 발동된 알림은 재발동하지 않음
  *
  * 사용 조건:
- * - 로그인 상태일 때만 동작 (테스트 모드 포함)
+ * - 로그인 상태일 때만 동작
  * - 비로그인 시 아무 동작도 하지 않음
  *
  * @example
@@ -113,20 +113,18 @@ export function usePriceAlertCheck(): UsePriceAlertCheckReturn {
    * 인증 상태 - useAuth() 훅 사용
    *
    * useAuthStore 대신 useAuth()를 사용하는 이유:
-   * - useAuth()는 Firebase Auth 상태와 테스트 모드를 모두 고려
-   * - isLoggedIn = !!user || (isTestMode && isTestLoggedIn)
+   * - useAuth()는 Firebase Auth 상태를 관리
    * - Sidebar와 동일한 방식으로 로그인 상태 체크
    */
-  const { isLoggedIn, isTestMode, isLoading: isAuthLoading } = useAuth();
+  const { isLoggedIn, isLoading: isAuthLoading } = useAuth();
 
   // 디버그 로그: 인증 상태 확인
   useEffect(() => {
     debug.log('[usePriceAlertCheck] 인증 상태:', {
       isLoggedIn,
       isAuthLoading,
-      isTestMode,
     });
-  }, [isLoggedIn, isAuthLoading, isTestMode]);
+  }, [isLoggedIn, isAuthLoading]);
 
   // 알림 목록 조회 (이미 발동된 알림 제외됨)
   const { alerts, refetch } = useAlerts();
@@ -195,12 +193,6 @@ export function usePriceAlertCheck(): UsePriceAlertCheckReturn {
    * @param alertId 알림 ID
    */
   const triggerAlertInFirestore = useCallback(async (alertId: string) => {
-    // 테스트 모드에서는 Firestore 업데이트 스킵
-    if (isTestMode) {
-      debug.log('[PriceAlertCheck] 테스트 모드 - Firestore 업데이트 스킵:', alertId);
-      return;
-    }
-
     try {
       // Firestore price_alerts/{alertId} 문서 업데이트
       const alertDocRef = doc(db, 'price_alerts', alertId);
@@ -214,7 +206,7 @@ export function usePriceAlertCheck(): UsePriceAlertCheckReturn {
       console.error('[PriceAlertCheck] ❌ Firestore 업데이트 실패:', alertId, err);
       // 에러가 발생해도 토스트는 이미 표시됐으므로 계속 진행
     }
-  }, [isTestMode]);
+  }, []);
 
   /**
    * 단일 알림의 발동 조건 체크

@@ -16,7 +16,6 @@
  * 표시 조건:
  * - isLoggedIn === true (로그인 상태)
  * - needsOnboarding === true (온보딩 필요)
- * - isTestMode === false (테스트 모드 아님)
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -64,7 +63,6 @@ export function OnboardingModal() {
     userProfile,
     isLoggedIn,
     needsOnboarding,
-    isTestMode,
     completeOnboarding,
   } = useAuth();
 
@@ -176,9 +174,8 @@ export function OnboardingModal() {
 
   // 온보딩이 필요 없으면 렌더링하지 않음
   // - 로그인 안됨
-  // - 테스트 모드 (테스트 유저는 이미 닉네임 있음)
   // - 온보딩 완료됨
-  if (!isLoggedIn || isTestMode || !needsOnboarding) {
+  if (!isLoggedIn || !needsOnboarding) {
     return null;
   }
 

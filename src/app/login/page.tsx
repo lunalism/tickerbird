@@ -5,7 +5,6 @@
  *
  * Firebase Auth를 사용한 사용자 인증 페이지
  * - Google OAuth 로그인 (Firebase signInWithPopup)
- * - 테스트 모드 로그인 (개발용 - 일단 유지)
  *
  * 로그인 후 리다이렉트:
  * - 신규 사용자 (닉네임 없음) → /onboarding
@@ -15,7 +14,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
-import { useAuthStore } from '@/stores';
 import { Sidebar, BottomNav } from '@/components/layout';
 
 export default function LoginPage() {
@@ -30,9 +28,6 @@ export default function LoginPage() {
     needsOnboarding,
     signInWithGoogle,
   } = useAuth();
-
-  // Zustand 스토어 (테스트 모드용 - 일단 유지)
-  const { isTestMode, testLogin, testLogout } = useAuthStore();
 
   // 로딩 상태 (Google 로그인 버튼 클릭 후)
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -111,29 +106,6 @@ export default function LoginPage() {
     }
   };
 
-  /**
-   * 테스트 모드 토글 핸들러 (개발용 - 일단 유지)
-   *
-   * 실제 Firebase 인증 없이 테스트용 로그인/로그아웃
-   */
-  const handleTestLogin = () => {
-    setError(null);
-
-    if (isTestMode) {
-      // 테스트 로그아웃
-      testLogout();
-    } else {
-      // 테스트 로그인
-      testLogin({
-        id: 'test-user-id',
-        email: 'test@tickerbird.dev',
-        name: '테스트 사용자',
-      });
-      // 메인 페이지로 이동
-      router.push('/');
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-900">
       {/* Sidebar - hidden on mobile */}
@@ -205,42 +177,6 @@ export default function LoginPage() {
                 </p>
               </div>
             )}
-
-            {/* Test Mode Toggle (개발용 - 일단 유지) */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">테스트 모드</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    개발용 로그인 테스트
-                  </p>
-                </div>
-                <button
-                  onClick={handleTestLogin}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    isTestMode ? 'bg-blue-600 dark:bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      isTestMode ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {/* 테스트 모드 로그인 상태 표시 */}
-              {isTestMode && (
-                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                  <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    테스트 모드로 로그인됨
-                  </p>
-                </div>
-              )}
-            </div>
 
             {/* Terms */}
             <p className="text-center text-xs text-gray-400 dark:text-gray-500">

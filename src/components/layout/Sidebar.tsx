@@ -47,7 +47,7 @@ export function Sidebar({ activeMenu, onMenuChange }: SidebarProps) {
   const [mounted, setMounted] = useState(false);
 
   // 전역 인증 상태 사용 (자체 세션 체크 없음)
-  const { userProfile, isLoading, isLoggedIn, isTestMode, isProfileLoading } = useAuth();
+  const { userProfile, isLoading, isLoggedIn, isProfileLoading } = useAuth();
 
   // 관리자 권한 확인
   const { isAdmin } = useAdmin();
@@ -240,7 +240,7 @@ export function Sidebar({ activeMenu, onMenuChange }: SidebarProps) {
           <Link
             href="/profile"
             className="group relative w-full h-12 rounded-xl flex items-center hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
-            title={isTestMode ? `${userName} (테스트 모드)` : userName}
+            title={userName}
           >
             <div className="w-12 h-12 flex items-center justify-center flex-shrink-0 relative">
               {/* UserAvatar 컴포넌트 사용 - avatarId > avatarUrl > 이니셜 우선순위 */}
@@ -249,20 +249,15 @@ export function Sidebar({ activeMenu, onMenuChange }: SidebarProps) {
                 photoURL={userAvatar}
                 name={userName}
                 size="sm"
-                isTestMode={isTestMode}
               />
             </div>
             <div className="hidden lg:flex lg:flex-col lg:items-start lg:justify-center">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate max-w-[120px]">
                 {userName}
               </span>
-              {/* 테스트 모드 표시 (데스크톱) */}
-              {isTestMode && (
-                <span className="text-[10px] text-orange-500 font-medium">테스트 모드</span>
-              )}
             </div>
             <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap lg:hidden z-50">
-              {userName}{isTestMode ? ' (테스트)' : ''}
+              {userName}
             </div>
           </Link>
         ) : (

@@ -73,7 +73,7 @@ interface StockPriceResponse {
  */
 export function PriceAlertProvider({ children }: PriceAlertProviderProps) {
   // === 인증 상태 ===
-  const { isLoggedIn, isLoading: isAuthLoading, isTestMode, userProfile } = useAuth();
+  const { isLoggedIn, isLoading: isAuthLoading, userProfile } = useAuth();
 
   // === 알림 목록 ===
   const { alerts, refetch: refetchAlerts } = useAlerts();
@@ -143,11 +143,6 @@ export function PriceAlertProvider({ children }: PriceAlertProviderProps) {
    * @param alertId 알림 ID
    */
   const triggerAlertInFirestore = useCallback(async (alertId: string) => {
-    // 테스트 모드에서는 Firestore 업데이트 스킵
-    if (isTestMode) {
-      return;
-    }
-
     try {
       const alertDocRef = doc(db, 'price_alerts', alertId);
       await updateDoc(alertDocRef, {
@@ -158,7 +153,7 @@ export function PriceAlertProvider({ children }: PriceAlertProviderProps) {
       // 에러 발생해도 조용히 실패 (토스트는 이미 표시됨)
       console.error('[PriceAlertProvider] ❌ Firestore 업데이트 실패:', alertId, err);
     }
-  }, [isTestMode]);
+  }, []);
 
   /**
    * 단일 종목 시세 조회

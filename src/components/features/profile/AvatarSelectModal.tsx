@@ -35,8 +35,6 @@ interface AvatarSelectModalProps {
   currentAvatarId?: string | null;
   /** 저장 완료 콜백 (선택적) - 새 avatarId 전달 */
   onSave?: (avatarId: string) => void;
-  /** 테스트 모드 여부 */
-  isTestMode?: boolean;
 }
 
 export function AvatarSelectModal({
@@ -45,7 +43,6 @@ export function AvatarSelectModal({
   userId,
   currentAvatarId,
   onSave,
-  isTestMode = false,
 }: AvatarSelectModalProps) {
   // ========================================
   // 상태 관리
@@ -97,14 +94,6 @@ export function AvatarSelectModal({
     setIsSaving(true);
 
     try {
-      // 테스트 모드에서는 Firestore 저장 스킵
-      if (isTestMode) {
-        showSuccess('아바타가 변경되었습니다');
-        onSave?.(selectedId);
-        onClose();
-        return;
-      }
-
       // Firestore users/{uid} 문서 업데이트
       const userDocRef = doc(db, 'users', userId);
       await setDoc(userDocRef, {

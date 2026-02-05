@@ -7,7 +7,6 @@
  * 주요 기능:
  * - 로그인/로그아웃 상태 관리
  * - Supabase 사용자 ID 저장 (DB 연동용)
- * - 테스트 모드 로그인 지원
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -35,8 +34,6 @@ interface AuthState {
   isLoggedIn: boolean;
   // 현재 로그인한 사용자 정보 (null이면 비로그인)
   user: User | null;
-  // 테스트 모드 여부 (개발용)
-  isTestMode: boolean;
   // 사용자 이름 (하위 호환성)
   userName: string;
 
@@ -53,23 +50,6 @@ interface AuthState {
    * 사용자 정보 초기화 및 로그인 상태 false로 변경
    */
   logout: () => void;
-
-  /**
-   * 테스트 모드 토글
-   * 테스트 로그인/로그아웃 시 사용
-   */
-  toggleTestMode: () => void;
-
-  /**
-   * 테스트 모드로 로그인
-   * 실제 Supabase 인증 후 이 함수 호출
-   */
-  testLogin: (user: User) => void;
-
-  /**
-   * 테스트 모드 로그아웃
-   */
-  testLogout: () => void;
 
   // === 하위 호환성 함수들 (기존 코드용) ===
   login: () => void;
@@ -88,17 +68,15 @@ export const useAuthStore = create<AuthState>()(
       // 초기 상태
       isLoggedIn: false,
       user: null,
-      isTestMode: false,
       // 사용자 이름 (하위 호환성 - user.name과 동기화됨)
       userName: '사용자',
 
-      // 사용자 설정 (로그인 시) - 실제 세션이므로 테스트 모드 해제
+      // 사용자 설정 (로그인 시)
       setUser: (user: User) => {
         set({
           isLoggedIn: true,
           user,
           userName: user.name,
-          isTestMode: false,
         });
       },
 
@@ -107,29 +85,6 @@ export const useAuthStore = create<AuthState>()(
         set({
           isLoggedIn: false,
           user: null,
-          isTestMode: false,
-          userName: '사용자',
-        }),
-
-      // 테스트 모드 토글 (UI용)
-      toggleTestMode: () =>
-        set((state) => ({ isTestMode: !state.isTestMode })),
-
-      // 테스트 로그인
-      testLogin: (user: User) =>
-        set({
-          isLoggedIn: true,
-          user,
-          isTestMode: true,
-          userName: user.name,
-        }),
-
-      // 테스트 로그아웃
-      testLogout: () =>
-        set({
-          isLoggedIn: false,
-          user: null,
-          isTestMode: false,
           userName: '사용자',
         }),
 
@@ -150,7 +105,6 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         isLoggedIn: state.isLoggedIn,
         user: state.user,
-        isTestMode: state.isTestMode,
       }),
     }
   )

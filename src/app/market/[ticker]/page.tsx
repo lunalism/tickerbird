@@ -310,21 +310,19 @@ function KoreanAssetDetailPage({ ticker }: { ticker: string }) {
    * 인증 상태 - useAuth() 훅 사용
    *
    * useAuthStore 대신 useAuth()를 사용하는 이유:
-   * - useAuth()는 Firebase Auth 상태와 테스트 모드를 모두 고려하여 isLoggedIn 계산
-   * - isLoggedIn = !!user || (isTestMode && isTestLoggedIn)
+   * - useAuth()는 Firebase Auth 상태를 관리
    * - Sidebar와 동일한 방식으로 로그인 상태 체크
    */
-  const { isLoggedIn, isLoading: isAuthLoading, isTestMode } = useAuth();
+  const { isLoggedIn, isLoading: isAuthLoading } = useAuth();
 
   // 디버그 로그: 인증 상태 확인
   useEffect(() => {
     debug.log('[KoreanAssetDetailPage] 인증 상태:', {
       isLoggedIn,
       isAuthLoading,
-      isTestMode,
       ticker,
     });
-  }, [isLoggedIn, isAuthLoading, isTestMode, ticker]);
+  }, [isLoggedIn, isAuthLoading, ticker]);
 
   // 알림 관리 - 삭제와 새로고침 함수도 가져오기
   const { hasAlertForTicker, getAlertsForTicker, refetch: refetchAlerts } = useAlerts();
@@ -867,21 +865,19 @@ function USAssetDetailPage({ ticker }: { ticker: string }) {
    * 인증 상태 - useAuth() 훅 사용
    *
    * useAuthStore 대신 useAuth()를 사용하는 이유:
-   * - useAuth()는 Firebase Auth 상태와 테스트 모드를 모두 고려하여 isLoggedIn 계산
-   * - isLoggedIn = !!user || (isTestMode && isTestLoggedIn)
+   * - useAuth()는 Firebase Auth 상태를 관리
    * - Sidebar와 동일한 방식으로 로그인 상태 체크
    */
-  const { isLoggedIn, isLoading: isAuthLoading, isTestMode } = useAuth();
+  const { isLoggedIn, isLoading: isAuthLoading } = useAuth();
 
   // 디버그 로그: 인증 상태 확인
   useEffect(() => {
     debug.log('[USAssetDetailPage] 인증 상태:', {
       isLoggedIn,
       isAuthLoading,
-      isTestMode,
       ticker,
     });
-  }, [isLoggedIn, isAuthLoading, isTestMode, ticker]);
+  }, [isLoggedIn, isAuthLoading, ticker]);
 
   // 알림 관리 - 삭제와 새로고침 함수도 가져오기
   const { hasAlertForTicker, getAlertsForTicker, refetch: refetchAlerts } = useAlerts();
