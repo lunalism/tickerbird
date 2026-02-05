@@ -4,7 +4,6 @@
  * 크롤링 뉴스 상세 페이지 (모바일용)
  *
  * 모바일에서 크롤링된 뉴스 클릭 시 이동하는 전체 화면 페이지입니다.
- * AI 재작성 콘텐츠를 표시합니다.
  *
  * ============================================================
  * 라우트: /news/crawled/[id]
@@ -12,12 +11,18 @@
  * - id: 뉴스 고유 ID (URL 인코딩됨)
  *
  * ============================================================
+ * 요금제별 동작:
+ * ============================================================
+ * - 프리미엄 사용자: AI 재작성 콘텐츠 표시
+ * - 무료 사용자: 뉴스 기본 정보 + 원문 링크 표시 (AI 재작성 X)
+ *
+ * ============================================================
  * 기능:
  * ============================================================
  * - 뉴스 ID로 API에서 원본 정보 조회
- * - AI 재작성 API 호출
+ * - 프리미엄 사용자만 AI 재작성 API 호출
  * - NewsContent 공통 컴포넌트로 렌더링
- * - 뒤로가기 버튼
+ * - 뒤로가기 버튼 (router.back())
  */
 
 import { useState, useEffect, use } from 'react';
@@ -25,6 +30,7 @@ import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { NewsContent } from '@/components/news';
+import { useAuth } from '@/components/providers/AuthProvider';
 import { RewrittenNewsContent, RewriteNewsResponse } from '@/types/rewritten-news';
 import { CrawledNewsItem, CrawledNewsResponse } from '@/types/crawled-news';
 
@@ -40,6 +46,9 @@ export default function CrawledNewsDetailPage({
   const { id } = use(params);
   const router = useRouter();
 
+  // 프리미엄 사용자 여부 확인
+  const { isPremium } = useAuth();
+
   // 디코딩된 뉴스 ID
   const newsId = decodeURIComponent(id);
 
@@ -53,7 +62,7 @@ export default function CrawledNewsDetailPage({
     description: string | null;
   } | null>(null);
 
-  // AI 재작성 콘텐츠 상태
+  // AI 재작성 콘텐츠 상태 (프리미엄 사용자만 사용)
   const [rewrittenContent, setRewrittenContent] = useState<RewrittenNewsContent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +70,19 @@ export default function CrawledNewsDetailPage({
   // ========================================
   // 뉴스 정보 및 AI 재작성 로드
   // ========================================
+  /**
+   * 뉴스 정보를 로드하고 프리미엄 사용자에게만 AI 재작성을 제공합니다.
+   *
+   * [무료 사용자]
+   * - 뉴스 기본 정보만 로드
+   * - AI 재작성 API 호출하지 않음
+   * - 원문 링크 제공
+   *
+   * [프리미엄 사용자]
+   * - 뉴스 기본 정보 로드
+   * - AI 재작성 API 호출
+   * - AI 분석 결과 표시
+   */
   useEffect(() => {
     const loadNews = async () => {
       setIsLoading(true);
@@ -103,7 +125,16 @@ export default function CrawledNewsDetailPage({
           description: foundNews.description,
         });
 
-        // 2. AI 재작성 API 호출
+        // ========================================
+        // 프리미엄 사용자만 AI 재작성 API 호출
+        // ========================================
+        // 무료 사용자는 기본 뉴스 정보만 표시하고 원문 링크 제공
+        if (!isPremium) {
+          setIsLoading(false);
+          return;
+        }
+
+        // 2. AI 재작성 API 호출 (프리미엄 사용자만)
         const rewriteRes = await fetch('/api/news/rewrite', {
           method: 'POST',
           headers: {
@@ -140,7 +171,7 @@ export default function CrawledNewsDetailPage({
     };
 
     loadNews();
-  }, [newsId]);
+  }, [newsId, isPremium]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -176,6 +207,7 @@ export default function CrawledNewsDetailPage({
                 isLoading={isLoading}
                 error={error}
                 thumbnailUrl={newsInfo.thumbnail}
+                description={newsInfo.description}
               />
             ) : isLoading ? (
               // 초기 로딩 상태

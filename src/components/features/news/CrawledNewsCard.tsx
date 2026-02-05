@@ -95,9 +95,17 @@ function getCategoryIcon(category: CrawledNewsCategory): string {
 
 /**
  * 768px 기준으로 모바일인지 확인합니다.
+ *
+ * 클릭 시점의 화면 너비를 기준으로 판단합니다.
+ * - 768px 미만: 모바일 (페이지 이동 방식)
+ * - 768px 이상: 데스크톱/태블릿 (모달 방식)
+ *
+ * @returns 모바일 여부 (true: 모바일, false: 데스크톱/태블릿)
  */
-function useIsMobile(): boolean {
+function checkIsMobile(): boolean {
+  // 서버 사이드 렌더링 시에는 기본적으로 false 반환
   if (typeof window === "undefined") return false;
+  // 768px 기준으로 모바일 판단 (md 브레이크포인트)
   return window.innerWidth < 768;
 }
 
@@ -126,29 +134,52 @@ export function CrawledNewsCard({ news }: CrawledNewsCardProps) {
   // ========================================
   // 뉴스 클릭 핸들러
   // ========================================
+  /**
+   * 뉴스 카드 클릭 시 동작을 처리합니다.
+   *
+   * ============================================================
+   * 디바이스별 동작 분기:
+   * ============================================================
+   *
+   * [모바일 (화면 너비 < 768px)]
+   * - 프리미엄 사용자: /news/crawled/[id] 페이지로 이동 (AI 재작성)
+   * - 무료 사용자: /news/crawled/[id] 페이지로 이동 (원문 표시)
+   * - 새 탭 열기 방식은 모바일 UX에 적합하지 않으므로 페이지 이동 방식 사용
+   *
+   * [데스크톱/태블릿 (화면 너비 >= 768px)]
+   * - 프리미엄 사용자: 모달로 AI 재작성 콘텐츠 표시
+   * - 무료 사용자: 새 탭에서 원문 열기
+   */
   const handleNewsClick = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
 
-      // 디버그: 요금제 상태 확인
-      console.log('[CrawledNewsCard] isPremium:', isPremium);
+      // 클릭 시점의 화면 너비로 모바일 여부 판단
+      const isMobile = checkIsMobile();
 
-      // 무료 사용자: 원문 링크로 이동
+      // ========================================
+      // 모바일: 페이지 이동 방식 (새 탭 열기 X)
+      // ========================================
+      if (isMobile) {
+        // 모바일에서는 요금제와 관계없이 뉴스 상세 페이지로 이동
+        // - 프리미엄: AI 재작성 콘텐츠 표시
+        // - 무료: 원문 정보 표시 (추후 원문 링크 제공)
+        router.push(`/news/crawled/${encodeURIComponent(news.id)}`);
+        return;
+      }
+
+      // ========================================
+      // 데스크톱/태블릿: 기존 방식 유지
+      // ========================================
+
+      // 무료 사용자: 새 탭에서 원문 열기
       if (!isPremium) {
-        console.log('[CrawledNewsCard] 무료 사용자 - 원문으로 이동:', news.url);
         window.open(news.url, "_blank", "noopener,noreferrer");
         return;
       }
 
-      // 프리미엄 사용자: AI 재작성 콘텐츠 표시
-      // 768px 기준으로 분기
-      if (useIsMobile()) {
-        // 모바일: 페이지로 이동
-        router.push(`/news/crawled/${encodeURIComponent(news.id)}`);
-      } else {
-        // 데스크톱: 모달 오픈
-        setIsModalOpen(true);
-      }
+      // 프리미엄 사용자: 모달로 AI 재작성 콘텐츠 표시
+      setIsModalOpen(true);
     },
     [router, news.id, news.url, isPremium]
   );

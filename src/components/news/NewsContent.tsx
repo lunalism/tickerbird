@@ -40,6 +40,8 @@ interface NewsContentProps {
   error?: string | null;
   /** 썸네일 이미지 URL */
   thumbnailUrl?: string | null;
+  /** 뉴스 요약/설명 (원본) - 무료 사용자에게 표시 */
+  description?: string | null;
 }
 
 // ============================================
@@ -102,6 +104,7 @@ export function NewsContent({
   isLoading,
   error,
   thumbnailUrl,
+  description,
 }: NewsContentProps) {
   // 사용자 폰트 크기 설정
   const { titleSize, bodySize } = useFontSizeStore();
@@ -171,7 +174,9 @@ export function NewsContent({
             </a>
           </div>
         ) : rewrittenContent ? (
-          // AI 재작성 콘텐츠
+          // ========================================
+          // AI 재작성 콘텐츠 (프리미엄 사용자)
+          // ========================================
           <div className="space-y-6">
             {/* 투자 심리 배지 */}
             <div className="flex items-center gap-3">
@@ -243,6 +248,40 @@ export function NewsContent({
                 </div>
               </div>
             )}
+          </div>
+        ) : description ? (
+          // ========================================
+          // 기본 뉴스 정보 (무료 사용자 또는 AI 재작성 전)
+          // ========================================
+          <div className="space-y-6">
+            {/* 요약문 표시 */}
+            <div>
+              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                <span>📰</span>
+                <span>뉴스 요약</span>
+              </h2>
+              <p className={`${FONT_SIZE_MAP.article.body[bodySize]} text-gray-700 dark:text-gray-300 leading-relaxed`}>
+                {description}
+              </p>
+            </div>
+
+            {/* 원문 보기 유도 메시지 */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                전체 내용은 원문에서 확인하세요.
+              </p>
+              <a
+                href={originalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              >
+                <span>원문 보기</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            </div>
           </div>
         ) : null}
       </div>
