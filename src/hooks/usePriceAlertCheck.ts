@@ -3,18 +3,33 @@
  *
  * 현재 시세와 설정된 가격 알림을 비교하여 조건 충족 시 알림을 발동합니다.
  *
+ * ============================================================
  * 발동 조건:
+ * ============================================================
  * - direction='above' && 현재가 >= targetPrice → 발동 (목표가 이상 도달)
  * - direction='below' && 현재가 <= targetPrice → 발동 (목표가 이하 도달)
  *
+ * ============================================================
  * 발동 시 동작:
+ * ============================================================
  * 1. sonner 토스트 알림 표시 (🔔 아이콘)
- * 2. Firestore에서 isTriggered = true, triggeredAt 업데이트
- * 3. 이미 발동된 알림은 재발동하지 않음
+ * 2. 브라우저 푸시 알림 표시 (프리미엄 사용자 + 권한 허용 시)
+ * 3. Firestore에서 isTriggered = true, triggeredAt 업데이트
+ * 4. 이미 발동된 알림은 재발동하지 않음
  *
+ * ============================================================
  * 사용 조건:
+ * ============================================================
  * - 로그인 상태일 때만 동작
  * - 비로그인 시 아무 동작도 하지 않음
+ *
+ * ============================================================
+ * 브라우저 푸시 알림 (Notification API):
+ * ============================================================
+ * - 프리미엄 사용자가 푸시 알림을 활성화한 경우에만 표시
+ * - 사이트가 열려 있는 동안 가격 조건 충족 시 즉시 알림
+ * - Vercel Hobby 플랜에서는 백그라운드 Cron이 제한적이므로
+ *   클라이언트 사이드에서 직접 브라우저 알림을 트리거
  *
  * @example
  * ```tsx
@@ -36,7 +51,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { debug } from '@/lib/debug';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -109,6 +124,9 @@ export function usePriceAlertCheck(): UsePriceAlertCheckReturn {
   // useRef를 사용하여 리렌더링 없이 값 유지
   const triggeredAlertIds = useRef<Set<string>>(new Set());
 
+  // 푸시 알림 활성화 여부 캐시 (Firestore 조회 최소화)
+  const pushEnabledCache = useRef<{ enabled: boolean; checkedAt: number } | null>(null);
+
   /**
    * 인증 상태 - useAuth() 훅 사용
    *
@@ -116,7 +134,7 @@ export function usePriceAlertCheck(): UsePriceAlertCheckReturn {
    * - useAuth()는 Firebase Auth 상태를 관리
    * - Sidebar와 동일한 방식으로 로그인 상태 체크
    */
-  const { isLoggedIn, isLoading: isAuthLoading } = useAuth();
+  const { user, isLoggedIn, isLoading: isAuthLoading, isPremium } = useAuth();
 
   // 디버그 로그: 인증 상태 확인
   useEffect(() => {
@@ -183,6 +201,113 @@ export function usePriceAlertCheck(): UsePriceAlertCheckReturn {
       },
     });
   }, [formatPrice, router]);
+
+  /**
+   * 푸시 알림 활성화 여부 확인
+   *
+   * Firestore에서 사용자의 푸시 알림 설정을 조회합니다.
+   * 성능 최적화를 위해 5분간 캐시됩니다.
+   *
+   * @returns 푸시 알림 활성화 여부
+   */
+  const checkPushEnabled = useCallback(async (): Promise<boolean> => {
+    // 비로그인 또는 비프리미엄 사용자는 푸시 알림 사용 불가
+    if (!user?.uid || !isPremium) {
+      return false;
+    }
+
+    // 브라우저 Notification API 지원 확인
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      return false;
+    }
+
+    // 알림 권한 확인
+    if (Notification.permission !== 'granted') {
+      return false;
+    }
+
+    // 캐시가 있고 5분 이내면 캐시 사용
+    const now = Date.now();
+    if (pushEnabledCache.current && now - pushEnabledCache.current.checkedAt < 5 * 60 * 1000) {
+      return pushEnabledCache.current.enabled;
+    }
+
+    // Firestore에서 푸시 알림 설정 조회
+    try {
+      const settingsRef = doc(db, 'users', user.uid, 'settings', 'pushNotification');
+      const settingsDoc = await getDoc(settingsRef);
+
+      const enabled = settingsDoc.exists() && settingsDoc.data()?.enabled === true;
+
+      // 캐시 업데이트
+      pushEnabledCache.current = { enabled, checkedAt: now };
+
+      return enabled;
+    } catch (error) {
+      debug.log('[PriceAlertCheck] 푸시 설정 조회 실패:', error);
+      return false;
+    }
+  }, [user?.uid, isPremium]);
+
+  /**
+   * 브라우저 푸시 알림 표시 (Notification API)
+   *
+   * 프리미엄 사용자가 푸시 알림을 활성화한 경우에만 표시됩니다.
+   * 사이트가 열려 있는 동안 조건 충족 시 브라우저 알림을 직접 표시합니다.
+   *
+   * Vercel Hobby 플랜에서는 백그라운드 Cron이 제한적이므로
+   * 클라이언트 사이드에서 직접 브라우저 알림을 트리거합니다.
+   *
+   * @param alert 발동된 알림 객체
+   * @param currentPrice 발동 당시 현재가
+   */
+  const showBrowserNotification = useCallback(async (alert: PriceAlert, currentPrice: number) => {
+    // 푸시 알림 활성화 여부 확인
+    const pushEnabled = await checkPushEnabled();
+    if (!pushEnabled) {
+      return;
+    }
+
+    // 알림 제목과 본문 구성
+    const directionText = alert.direction === 'above' ? '상승' : '하락';
+    const formattedPrice = formatPrice(currentPrice, alert.market as AlertMarket);
+    const formattedTarget = formatPrice(alert.targetPrice, alert.market as AlertMarket);
+
+    const title = `📈 ${alert.stockName} 목표가 ${directionText}!`;
+    const body = `${alert.stockName}이(가) ${formattedPrice}에 도달했습니다. (목표가: ${formattedTarget})`;
+
+    debug.log('[PriceAlertCheck] 🔔 브라우저 푸시 알림 표시:', {
+      title,
+      body,
+      ticker: alert.ticker,
+    });
+
+    try {
+      // 브라우저 Notification API로 알림 표시
+      const notification = new Notification(title, {
+        body,
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/icon-72x72.png',
+        tag: `price-alert-${alert.id}`, // 같은 알림 중복 방지
+        requireInteraction: true, // 사용자가 닫을 때까지 유지
+        data: {
+          ticker: alert.ticker,
+          market: alert.market,
+          alertId: alert.id,
+        },
+      });
+
+      // 알림 클릭 시 종목 상세 페이지로 이동
+      notification.onclick = () => {
+        const market = alert.market === 'KR' ? 'kr' : 'us';
+        window.focus();
+        router.push(`/market/${alert.ticker}?market=${market}`);
+        notification.close();
+      };
+    } catch (error) {
+      debug.log('[PriceAlertCheck] 브라우저 알림 표시 실패:', error);
+    }
+  }, [checkPushEnabled, formatPrice, router]);
 
   /**
    * Firestore에서 알림을 발동 상태로 업데이트
@@ -329,8 +454,12 @@ export function usePriceAlertCheck(): UsePriceAlertCheckReturn {
         // 세션 내 중복 발동 방지를 위해 ID 저장
         triggeredAlertIds.current.add(alert.id);
 
-        // 토스트 알림 표시
+        // 토스트 알림 표시 (사이트 내 알림)
         showAlertToast(alert, currentPrice);
+
+        // 브라우저 푸시 알림 표시 (프리미엄 사용자 + 권한 허용 시)
+        // 비동기로 처리, 에러 발생해도 계속 진행
+        showBrowserNotification(alert, currentPrice);
 
         // Firestore 업데이트 (비동기로 처리, 에러 발생해도 계속 진행)
         triggerAlertInFirestore(alert.id);
@@ -350,7 +479,7 @@ export function usePriceAlertCheck(): UsePriceAlertCheckReturn {
     } finally {
       setIsChecking(false);
     }
-  }, [isAuthLoading, isLoggedIn, alerts, checkAlertCondition, showAlertToast, triggerAlertInFirestore, refetch]);
+  }, [isAuthLoading, isLoggedIn, alerts, checkAlertCondition, showAlertToast, showBrowserNotification, triggerAlertInFirestore, refetch]);
 
   /**
    * 단일 종목의 가격 알림 체크
