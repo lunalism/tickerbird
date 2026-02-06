@@ -4,6 +4,7 @@
  * HeatmapContent 컴포넌트
  *
  * Finviz 스타일의 전체 통합 Treemap 히트맵을 표시합니다.
+ * 실시간 API 데이터를 연동하여 현재가, 등락률, 시가총액을 표시합니다.
  *
  * ============================================================
  * 핵심 기능:
@@ -12,22 +13,15 @@
  * 2. 종목명 표시 (종목 코드가 아닌 이름)
  * 3. 시가총액 기준 박스 크기 (Treemap 알고리즘)
  * 4. 등락률 기준 색상 (한국/미국 동일: 초록=상승, 빨강=하락)
- * 5. 100개+ 종목으로 빽빽하게 채우기
+ * 5. 실시간 API 데이터 연동 (KIS API)
  * 6. 호버 시 상세 툴팁 표시
  * 7. 종목 클릭 시 상세 페이지 이동
  *
  * ============================================================
- * Finviz 스타일 레이아웃:
+ * 데이터 소스:
  * ============================================================
- * ┌─────────────────────────────────────────────────────────────┐
- * │ TECHNOLOGY           │ CONSUMER CYCLICAL    │ FINANCIAL    │
- * │ ┌────────┬──────────┐│ ┌───────┬──────────┐│ ┌──────────┐ │
- * │ │삼성전자 │  NVIDIA │││ │Amazon │  Tesla   ││ │ JPMorgan │ │
- * │ │ +1.2%  │  +3.5%   │││ │ +2.1% │  -0.5%   ││ │  +0.8%   │ │
- * │ ├────────┼────┬─────┤│ ├───────┼────┬─────┤│ ├────┬─────┤ │
- * │ │SK하이닉스│AMD│Intel│││ │  HD   │MCD │ NKE ││ │Visa│ MA  │ │
- * │ └────────┴────┴─────┘│ └───────┴────┴─────┘│ └────┴─────┘ │
- * └─────────────────────────────────────────────────────────────┘
+ * - 한국 시장: /api/kis/ranking/market-cap (시가총액 순위 API)
+ * - 미국 시장: /api/kis/overseas/ranking/market-cap (해외 시가총액 순위 API)
  *
  * ============================================================
  * Finviz 색상 규칙 (한국/미국 동일):
@@ -37,26 +31,30 @@
  *   +3~5%:   #006400
  *   +2~3%:   #228B22
  *   +1~2%:   #32CD32
- *   +0~1%:   #90EE90 (연한 초록)
+ *   +0.5~1%: #5DBB5D
+ *   +0.1~0.5%: #4DAD4D
  *
  * 하락 (빨강 계열):
  *   -5% 이상: #8B0000 (가장 진한 빨강)
  *   -3~5%:   #B22222
  *   -2~3%:   #DC143C
  *   -1~2%:   #F08080
- *   -0~1%:   #FFCCCB (연한 빨강)
+ *   -0.5~1%: #E05555
+ *   -0.1~0.5%: #D04545
  *
- * 보합 (0%): #374151 (어두운 회색)
+ * 보합 (±0.1% 미만): #374151 (어두운 회색)
  */
 
 import { useMemo, useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ResponsiveTreeMap, ComputedNode } from '@nivo/treemap';
 import type { MarketRegion } from '@/types';
+import { useMarketCapRanking, useUSMarketCapRanking } from '@/hooks/useKISData';
+import type { MarketCapRankingData, OverseasMarketCapRankingData } from '@/types/kis';
 
 // ==================== 타입 정의 ====================
 
-/** 개별 종목 데이터 */
+/** 개별 종목 데이터 (API 데이터에서 변환) */
 interface StockData {
   symbol: string;        // 티커 심볼 (예: '005930', 'AAPL')
   name: string;          // 종목명 (예: '삼성전자', 'Apple')
@@ -67,7 +65,7 @@ interface StockData {
 
 /** 섹터 데이터 */
 interface SectorData {
-  name: string;          // 섹터명 (예: '반도체', 'TECHNOLOGY')
+  name: string;          // 섹터명 (예: '시가총액 TOP', 'MARKET CAP')
   stocks: StockData[];   // 섹터 내 종목들
 }
 
@@ -97,358 +95,48 @@ interface TooltipState {
   } | null;
 }
 
-// ==================== 한국 시장 섹터 데이터 (100개+ 종목) ====================
+// ==================== 한국 종목명 축약 규칙 ====================
+/**
+ * 한국 종목명 축약 맵
+ *
+ * 긴 종목명을 짧게 축약하여 히트맵 박스에 표시합니다.
+ */
+const KOREAN_NAME_ABBREVIATIONS: Record<string, string> = {
+  'LG에너지솔루션': 'LG에너지',
+  '에코프로비엠': '에코프로BM',
+  '한화에어로스페이스': '한화에어로',
+  '포스코퓨처엠': '포스코퓨처',
+  '삼성바이오로직스': '삼성바이오',
+  '셀트리온헬스케어': '셀트리온HC',
+  'SK바이오사이언스': 'SK바이오',
+  'HD한국조선해양': 'HD조선해양',
+  'HD현대중공업': 'HD현대중공업',
+  'SK이노베이션': 'SK이노베이션',
+  '카카오엔터테인먼트': '카카오엔터',
+  'YG엔터테인먼트': 'YG엔터',
+  '현대오토에버': '현대오토에버',
+  '삼성에스디에스': '삼성SDS',
+  '에스케이하이닉스': 'SK하이닉스',
+};
 
-const KOREA_SECTORS: SectorData[] = [
-  {
-    name: '반도체',
-    stocks: [
-      { symbol: '005930', name: '삼성전자', marketCap: 3500000, changePercent: 1.2, price: 58000 },
-      { symbol: '000660', name: 'SK하이닉스', marketCap: 1100000, changePercent: 2.5, price: 150000 },
-      { symbol: '402340', name: 'SK스퀘어', marketCap: 120000, changePercent: -0.8, price: 85000 },
-      { symbol: '042700', name: '한미반도체', marketCap: 95000, changePercent: 3.2, price: 128000 },
-      { symbol: '067160', name: '아프리카TV', marketCap: 15000, changePercent: 1.5, price: 95000 },
-      { symbol: '166090', name: '하나머티리얼즈', marketCap: 18000, changePercent: -1.2, price: 52000 },
-      { symbol: '036830', name: '솔브레인홀딩스', marketCap: 12000, changePercent: 0.8, price: 35000 },
-      { symbol: '058470', name: '리노공업', marketCap: 45000, changePercent: 2.1, price: 285000 },
-      { symbol: '357780', name: '솔브레인', marketCap: 28000, changePercent: -0.5, price: 265000 },
-      { symbol: '240810', name: '원익IPS', marketCap: 22000, changePercent: 1.8, price: 32000 },
-      { symbol: '039030', name: '이오테크닉스', marketCap: 35000, changePercent: -2.1, price: 180000 },
-    ],
-  },
-  {
-    name: '자동차',
-    stocks: [
-      { symbol: '005380', name: '현대차', marketCap: 450000, changePercent: 0.5, price: 210000 },
-      { symbol: '000270', name: '기아', marketCap: 380000, changePercent: 1.8, price: 95000 },
-      { symbol: '012330', name: '현대모비스', marketCap: 180000, changePercent: -1.2, price: 190000 },
-      { symbol: '018880', name: '한온시스템', marketCap: 35000, changePercent: -2.5, price: 6500 },
-      { symbol: '204320', name: '만도', marketCap: 28000, changePercent: 1.5, price: 42000 },
-      { symbol: '011210', name: '현대위아', marketCap: 22000, changePercent: 0.8, price: 52000 },
-      { symbol: '009900', name: '명신산업', marketCap: 12000, changePercent: 3.2, price: 28000 },
-      { symbol: '014680', name: '한솔케미칼', marketCap: 15000, changePercent: -0.5, price: 95000 },
-    ],
-  },
-  {
-    name: '금융',
-    stocks: [
-      { symbol: '105560', name: 'KB금융', marketCap: 280000, changePercent: 0.3, price: 68000 },
-      { symbol: '055550', name: '신한지주', marketCap: 200000, changePercent: -0.5, price: 42000 },
-      { symbol: '086790', name: '하나금융', marketCap: 150000, changePercent: 0.8, price: 52000 },
-      { symbol: '000810', name: '삼성화재', marketCap: 140000, changePercent: 1.5, price: 295000 },
-      { symbol: '316140', name: '우리금융', marketCap: 100000, changePercent: -0.2, price: 14000 },
-      { symbol: '032830', name: '삼성생명', marketCap: 120000, changePercent: 0.5, price: 85000 },
-      { symbol: '006800', name: '미래에셋증권', marketCap: 55000, changePercent: 1.2, price: 7800 },
-      { symbol: '039490', name: '키움증권', marketCap: 45000, changePercent: -1.8, price: 115000 },
-      { symbol: '024110', name: '기업은행', marketCap: 80000, changePercent: 0.5, price: 12000 },
-      { symbol: '175330', name: 'JB금융', marketCap: 25000, changePercent: 2.1, price: 12500 },
-    ],
-  },
-  {
-    name: '바이오',
-    stocks: [
-      { symbol: '207940', name: '삼성바이오', marketCap: 600000, changePercent: -2.1, price: 850000 },
-      { symbol: '068270', name: '셀트리온', marketCap: 250000, changePercent: 1.2, price: 180000 },
-      { symbol: '000100', name: '유한양행', marketCap: 80000, changePercent: 0.5, price: 120000 },
-      { symbol: '326030', name: 'SK바이오팜', marketCap: 70000, changePercent: 3.2, price: 95000 },
-      { symbol: '091990', name: '셀트리온헬스케어', marketCap: 55000, changePercent: -0.8, price: 68000 },
-      { symbol: '128940', name: '한미약품', marketCap: 45000, changePercent: 1.5, price: 295000 },
-      { symbol: '006280', name: '녹십자', marketCap: 35000, changePercent: -1.2, price: 125000 },
-      { symbol: '302440', name: 'SK바이오사이언스', marketCap: 28000, changePercent: 2.8, price: 52000 },
-      { symbol: '141080', name: '레고켐바이오', marketCap: 22000, changePercent: 4.5, price: 65000 },
-      { symbol: '145720', name: '덴티움', marketCap: 18000, changePercent: -0.5, price: 165000 },
-    ],
-  },
-  {
-    name: 'IT/인터넷',
-    stocks: [
-      { symbol: '035420', name: 'NAVER', marketCap: 350000, changePercent: -0.8, price: 215000 },
-      { symbol: '035720', name: '카카오', marketCap: 220000, changePercent: 0.3, price: 50000 },
-      { symbol: '259960', name: '크래프톤', marketCap: 150000, changePercent: 2.1, price: 320000 },
-      { symbol: '263750', name: '펄어비스', marketCap: 30000, changePercent: -1.5, price: 45000 },
-      { symbol: '036570', name: '엔씨소프트', marketCap: 85000, changePercent: -2.3, price: 185000 },
-      { symbol: '251270', name: '넷마블', marketCap: 45000, changePercent: 0.8, price: 52000 },
-      { symbol: '293490', name: '카카오게임즈', marketCap: 22000, changePercent: 1.5, price: 18000 },
-      { symbol: '112040', name: '위메이드', marketCap: 18000, changePercent: 3.8, price: 42000 },
-    ],
-  },
-  {
-    name: '2차전지',
-    stocks: [
-      { symbol: '373220', name: 'LG에너지솔루션', marketCap: 900000, changePercent: -1.5, price: 380000 },
-      { symbol: '006400', name: '삼성SDI', marketCap: 350000, changePercent: 0.8, price: 510000 },
-      { symbol: '247540', name: '에코프로비엠', marketCap: 150000, changePercent: 4.2, price: 160000 },
-      { symbol: '086520', name: '에코프로', marketCap: 100000, changePercent: 5.1, price: 75000 },
-      { symbol: '096770', name: 'SK이노베이션', marketCap: 120000, changePercent: -2.1, price: 128000 },
-      { symbol: '003670', name: '포스코퓨처엠', marketCap: 95000, changePercent: 2.5, price: 195000 },
-      { symbol: '006260', name: 'LS', marketCap: 55000, changePercent: 1.2, price: 95000 },
-      { symbol: '064350', name: '현대로템', marketCap: 45000, changePercent: 3.5, price: 42000 },
-    ],
-  },
-  {
-    name: '화학',
-    stocks: [
-      { symbol: '051910', name: 'LG화학', marketCap: 280000, changePercent: -0.5, price: 400000 },
-      { symbol: '011170', name: '롯데케미칼', marketCap: 50000, changePercent: -2.3, price: 145000 },
-      { symbol: '010950', name: 'S-Oil', marketCap: 60000, changePercent: 0.2, price: 52000 },
-      { symbol: '011780', name: '금호석유', marketCap: 35000, changePercent: 1.5, price: 128000 },
-      { symbol: '285130', name: 'SK케미칼', marketCap: 28000, changePercent: -1.2, price: 68000 },
-      { symbol: '009830', name: '한화솔루션', marketCap: 45000, changePercent: 2.1, price: 28000 },
-    ],
-  },
-  {
-    name: '철강/조선',
-    stocks: [
-      { symbol: '005490', name: 'POSCO홀딩스', marketCap: 280000, changePercent: 1.8, price: 330000 },
-      { symbol: '009540', name: 'HD한국조선', marketCap: 150000, changePercent: 3.5, price: 180000 },
-      { symbol: '010140', name: '삼성중공업', marketCap: 80000, changePercent: 2.8, price: 12000 },
-      { symbol: '042660', name: '한화오션', marketCap: 100000, changePercent: 4.2, price: 45000 },
-      { symbol: '004020', name: '현대제철', marketCap: 55000, changePercent: -0.5, price: 32000 },
-      { symbol: '001230', name: '동국제강', marketCap: 18000, changePercent: 1.2, price: 12500 },
-      { symbol: '267250', name: 'HD현대', marketCap: 85000, changePercent: 0.8, price: 72000 },
-      { symbol: '329180', name: 'HD현대중공업', marketCap: 120000, changePercent: 2.5, price: 165000 },
-    ],
-  },
-  {
-    name: '방산',
-    stocks: [
-      { symbol: '012450', name: '한화에어로스페이스', marketCap: 200000, changePercent: 2.5, price: 380000 },
-      { symbol: '079550', name: 'LIG넥스원', marketCap: 50000, changePercent: 1.8, price: 180000 },
-      { symbol: '047810', name: '한국항공우주', marketCap: 80000, changePercent: 3.2, price: 62000 },
-      { symbol: '272210', name: '한화시스템', marketCap: 55000, changePercent: 1.5, price: 18500 },
-      { symbol: '064350', name: '현대로템', marketCap: 45000, changePercent: 4.1, price: 42000 },
-      { symbol: '000880', name: '한화', marketCap: 35000, changePercent: 0.8, price: 32000 },
-    ],
-  },
-  {
-    name: '통신/유틸',
-    stocks: [
-      { symbol: '017670', name: 'SK텔레콤', marketCap: 130000, changePercent: 0.2, price: 52000 },
-      { symbol: '030200', name: 'KT', marketCap: 80000, changePercent: -0.3, price: 38000 },
-      { symbol: '032640', name: 'LG유플러스', marketCap: 50000, changePercent: 0.5, price: 11500 },
-      { symbol: '015760', name: '한국전력', marketCap: 120000, changePercent: -1.2, price: 18500 },
-      { symbol: '034730', name: 'SK', marketCap: 95000, changePercent: 0.8, price: 165000 },
-    ],
-  },
-  {
-    name: '엔터/미디어',
-    stocks: [
-      { symbol: '352820', name: '하이브', marketCap: 100000, changePercent: -2.5, price: 240000 },
-      { symbol: '035900', name: 'JYP Ent.', marketCap: 30000, changePercent: 1.2, price: 85000 },
-      { symbol: '041510', name: 'SM', marketCap: 20000, changePercent: 0.8, price: 82000 },
-      { symbol: '122870', name: 'YG엔터테인먼트', marketCap: 15000, changePercent: -1.5, price: 52000 },
-      { symbol: '357120', name: '카카오엔터', marketCap: 18000, changePercent: 2.1, price: 35000 },
-    ],
-  },
-  {
-    name: '유통/소비재',
-    stocks: [
-      { symbol: '004170', name: '신세계', marketCap: 25000, changePercent: -0.8, price: 130000 },
-      { symbol: '023530', name: '롯데쇼핑', marketCap: 15000, changePercent: -1.5, price: 80000 },
-      { symbol: '139480', name: '이마트', marketCap: 30000, changePercent: 0.3, price: 60000 },
-      { symbol: '051900', name: 'LG생활건강', marketCap: 80000, changePercent: -0.5, price: 280000 },
-      { symbol: '090430', name: '아모레퍼시픽', marketCap: 55000, changePercent: 1.2, price: 115000 },
-      { symbol: '097950', name: 'CJ제일제당', marketCap: 45000, changePercent: 0.5, price: 295000 },
-      { symbol: '069960', name: '현대백화점', marketCap: 22000, changePercent: -0.8, price: 58000 },
-      { symbol: '006800', name: '오리온', marketCap: 35000, changePercent: 1.8, price: 95000 },
-    ],
-  },
-  {
-    name: '건설',
-    stocks: [
-      { symbol: '028260', name: '삼성물산', marketCap: 250000, changePercent: 0.5, price: 165000 },
-      { symbol: '000720', name: '현대건설', marketCap: 55000, changePercent: -1.2, price: 32000 },
-      { symbol: '006360', name: 'GS건설', marketCap: 28000, changePercent: 0.8, price: 18500 },
-      { symbol: '047040', name: '대우건설', marketCap: 22000, changePercent: 1.5, price: 4200 },
-      { symbol: '000210', name: 'DL', marketCap: 18000, changePercent: -0.5, price: 52000 },
-      { symbol: '034020', name: '두산에너빌리티', marketCap: 85000, changePercent: 2.8, price: 18500 },
-    ],
-  },
-];
-
-// ==================== 미국 시장 섹터 데이터 (100개+ 종목) ====================
-
-const US_SECTORS: SectorData[] = [
-  {
-    name: 'TECHNOLOGY',
-    stocks: [
-      { symbol: 'AAPL', name: 'Apple', marketCap: 3000000, changePercent: -0.1, price: 195.5 },
-      { symbol: 'MSFT', name: 'Microsoft', marketCap: 2800000, changePercent: 1.2, price: 378.2 },
-      { symbol: 'NVDA', name: 'NVIDIA', marketCap: 1200000, changePercent: 3.5, price: 495.8 },
-      { symbol: 'AVGO', name: 'Broadcom', marketCap: 600000, changePercent: 2.1, price: 1250.3 },
-      { symbol: 'AMD', name: 'AMD', marketCap: 200000, changePercent: -1.8, price: 125.4 },
-      { symbol: 'INTC', name: 'Intel', marketCap: 100000, changePercent: -3.2, price: 24.5 },
-      { symbol: 'CRM', name: 'Salesforce', marketCap: 250000, changePercent: 0.8, price: 265.2 },
-      { symbol: 'ORCL', name: 'Oracle', marketCap: 350000, changePercent: 1.5, price: 128.4 },
-      { symbol: 'ADBE', name: 'Adobe', marketCap: 220000, changePercent: -0.5, price: 485.2 },
-      { symbol: 'CSCO', name: 'Cisco', marketCap: 180000, changePercent: 0.3, price: 45.8 },
-      { symbol: 'ACN', name: 'Accenture', marketCap: 185000, changePercent: 0.8, price: 295.4 },
-      { symbol: 'IBM', name: 'IBM', marketCap: 165000, changePercent: 1.2, price: 185.6 },
-      { symbol: 'NOW', name: 'ServiceNow', marketCap: 150000, changePercent: 2.5, price: 785.2 },
-      { symbol: 'QCOM', name: 'Qualcomm', marketCap: 145000, changePercent: -1.2, price: 125.8 },
-      { symbol: 'TXN', name: 'Texas Instruments', marketCap: 140000, changePercent: 0.5, price: 165.4 },
-    ],
-  },
-  {
-    name: 'CONSUMER CYCLICAL',
-    stocks: [
-      { symbol: 'AMZN', name: 'Amazon', marketCap: 1500000, changePercent: 0.5, price: 145.2 },
-      { symbol: 'TSLA', name: 'Tesla', marketCap: 800000, changePercent: -2.3, price: 252.8 },
-      { symbol: 'HD', name: 'Home Depot', marketCap: 350000, changePercent: 0.8, price: 345.6 },
-      { symbol: 'MCD', name: "McDonald's", marketCap: 200000, changePercent: 0.3, price: 278.4 },
-      { symbol: 'NKE', name: 'Nike', marketCap: 150000, changePercent: -1.5, price: 98.2 },
-      { symbol: 'SBUX', name: 'Starbucks', marketCap: 100000, changePercent: -0.8, price: 92.5 },
-      { symbol: 'LOW', name: "Lowe's", marketCap: 120000, changePercent: 1.2, price: 215.8 },
-      { symbol: 'TJX', name: 'TJX', marketCap: 95000, changePercent: 0.5, price: 98.5 },
-      { symbol: 'BKNG', name: 'Booking', marketCap: 110000, changePercent: 1.8, price: 3650.2 },
-      { symbol: 'CMG', name: 'Chipotle', marketCap: 75000, changePercent: 2.1, price: 2850.5 },
-    ],
-  },
-  {
-    name: 'COMMUNICATION',
-    stocks: [
-      { symbol: 'GOOGL', name: 'Alphabet', marketCap: 1800000, changePercent: 0.8, price: 142.5 },
-      { symbol: 'META', name: 'Meta', marketCap: 1000000, changePercent: 1.5, price: 395.2 },
-      { symbol: 'NFLX', name: 'Netflix', marketCap: 250000, changePercent: 2.1, price: 575.8 },
-      { symbol: 'DIS', name: 'Disney', marketCap: 180000, changePercent: -0.5, price: 98.4 },
-      { symbol: 'T', name: 'AT&T', marketCap: 120000, changePercent: 0.2, price: 16.8 },
-      { symbol: 'VZ', name: 'Verizon', marketCap: 150000, changePercent: -0.3, price: 35.6 },
-      { symbol: 'TMUS', name: 'T-Mobile', marketCap: 185000, changePercent: 0.8, price: 165.2 },
-      { symbol: 'CMCSA', name: 'Comcast', marketCap: 145000, changePercent: -0.5, price: 38.5 },
-      { symbol: 'CHTR', name: 'Charter', marketCap: 45000, changePercent: 1.2, price: 285.4 },
-      { symbol: 'SPOT', name: 'Spotify', marketCap: 55000, changePercent: 3.2, price: 285.8 },
-    ],
-  },
-  {
-    name: 'HEALTHCARE',
-    stocks: [
-      { symbol: 'LLY', name: 'Eli Lilly', marketCap: 700000, changePercent: 1.8, price: 780.5 },
-      { symbol: 'UNH', name: 'UnitedHealth', marketCap: 500000, changePercent: -0.5, price: 525.2 },
-      { symbol: 'JNJ', name: 'J&J', marketCap: 400000, changePercent: 0.3, price: 165.8 },
-      { symbol: 'PFE', name: 'Pfizer', marketCap: 150000, changePercent: -1.2, price: 26.4 },
-      { symbol: 'MRK', name: 'Merck', marketCap: 300000, changePercent: 0.8, price: 118.2 },
-      { symbol: 'ABBV', name: 'AbbVie', marketCap: 280000, changePercent: 0.5, price: 158.4 },
-      { symbol: 'TMO', name: 'Thermo Fisher', marketCap: 200000, changePercent: 1.2, price: 485.6 },
-      { symbol: 'ABT', name: 'Abbott', marketCap: 180000, changePercent: 0.3, price: 105.2 },
-      { symbol: 'DHR', name: 'Danaher', marketCap: 165000, changePercent: -0.8, price: 225.4 },
-      { symbol: 'BMY', name: 'Bristol-Myers', marketCap: 95000, changePercent: 1.5, price: 45.8 },
-      { symbol: 'AMGN', name: 'Amgen', marketCap: 145000, changePercent: -0.3, price: 265.2 },
-      { symbol: 'GILD', name: 'Gilead', marketCap: 85000, changePercent: 0.8, price: 68.5 },
-    ],
-  },
-  {
-    name: 'FINANCIAL',
-    stocks: [
-      { symbol: 'JPM', name: 'JPMorgan', marketCap: 500000, changePercent: 0.8, price: 175.2 },
-      { symbol: 'V', name: 'Visa', marketCap: 450000, changePercent: 0.5, price: 265.4 },
-      { symbol: 'MA', name: 'Mastercard', marketCap: 400000, changePercent: 0.6, price: 428.6 },
-      { symbol: 'BAC', name: 'Bank of America', marketCap: 280000, changePercent: -0.3, price: 35.8 },
-      { symbol: 'WFC', name: 'Wells Fargo', marketCap: 180000, changePercent: 0.2, price: 48.5 },
-      { symbol: 'GS', name: 'Goldman Sachs', marketCap: 150000, changePercent: 1.2, price: 458.2 },
-      { symbol: 'MS', name: 'Morgan Stanley', marketCap: 135000, changePercent: 0.8, price: 85.4 },
-      { symbol: 'AXP', name: 'Amex', marketCap: 145000, changePercent: 1.5, price: 185.6 },
-      { symbol: 'BLK', name: 'BlackRock', marketCap: 120000, changePercent: 0.5, price: 785.2 },
-      { symbol: 'C', name: 'Citigroup', marketCap: 95000, changePercent: -0.5, price: 52.4 },
-      { symbol: 'SCHW', name: 'Schwab', marketCap: 110000, changePercent: 1.8, price: 62.5 },
-      { symbol: 'SPGI', name: 'S&P Global', marketCap: 125000, changePercent: 0.8, price: 425.8 },
-    ],
-  },
-  {
-    name: 'INDUSTRIALS',
-    stocks: [
-      { symbol: 'CAT', name: 'Caterpillar', marketCap: 180000, changePercent: 0.8, price: 365.4 },
-      { symbol: 'BA', name: 'Boeing', marketCap: 120000, changePercent: -2.5, price: 195.2 },
-      { symbol: 'GE', name: 'GE Aerospace', marketCap: 180000, changePercent: 1.5, price: 165.8 },
-      { symbol: 'RTX', name: 'RTX Corp', marketCap: 150000, changePercent: 0.3, price: 112.4 },
-      { symbol: 'HON', name: 'Honeywell', marketCap: 140000, changePercent: -0.5, price: 215.6 },
-      { symbol: 'UPS', name: 'UPS', marketCap: 100000, changePercent: -1.2, price: 125.8 },
-      { symbol: 'LMT', name: 'Lockheed Martin', marketCap: 115000, changePercent: 0.8, price: 485.2 },
-      { symbol: 'DE', name: 'Deere', marketCap: 105000, changePercent: 1.2, price: 395.6 },
-      { symbol: 'UNP', name: 'Union Pacific', marketCap: 130000, changePercent: 0.5, price: 215.4 },
-      { symbol: 'ADP', name: 'ADP', marketCap: 95000, changePercent: 0.3, price: 245.8 },
-    ],
-  },
-  {
-    name: 'CONSUMER DEFENSIVE',
-    stocks: [
-      { symbol: 'WMT', name: 'Walmart', marketCap: 450000, changePercent: 0.5, price: 165.2 },
-      { symbol: 'KO', name: 'Coca-Cola', marketCap: 280000, changePercent: 0.2, price: 65.4 },
-      { symbol: 'PG', name: 'P&G', marketCap: 350000, changePercent: 0.3, price: 148.6 },
-      { symbol: 'COST', name: 'Costco', marketCap: 350000, changePercent: 0.8, price: 785.4 },
-      { symbol: 'PEP', name: 'PepsiCo', marketCap: 250000, changePercent: -0.2, price: 175.2 },
-      { symbol: 'PM', name: 'Philip Morris', marketCap: 145000, changePercent: 0.5, price: 95.8 },
-      { symbol: 'MO', name: 'Altria', marketCap: 75000, changePercent: 0.8, price: 42.5 },
-      { symbol: 'MDLZ', name: 'Mondelez', marketCap: 85000, changePercent: 0.3, price: 65.2 },
-    ],
-  },
-  {
-    name: 'ENERGY',
-    stocks: [
-      { symbol: 'XOM', name: 'Exxon Mobil', marketCap: 450000, changePercent: -0.8, price: 108.5 },
-      { symbol: 'CVX', name: 'Chevron', marketCap: 280000, changePercent: -1.2, price: 148.2 },
-      { symbol: 'COP', name: 'ConocoPhillips', marketCap: 130000, changePercent: -0.5, price: 112.4 },
-      { symbol: 'SLB', name: 'Schlumberger', marketCap: 65000, changePercent: 0.8, price: 45.2 },
-      { symbol: 'EOG', name: 'EOG Resources', marketCap: 70000, changePercent: -0.3, price: 118.5 },
-      { symbol: 'OXY', name: 'Occidental', marketCap: 45000, changePercent: 1.2, price: 52.8 },
-    ],
-  },
-  {
-    name: 'UTILITIES',
-    stocks: [
-      { symbol: 'NEE', name: 'NextEra Energy', marketCap: 145000, changePercent: 0.5, price: 72.5 },
-      { symbol: 'DUK', name: 'Duke Energy', marketCap: 75000, changePercent: 0.3, price: 98.2 },
-      { symbol: 'SO', name: 'Southern Co', marketCap: 85000, changePercent: 0.2, price: 78.5 },
-      { symbol: 'D', name: 'Dominion', marketCap: 45000, changePercent: -0.5, price: 52.4 },
-      { symbol: 'AEP', name: 'AEP', marketCap: 55000, changePercent: 0.8, price: 95.2 },
-    ],
-  },
-  {
-    name: 'REAL ESTATE',
-    stocks: [
-      { symbol: 'PLD', name: 'Prologis', marketCap: 105000, changePercent: 0.8, price: 115.4 },
-      { symbol: 'AMT', name: 'American Tower', marketCap: 85000, changePercent: -0.3, price: 185.2 },
-      { symbol: 'EQIX', name: 'Equinix', marketCap: 75000, changePercent: 1.2, price: 785.6 },
-      { symbol: 'CCI', name: 'Crown Castle', marketCap: 45000, changePercent: 0.5, price: 98.5 },
-      { symbol: 'SPG', name: 'Simon Property', marketCap: 55000, changePercent: -0.8, price: 145.2 },
-    ],
-  },
-  {
-    name: 'MATERIALS',
-    stocks: [
-      { symbol: 'LIN', name: 'Linde', marketCap: 185000, changePercent: 0.5, price: 385.4 },
-      { symbol: 'APD', name: 'Air Products', marketCap: 55000, changePercent: -0.3, price: 245.8 },
-      { symbol: 'SHW', name: 'Sherwin-Williams', marketCap: 75000, changePercent: 0.8, price: 285.6 },
-      { symbol: 'FCX', name: 'Freeport-McMoRan', marketCap: 55000, changePercent: 2.1, price: 38.5 },
-      { symbol: 'NEM', name: 'Newmont', marketCap: 45000, changePercent: 1.5, price: 42.8 },
-      { symbol: 'ECL', name: 'Ecolab', marketCap: 50000, changePercent: 0.3, price: 185.2 },
-    ],
-  },
-];
+/**
+ * 한국 종목명 축약 함수
+ */
+function abbreviateKoreanName(name: string, maxLength: number): string {
+  if (KOREAN_NAME_ABBREVIATIONS[name]) {
+    const abbreviated = KOREAN_NAME_ABBREVIATIONS[name];
+    if (abbreviated.length <= maxLength) {
+      return abbreviated;
+    }
+    return abbreviated.slice(0, maxLength);
+  }
+  return name.length > maxLength ? name.slice(0, maxLength) : name;
+}
 
 // ==================== 색상 함수 ====================
 
 /**
  * Finviz 정확한 색상 반환
- *
- * 글로벌 표준 색상 체계 (한국/미국 동일):
- *
- * 상승 (초록 계열) - 단계별 색상:
- *   +5% 이상: #003D00 (가장 진한 초록)
- *   +3~5%:   #006400 (진한 초록)
- *   +2~3%:   #228B22 (초록)
- *   +1~2%:   #32CD32 (라임그린)
- *   +0.5~1%: #7CCD7C (중간 연한 초록) ← 개선: 더 확실한 색상
- *   +0.1~0.5%: #5DBB5D (확실한 연한 초록) ← 개선: 0% 근처 명확화
- *
- * 하락 (빨강 계열) - 단계별 색상:
- *   -5% 이상: #8B0000 (가장 진한 빨강)
- *   -3~5%:   #B22222 (진한 빨강)
- *   -2~3%:   #DC143C (크림슨)
- *   -1~2%:   #F08080 (연한 빨강)
- *   -0.5~1%: #E06060 (중간 연한 빨강) ← 개선: 더 확실한 색상
- *   -0.1~0.5%: #D04040 (확실한 연한 빨강) ← 개선: 0% 근처 명확화
- *
- * 보합 (±0.1% 미만): #374151 (어두운 회색)
  *
  * @param changePercent - 등락률 (예: 1.5, -2.3)
  * @returns CSS 색상 문자열
@@ -456,27 +144,27 @@ const US_SECTORS: SectorData[] = [
 function getHeatmapColor(changePercent: number): string {
   const absChange = Math.abs(changePercent);
 
-  // ==================== 보합 (±0.1% 미만) ====================
+  // 보합 (±0.1% 미만)
   if (absChange < 0.1) {
-    return '#374151';  // 어두운 회색
+    return '#374151';
   }
 
   if (changePercent > 0) {
-    // ==================== 상승 (초록 계열) ====================
-    if (absChange >= 5) return '#003D00';  // +5% 이상: 가장 진한 초록
-    if (absChange >= 3) return '#006400';  // +3~5%: 진한 초록
-    if (absChange >= 2) return '#228B22';  // +2~3%: 초록
-    if (absChange >= 1) return '#32CD32';  // +1~2%: 라임그린
-    if (absChange >= 0.5) return '#5DBB5D'; // +0.5~1%: 확실한 연한 초록 (개선)
-    return '#4DAD4D';                        // +0.1~0.5%: 더 확실한 초록 (개선)
+    // 상승 (초록 계열)
+    if (absChange >= 5) return '#003D00';
+    if (absChange >= 3) return '#006400';
+    if (absChange >= 2) return '#228B22';
+    if (absChange >= 1) return '#32CD32';
+    if (absChange >= 0.5) return '#5DBB5D';
+    return '#4DAD4D';
   } else {
-    // ==================== 하락 (빨강 계열) ====================
-    if (absChange >= 5) return '#8B0000';  // -5% 이상: 가장 진한 빨강
-    if (absChange >= 3) return '#B22222';  // -3~5%: 진한 빨강
-    if (absChange >= 2) return '#DC143C';  // -2~3%: 크림슨
-    if (absChange >= 1) return '#F08080';  // -1~2%: 연한 빨강
-    if (absChange >= 0.5) return '#E05555'; // -0.5~1%: 확실한 연한 빨강 (개선)
-    return '#D04545';                        // -0.1~0.5%: 더 확실한 빨강 (개선)
+    // 하락 (빨강 계열)
+    if (absChange >= 5) return '#8B0000';
+    if (absChange >= 3) return '#B22222';
+    if (absChange >= 2) return '#DC143C';
+    if (absChange >= 1) return '#F08080';
+    if (absChange >= 0.5) return '#E05555';
+    return '#D04545';
   }
 }
 
@@ -485,7 +173,7 @@ function getHeatmapColor(changePercent: number): string {
 /** 등락률 포맷팅 (+1.2%, -0.5% 형식) */
 function formatPercent(value: number): string {
   const sign = value >= 0 ? '+' : '';
-  return `${sign}${value.toFixed(1)}%`;
+  return `${sign}${value.toFixed(2)}%`;
 }
 
 /** 가격 포맷팅 (한국: ₩58,000, 미국: $195.50) */
@@ -516,274 +204,73 @@ function formatMarketCap(value: number, isKorean: boolean): string {
   }
 }
 
-// ==================== 커스텀 라벨 레이어 ====================
-
-// ==================== 한국 종목명 축약 규칙 ====================
-/**
- * 한국 종목명 축약 맵
- *
- * 긴 종목명을 짧게 축약하여 히트맵 박스에 표시합니다.
- * - "LG에너지솔루션" → "LG에너지"
- * - "에코프로비엠" → "에코프로BM"
- * - "한화에어로스페이스" → "한화에어로"
- * - "포스코퓨처엠" → "포스코퓨처"
- */
-const KOREAN_NAME_ABBREVIATIONS: Record<string, string> = {
-  'LG에너지솔루션': 'LG에너지',
-  '에코프로비엠': '에코프로BM',
-  '한화에어로스페이스': '한화에어로',
-  '포스코퓨처엠': '포스코퓨처',
-  'SK하이닉스': 'SK하이닉스',
-  '삼성바이오로직스': '삼성바이오',
-  '셀트리온헬스케어': '셀트리온HC',
-  'SK바이오사이언스': 'SK바이오사이언스',
-  '현대모비스': '현대모비스',
-  'POSCO홀딩스': 'POSCO',
-  'HD한국조선해양': 'HD조선해양',
-  'HD현대중공업': 'HD현대중공업',
-  'SK이노베이션': 'SK이노베이션',
-  '삼성중공업': '삼성중공업',
-  '한온시스템': '한온시스템',
-  '레고켐바이오': '레고켐',
-  'YG엔터테인먼트': 'YG엔터',
-  '카카오엔터테인먼트': '카카오엔터',
-};
-
-/**
- * 한국 종목명 축약 함수
- *
- * @param name - 원본 종목명
- * @param maxLength - 최대 표시 길이
- * @returns 축약된 종목명
- */
-function abbreviateKoreanName(name: string, maxLength: number): string {
-  // 축약 규칙이 있으면 우선 적용
-  if (KOREAN_NAME_ABBREVIATIONS[name]) {
-    const abbreviated = KOREAN_NAME_ABBREVIATIONS[name];
-    if (abbreviated.length <= maxLength) {
-      return abbreviated;
-    }
-    // 축약된 이름도 길면 추가 자르기
-    return abbreviated.slice(0, maxLength);
-  }
-  // 기본 자르기
-  return name.length > maxLength ? name.slice(0, maxLength) : name;
-}
-
-/**
- * TreeMap 커스텀 라벨 레이어
- *
- * 2줄 레이아웃으로 종목명과 등락률을 표시합니다.
- * 박스 크기에 따라 폰트 크기와 텍스트 길이를 조절합니다.
- *
- * ============================================================
- * 레이아웃:
- * ============================================================
- * ┌─────────────┐
- * │  삼성전자    │  ← 종목명 (볼드, 흰색)
- * │   +1.2%    │  ← 등락률 (일반, 흰색/90%)
- * └─────────────┘
- *
- * ============================================================
- * 박스 크기별 표시:
- * ============================================================
- * - 150px+: 전체 종목명 + 등락률 (큰 폰트)
- * - 80~150px: 축약 종목명(5자) + 등락률 (중간 폰트)
- * - 50~80px: 축약 종목명(3자) 또는 티커 + 등락률 (작은 폰트)
- * - 50px 미만: 텍스트 없음
- *
- * ============================================================
- * 종목명 표시 규칙:
- * ============================================================
- * [한국 시장]
- * - 긴 이름은 축약 규칙 적용 (KOREAN_NAME_ABBREVIATIONS)
- * - "LG에너지솔루션" → "LG에너지"
- *
- * [미국 시장]
- * - 큰 박스: 풀네임 ("Microsoft")
- * - 작은 박스: 티커 ("MSFT")
- *
- * ============================================================
- * 섹터 라벨 (강화):
- * ============================================================
- * - 폰트 크기 12px (기존 10px에서 증가)
- * - 볼드 처리
- * - 반투명 어두운 배경으로 가독성 향상
- */
-function CustomLabelsLayer({
-  nodes,
-}: {
-  nodes: ComputedNode<TreemapNode>[];
-}) {
-  return (
-    <g>
-      {nodes.map((node) => {
-        // ==================== 섹터 라벨 (강화) ====================
-        // pathComponents: [root, sector] = length 2
-        if (node.pathComponents.length === 2) {
-          // 섹터 박스가 너무 작으면 라벨 숨김
-          if (node.width < 60 || node.height < 30) {
-            return null;
-          }
-
-          const sectorName = String(node.id);
-
-          return (
-            <g key={`sector-${node.id}`}>
-              {/* 반투명 어두운 배경 (가독성 향상) */}
-              <rect
-                x={node.x + 3}
-                y={node.y + 3}
-                width={Math.min(sectorName.length * 8 + 12, node.width - 6)}
-                height={18}
-                rx={3}
-                fill="rgba(0, 0, 0, 0.6)"
-              />
-              {/* 섹터명 텍스트 (폰트 크기 증가, 볼드) */}
-              <text
-                x={node.x + 9}
-                y={node.y + 15}
-                style={{
-                  fill: '#e5e7eb',
-                  fontSize: '12px',  // 기존 10px → 12px로 증가
-                  fontWeight: 700,   // 볼드 처리
-                  fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-                  textTransform: 'uppercase',
-                  pointerEvents: 'none',
-                }}
-              >
-                {sectorName.toUpperCase()}
-              </text>
-            </g>
-          );
-        }
-
-        // ==================== 종목 라벨 ====================
-        // pathComponents: [root, sector, stock] = length 3
-        if (node.pathComponents.length !== 3) {
-          return null;
-        }
-
-        const width = node.width;
-        const height = node.height;
-        const minDimension = Math.min(width, height);
-
-        // 50px 미만: 텍스트 없음
-        if (minDimension < 50) {
-          return null;
-        }
-
-        const fullName = node.data.name || String(node.id);
-        const symbol = node.data.symbol || String(node.id);
-        const change = node.data.change ?? 0;
-
-        // 한국 종목인지 미국 종목인지 판단 (심볼이 숫자로만 이루어져 있으면 한국)
-        const isKoreanStock = /^\d+$/.test(symbol);
-
-        // 박스 크기에 따른 종목명 길이 및 폰트 크기 결정
-        let displayName: string;
-        let nameFontSize: number;
-        let changeFontSize: number;
-
-        if (minDimension >= 150) {
-          // 큰 박스: 전체 이름 또는 8자까지
-          nameFontSize = 14;
-          changeFontSize = 12;
-          if (isKoreanStock) {
-            displayName = abbreviateKoreanName(fullName, 8);
-          } else {
-            // 미국: 풀네임 (최대 10자)
-            displayName = fullName.length > 10 ? fullName.slice(0, 10) : fullName;
-          }
-        } else if (minDimension >= 80) {
-          // 중간 박스: 5자까지 또는 티커
-          nameFontSize = 11;
-          changeFontSize = 10;
-          if (isKoreanStock) {
-            displayName = abbreviateKoreanName(fullName, 5);
-          } else {
-            // 미국: 이름이 6자 이하면 이름, 아니면 티커
-            displayName = fullName.length <= 6 ? fullName : symbol;
-          }
-        } else {
-          // 작은 박스: 3자까지 또는 티커
-          nameFontSize = 10;
-          changeFontSize = 9;
-          if (isKoreanStock) {
-            displayName = abbreviateKoreanName(fullName, 3);
-          } else {
-            // 미국: 무조건 티커
-            displayName = symbol;
-          }
-        }
-
-        // 등락률 포맷팅
-        const changeText = formatPercent(change);
-
-        // 박스 중앙 좌표
-        const centerX = node.x + width / 2;
-        const centerY = node.y + height / 2;
-
-        return (
-          <g key={node.id} transform={`translate(${centerX}, ${centerY})`}>
-            {/* 종목명 (위쪽, 볼드) */}
-            <text
-              textAnchor="middle"
-              dominantBaseline="auto"
-              dy={-changeFontSize / 2 - 1}
-              style={{
-                fill: '#ffffff',
-                fontSize: `${nameFontSize}px`,
-                fontWeight: 700,
-                fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-                pointerEvents: 'none',
-              }}
-            >
-              {displayName}
-            </text>
-            {/* 등락률 (아래쪽, 일반) */}
-            <text
-              textAnchor="middle"
-              dominantBaseline="hanging"
-              dy={nameFontSize / 2}
-              style={{
-                fill: 'rgba(255, 255, 255, 0.9)',
-                fontSize: `${changeFontSize}px`,
-                fontWeight: 500,
-                fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-                pointerEvents: 'none',
-              }}
-            >
-              {changeText}
-            </text>
-          </g>
-        );
-      })}
-    </g>
-  );
-}
-
 // ==================== 데이터 변환 함수 ====================
 
 /**
- * 섹터 데이터를 Nivo Treemap 형식으로 변환
+ * 한국 시가총액 순위 데이터를 섹터 데이터로 변환
  *
- * 구조:
- * {
- *   id: "root",
- *   name: "한국시장" | "미국시장",
- *   children: [
- *     {
- *       id: "반도체",
- *       name: "반도체",
- *       children: [
- *         { id: "005930", name: "삼성전자", value: 3500000, change: 1.2, ... },
- *         ...
- *       ]
- *     },
- *     ...
- *   ]
- * }
+ * API에서 받은 시가총액 순위 데이터를 히트맵용 섹터 구조로 변환합니다.
+ * 상위 30개 종목을 하나의 '시가총액 TOP' 섹터로 표시합니다.
+ */
+function convertKoreanDataToSectors(data: MarketCapRankingData[]): SectorData[] {
+  if (!data || data.length === 0) return [];
+
+  // 시가총액 순으로 정렬 (이미 정렬되어 있지만 확인)
+  const sortedData = [...data].sort((a, b) => b.marketCap - a.marketCap);
+
+  // 상위 30개 종목을 하나의 섹터로 표시
+  const topStocks: StockData[] = sortedData.slice(0, 30).map((stock) => ({
+    symbol: stock.symbol,
+    name: stock.name,
+    marketCap: stock.marketCap,
+    changePercent: stock.changePercent,
+    price: stock.currentPrice,
+  }));
+
+  return [
+    {
+      name: '시가총액 TOP 30',
+      stocks: topStocks,
+    },
+  ];
+}
+
+/**
+ * 미국 시가총액 순위 데이터를 섹터 데이터로 변환
+ *
+ * NASDAQ + NYSE 데이터를 합쳐서 시가총액 순으로 정렬합니다.
+ */
+function convertUSDataToSectors(
+  nasData: OverseasMarketCapRankingData[],
+  nysData: OverseasMarketCapRankingData[]
+): SectorData[] {
+  // 두 거래소 데이터 합치기
+  const allData = [...nasData, ...nysData];
+
+  if (allData.length === 0) return [];
+
+  // 시가총액 순으로 정렬
+  const sortedData = allData.sort((a, b) => b.marketCap - a.marketCap);
+
+  // 상위 30개 종목
+  const topStocks: StockData[] = sortedData.slice(0, 30).map((stock) => ({
+    symbol: stock.symbol,
+    name: stock.name,
+    marketCap: stock.marketCap,
+    changePercent: stock.changePercent,
+    price: stock.currentPrice,
+  }));
+
+  return [
+    {
+      name: 'MARKET CAP TOP 30',
+      stocks: topStocks,
+    },
+  ];
+}
+
+/**
+ * 섹터 데이터를 Nivo Treemap 형식으로 변환
  */
 function convertToTreemapData(
   sectors: SectorData[],
@@ -807,74 +294,196 @@ function convertToTreemapData(
   };
 }
 
-// ==================== 커스텀 툴팁 컴포넌트 ====================
-
-interface CustomTooltipProps {
-  tooltip: TooltipState;
-  isKorean: boolean;
-}
+// ==================== 커스텀 라벨 레이어 ====================
 
 /**
- * 호버 시 표시되는 상세 툴팁
+ * TreeMap 커스텀 라벨 레이어
  *
- * 표시 정보:
- * - 종목명 (전체)
- * - 티커 심볼
- * - 현재가
- * - 등락률
- * - 시가총액
- * - 섹터
+ * 2줄 레이아웃으로 종목명과 등락률을 표시합니다.
  */
-function CustomTooltip({ tooltip, isKorean }: CustomTooltipProps) {
-  if (!tooltip.show || !tooltip.data) return null;
-
-  const { name, symbol, price, change, marketCap, sector } = tooltip.data;
-  const isPositive = change >= 0;
-
+function CustomLabelsLayer({
+  nodes,
+}: {
+  nodes: ComputedNode<TreemapNode>[];
+}) {
   return (
-    <div
-      className="fixed z-50 pointer-events-none bg-gray-900 text-white rounded-lg shadow-xl border border-gray-700 p-3 min-w-[200px]"
-      style={{
-        left: tooltip.x + 10,
-        top: tooltip.y + 10,
-      }}
-    >
-      {/* 종목명 + 심볼 */}
-      <div className="font-bold text-sm mb-2">
-        {name}
-        <span className="text-gray-400 ml-2 font-normal text-xs">{symbol}</span>
-      </div>
+    <g>
+      {nodes.map((node) => {
+        // ==================== 섹터 라벨 (강화) ====================
+        if (node.pathComponents.length === 2) {
+          if (node.width < 60 || node.height < 30) {
+            return null;
+          }
 
-      {/* 현재가 + 등락률 */}
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-gray-300 text-xs">현재가</span>
-        <div className="text-right">
-          <span className="font-semibold text-sm">
-            {formatPrice(price, isKorean)}
-          </span>
-          {/* Finviz 스타일: 상승=초록, 하락=빨강 */}
-          <span
-            className={`ml-2 text-xs font-medium ${
-              isPositive ? 'text-green-400' : 'text-red-400'
-            }`}
-          >
-            {formatPercent(change)}
-          </span>
+          const sectorName = String(node.id);
+
+          return (
+            <g key={`sector-${node.id}`}>
+              {/* 반투명 어두운 배경 (가독성 향상) */}
+              <rect
+                x={node.x + 3}
+                y={node.y + 3}
+                width={Math.min(sectorName.length * 8 + 12, node.width - 6)}
+                height={18}
+                rx={3}
+                fill="rgba(0, 0, 0, 0.6)"
+              />
+              {/* 섹터명 텍스트 */}
+              <text
+                x={node.x + 9}
+                y={node.y + 15}
+                style={{
+                  fill: '#e5e7eb',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+                  textTransform: 'uppercase',
+                  pointerEvents: 'none',
+                }}
+              >
+                {sectorName.toUpperCase()}
+              </text>
+            </g>
+          );
+        }
+
+        // ==================== 종목 라벨 ====================
+        if (node.pathComponents.length !== 3) {
+          return null;
+        }
+
+        const width = node.width;
+        const height = node.height;
+        const minDimension = Math.min(width, height);
+
+        if (minDimension < 50) {
+          return null;
+        }
+
+        const fullName = node.data.name || String(node.id);
+        const symbol = node.data.symbol || String(node.id);
+        const change = node.data.change ?? 0;
+
+        // 한국 종목인지 미국 종목인지 판단
+        const isKoreanStock = /^\d+$/.test(symbol);
+
+        let displayName: string;
+        let nameFontSize: number;
+        let changeFontSize: number;
+
+        if (minDimension >= 150) {
+          nameFontSize = 14;
+          changeFontSize = 12;
+          if (isKoreanStock) {
+            displayName = abbreviateKoreanName(fullName, 8);
+          } else {
+            displayName = fullName.length > 10 ? fullName.slice(0, 10) : fullName;
+          }
+        } else if (minDimension >= 80) {
+          nameFontSize = 11;
+          changeFontSize = 10;
+          if (isKoreanStock) {
+            displayName = abbreviateKoreanName(fullName, 5);
+          } else {
+            displayName = fullName.length <= 6 ? fullName : symbol;
+          }
+        } else {
+          nameFontSize = 10;
+          changeFontSize = 9;
+          if (isKoreanStock) {
+            displayName = abbreviateKoreanName(fullName, 3);
+          } else {
+            displayName = symbol;
+          }
+        }
+
+        const changeText = formatPercent(change);
+        const centerX = node.x + width / 2;
+        const centerY = node.y + height / 2;
+
+        return (
+          <g key={node.id} transform={`translate(${centerX}, ${centerY})`}>
+            <text
+              textAnchor="middle"
+              dominantBaseline="auto"
+              dy={-changeFontSize / 2 - 1}
+              style={{
+                fill: '#ffffff',
+                fontSize: `${nameFontSize}px`,
+                fontWeight: 700,
+                fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+                pointerEvents: 'none',
+              }}
+            >
+              {displayName}
+            </text>
+            <text
+              textAnchor="middle"
+              dominantBaseline="hanging"
+              dy={nameFontSize / 2}
+              style={{
+                fill: 'rgba(255, 255, 255, 0.9)',
+                fontSize: `${changeFontSize}px`,
+                fontWeight: 500,
+                fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+                pointerEvents: 'none',
+              }}
+            >
+              {changeText}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+// ==================== 로딩 스켈레톤 ====================
+
+/**
+ * 히트맵 로딩 스켈레톤
+ */
+function HeatmapSkeleton() {
+  return (
+    <div className="bg-gray-900 rounded-xl overflow-hidden border border-gray-700 animate-pulse" style={{ height: '700px' }}>
+      <div className="w-full h-full flex items-center justify-center">
+        <div className="text-center">
+          <div className="flex items-center justify-center gap-2 text-gray-400 mb-2">
+            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+            <span>실시간 데이터 로딩 중...</span>
+          </div>
+          <p className="text-xs text-gray-500">시가총액 순위 데이터를 가져오고 있습니다</p>
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* 시가총액 */}
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-gray-300 text-xs">시가총액</span>
-        <span className="font-semibold text-sm">
-          {formatMarketCap(marketCap, isKorean)}
-        </span>
-      </div>
+// ==================== 에러 표시 ====================
 
-      {/* 섹터 */}
-      <div className="flex justify-between items-center">
-        <span className="text-gray-300 text-xs">섹터</span>
-        <span className="text-sm text-gray-200">{sector}</span>
+/**
+ * 에러 표시 컴포넌트
+ */
+function HeatmapError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="bg-gray-900 rounded-xl overflow-hidden border border-gray-700" style={{ height: '700px' }}>
+      <div className="w-full h-full flex items-center justify-center">
+        <div className="text-center p-8">
+          <div className="text-4xl mb-4">⚠️</div>
+          <h3 className="text-lg font-semibold text-white mb-2">
+            데이터를 불러올 수 없습니다
+          </h3>
+          <p className="text-sm text-gray-400 mb-4">{message}</p>
+          <button
+            onClick={onRetry}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+          >
+            다시 시도
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -884,19 +493,46 @@ function CustomTooltip({ tooltip, isKorean }: CustomTooltipProps) {
 
 /**
  * 모바일 환경용 리스트 뷰
- *
- * Treemap은 모바일에서 인터랙션이 어렵기 때문에
- * 모바일에서는 리스트 형태로 표시
  */
 function MobileListView({
   sectors,
   isKorean,
   onStockClick,
+  isLoading,
 }: {
   sectors: SectorData[];
   isKorean: boolean;
   onStockClick: (symbol: string) => void;
+  isLoading: boolean;
 }) {
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden animate-pulse">
+            <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50">
+              <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-32" />
+            </div>
+            <div className="divide-y divide-gray-100 dark:divide-gray-700">
+              {[1, 2, 3, 4, 5].map((j) => (
+                <div key={j} className="flex items-center justify-between px-4 py-3">
+                  <div className="flex-1">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-24 mb-1" />
+                    <div className="h-3 bg-gray-200 dark:bg-gray-600 rounded w-16" />
+                  </div>
+                  <div className="text-right ml-4">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-20 mb-1" />
+                    <div className="h-3 bg-gray-200 dark:bg-gray-600 rounded w-12 ml-auto" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {sectors.map((sector) => (
@@ -904,7 +540,6 @@ function MobileListView({
           key={sector.name}
           className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden"
         >
-          {/* 섹터 헤더 */}
           <div className="px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-600">
             <h4 className="font-semibold text-sm text-gray-900 dark:text-white">
               {sector.name}
@@ -913,7 +548,6 @@ function MobileListView({
               </span>
             </h4>
           </div>
-          {/* 종목 리스트 */}
           <div className="divide-y divide-gray-100 dark:divide-gray-700">
             {sector.stocks.map((stock) => {
               const isPositive = stock.changePercent >= 0;
@@ -933,7 +567,6 @@ function MobileListView({
                     <div className="font-medium text-sm text-gray-900 dark:text-white">
                       {formatPrice(stock.price, isKorean)}
                     </div>
-                    {/* Finviz 스타일: 상승=초록, 하락=빨강 */}
                     <div
                       className={`text-xs font-medium ${
                         isPositive ? 'text-green-500' : 'text-red-500'
@@ -962,15 +595,56 @@ interface HeatmapContentProps {
 /**
  * Finviz 스타일 통합 Treemap 히트맵 컴포넌트
  *
- * 하나의 큰 Treemap으로 모든 섹터와 종목을 표시합니다.
- * 시가총액 기준 박스 크기, 등락률 기준 색상
+ * 실시간 API 데이터를 연동하여 시가총액, 현재가, 등락률을 표시합니다.
  */
 export function HeatmapContent({ country }: HeatmapContentProps) {
   const router = useRouter();
   const isKorean = country === 'kr';
 
-  // 국가별 섹터 데이터 선택
-  const sectors = isKorean ? KOREA_SECTORS : US_SECTORS;
+  // ========================================
+  // 실시간 데이터 페칭 (API 연동)
+  // ========================================
+
+  // 한국 시장: 시가총액 순위 API
+  const {
+    data: krData,
+    isLoading: krLoading,
+    error: krError,
+    refetch: krRefetch,
+  } = useMarketCapRanking('all', { autoRefresh: true, refreshInterval: 60000 });
+
+  // 미국 시장: NASDAQ + NYSE 시가총액 순위 API
+  const {
+    data: nasData,
+    isLoading: nasLoading,
+    error: nasError,
+    refetch: nasRefetch,
+  } = useUSMarketCapRanking('NAS', { autoRefresh: true, refreshInterval: 60000 });
+
+  const {
+    data: nysData,
+    isLoading: nysLoading,
+    error: nysError,
+    refetch: nysRefetch,
+  } = useUSMarketCapRanking('NYS', { autoRefresh: true, refreshInterval: 60000 });
+
+  // ========================================
+  // 로딩 및 에러 상태
+  // ========================================
+  const isLoading = isKorean ? krLoading : (nasLoading || nysLoading);
+  const error = isKorean ? krError : (nasError || nysError);
+  const refetch = isKorean ? krRefetch : () => { nasRefetch(); nysRefetch(); };
+
+  // ========================================
+  // 섹터 데이터 변환
+  // ========================================
+  const sectors = useMemo(() => {
+    if (isKorean) {
+      return convertKoreanDataToSectors(krData);
+    } else {
+      return convertUSDataToSectors(nasData, nysData);
+    }
+  }, [isKorean, krData, nasData, nysData]);
 
   // Treemap용 데이터 변환
   const treemapData = useMemo(
@@ -986,7 +660,7 @@ export function HeatmapContent({ country }: HeatmapContentProps) {
     data: null,
   });
 
-  // 종목 클릭 핸들러 - 상세 페이지로 이동
+  // 종목 클릭 핸들러
   const handleStockClick = useCallback(
     (symbol: string) => {
       router.push(`/market/${symbol}`);
@@ -1024,21 +698,20 @@ export function HeatmapContent({ country }: HeatmapContentProps) {
           <span className="ml-2 text-sm font-normal text-gray-500">
             ({totalStocks}개 종목)
           </span>
+          {/* 실시간 표시 배지 */}
+          <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium rounded-full">
+            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+            실시간
+          </span>
         </h2>
-        {/* Finviz 스타일 색상 표시 (한국/미국 동일: 초록=상승, 빨강=하락) */}
+        {/* 색상 범례 */}
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-1">
-            <div
-              className="w-3 h-3 rounded"
-              style={{ backgroundColor: '#228B22' }}
-            />
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: '#228B22' }} />
             <span className="text-gray-600 dark:text-gray-400">상승</span>
           </div>
           <div className="flex items-center gap-1">
-            <div
-              className="w-3 h-3 rounded"
-              style={{ backgroundColor: '#DC143C' }}
-            />
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: '#DC143C' }} />
             <span className="text-gray-600 dark:text-gray-400">하락</span>
           </div>
         </div>
@@ -1046,167 +719,155 @@ export function HeatmapContent({ country }: HeatmapContentProps) {
 
       {/* 설명 */}
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        박스 크기는 시가총액, 색상 강도는 등락률을 나타냅니다. 클릭하면 상세
-        페이지로 이동합니다.
+        박스 크기는 시가총액, 색상 강도는 등락률을 나타냅니다. 클릭하면 상세 페이지로 이동합니다.
       </p>
 
       {/* 데스크톱: Finviz 스타일 Treemap */}
       <div className="hidden md:block">
-        <div
-          className="bg-gray-900 rounded-xl overflow-hidden border border-gray-700"
-          style={{ height: '700px' }}
-        >
-          <ResponsiveTreeMap
-            data={treemapData}
-            identity="id"
-            value="value"
-            // ==================== 레이아웃 설정 ====================
-            // squarify: 가장 정사각형에 가깝게 배치 (Finviz 스타일)
-            tile="squarify"
-            leavesOnly={false}
-            innerPadding={1}        // 종목 간 간격 (빽빽하게)
-            outerPadding={3}        // 섹터 외부 간격 (구분선 효과) - 2px → 3px로 증가
-            // ==================== 색상 설정 ====================
-            // pathComponents.length로 depth 계산: 1=root, 2=섹터, 3=종목
-            colors={(node) => {
-              // root 노드: 검은 배경 (섹터 구분선 역할)
-              if (node.pathComponents.length === 1) {
-                return '#000000';
-              }
-              // 섹터 노드: 어두운 배경
-              if (node.pathComponents.length === 2) {
-                return '#111827';
-              }
-              // 종목 노드: Finviz 등락률 기반 색상
-              const change = node.data.change ?? 0;
-              return getHeatmapColor(change);
-            }}
-            // ==================== 테두리 설정 (강화) ====================
-            // 개별 종목 박스에 얇은 테두리 추가 (Finviz 스타일)
-            borderWidth={1}
-            borderColor={(node) => {
-              // 섹터 경계: 굵은 검은 테두리
-              if (node.pathComponents.length === 2) {
-                return '#000000';
-              }
-              // 종목 박스: 얇은 반투명 검은 테두리
-              return 'rgba(0, 0, 0, 0.4)';
-            }}
-            // ==================== 라벨 비활성화 (커스텀 레이어 사용) ====================
-            // 기본 라벨 대신 커스텀 레이어로 2줄 레이아웃 구현
-            enableLabel={false}
-            // ==================== 섹터 라벨 설정 ====================
-            // 커스텀 레이어에서 섹터 라벨 처리
-            enableParentLabel={false}
-            // ==================== 툴팁 설정 ====================
-            tooltip={({ node }) => {
-              // 섹터 노드: 툴팁 없음
-              if (node.pathComponents.length === 2) {
-                return null;
-              }
+        {/* 로딩 상태 */}
+        {isLoading && <HeatmapSkeleton />}
 
-              const change = node.data.change ?? 0;
-              const price = node.data.price ?? 0;
-              const symbol = node.data.symbol ?? node.id;
-              const isPositive = change >= 0;
-              const sector = node.pathComponents[1] ?? '';
+        {/* 에러 상태 */}
+        {!isLoading && error && (
+          <HeatmapError message={error} onRetry={refetch} />
+        )}
 
-              return (
-                <div className="bg-gray-900 text-white rounded-lg shadow-xl border border-gray-600 p-3 min-w-[220px]">
-                  {/* 종목명 + 심볼 */}
-                  <div className="font-bold text-base mb-2 border-b border-gray-700 pb-2">
-                    {node.data.name}
-                    <span className="text-gray-400 ml-2 font-normal text-xs">
-                      {symbol}
-                    </span>
-                  </div>
+        {/* 데이터 표시 */}
+        {!isLoading && !error && sectors.length > 0 && (
+          <>
+            <div
+              className="bg-gray-900 rounded-xl overflow-hidden border border-gray-700"
+              style={{ height: '700px' }}
+            >
+              <ResponsiveTreeMap
+                data={treemapData}
+                identity="id"
+                value="value"
+                tile="squarify"
+                leavesOnly={false}
+                innerPadding={1}
+                outerPadding={3}
+                colors={(node) => {
+                  if (node.pathComponents.length === 1) {
+                    return '#000000';
+                  }
+                  if (node.pathComponents.length === 2) {
+                    return '#111827';
+                  }
+                  const change = node.data.change ?? 0;
+                  return getHeatmapColor(change);
+                }}
+                borderWidth={1}
+                borderColor={(node) => {
+                  if (node.pathComponents.length === 2) {
+                    return '#000000';
+                  }
+                  return 'rgba(0, 0, 0, 0.4)';
+                }}
+                enableLabel={false}
+                enableParentLabel={false}
+                tooltip={({ node }) => {
+                  if (node.pathComponents.length === 2) {
+                    return null;
+                  }
 
-                  {/* 현재가 */}
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-gray-400 text-xs">현재가</span>
-                    <span className="font-semibold text-sm">
-                      {formatPrice(price, isKorean)}
-                    </span>
-                  </div>
+                  const change = node.data.change ?? 0;
+                  const price = node.data.price ?? 0;
+                  const symbol = node.data.symbol ?? node.id;
+                  const isPositive = change >= 0;
+                  const sector = node.pathComponents[1] ?? '';
 
-                  {/* 등락률 */}
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-gray-400 text-xs">등락률</span>
-                    <span
-                      className={`font-bold text-sm ${
-                        isPositive ? 'text-green-400' : 'text-red-400'
-                      }`}
-                    >
-                      {formatPercent(change)}
-                    </span>
-                  </div>
+                  return (
+                    <div className="bg-gray-900 text-white rounded-lg shadow-xl border border-gray-600 p-3 min-w-[220px]">
+                      <div className="font-bold text-base mb-2 border-b border-gray-700 pb-2">
+                        {node.data.name}
+                        <span className="text-gray-400 ml-2 font-normal text-xs">
+                          {symbol}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-gray-400 text-xs">현재가</span>
+                        <span className="font-semibold text-sm">
+                          {formatPrice(price, isKorean)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-gray-400 text-xs">등락률</span>
+                        <span
+                          className={`font-bold text-sm ${
+                            isPositive ? 'text-green-400' : 'text-red-400'
+                          }`}
+                        >
+                          {formatPercent(change)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-gray-400 text-xs">시가총액</span>
+                        <span className="font-semibold text-sm">
+                          {formatMarketCap(node.value, isKorean)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 text-xs">섹터</span>
+                        <span className="text-sm text-gray-300">{sector}</span>
+                      </div>
+                    </div>
+                  );
+                }}
+                onClick={(node) => {
+                  if (node.pathComponents.length === 3 && node.data.symbol) {
+                    handleStockClick(node.data.symbol);
+                  }
+                }}
+                layers={['nodes', CustomLabelsLayer]}
+                animate={false}
+                motionConfig="gentle"
+              />
+            </div>
 
-                  {/* 시가총액 */}
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-gray-400 text-xs">시가총액</span>
-                    <span className="font-semibold text-sm">
-                      {formatMarketCap(node.value, isKorean)}
-                    </span>
-                  </div>
+            {/* 색상 범례 */}
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-gray-500 mr-1">상승</span>
+                <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#4DAD4D' }} title="+0.1~0.5%" />
+                <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#5DBB5D' }} title="+0.5~1%" />
+                <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#32CD32' }} title="+1~2%" />
+                <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#228B22' }} title="+2~3%" />
+                <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#006400' }} title="+3~5%" />
+                <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#003D00' }} title="+5%↑" />
+                <span className="text-xs text-gray-500 ml-1">+5%</span>
+              </div>
 
-                  {/* 섹터 */}
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400 text-xs">섹터</span>
-                    <span className="text-sm text-gray-300">{sector}</span>
-                  </div>
-                </div>
-              );
-            }}
-            // ==================== 클릭 이벤트 ====================
-            onClick={(node) => {
-              // 종목 노드 클릭 시 상세 페이지로 이동
-              if (node.pathComponents.length === 3 && node.data.symbol) {
-                handleStockClick(node.data.symbol);
-              }
-            }}
-            // ==================== 커스텀 레이어 ====================
-            // nodes: 기본 박스 렌더링
-            // CustomLabelsLayer: 커스텀 2줄 종목 라벨
-            layers={['nodes', CustomLabelsLayer]}
-            // ==================== 애니메이션 ====================
-            animate={false}
-            motionConfig="gentle"
-          />
-        </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#374151' }} />
+                <span className="text-xs text-gray-500">0%</span>
+              </div>
 
-        {/* ==================== 색상 범례 (개선) ==================== */}
-        {/* Finviz 정확한 색상 범례 - 0% 근처 색상 명확화 */}
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-4">
-          {/* 상승 범례 (초록 계열) - 연한색 → 진한색 */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-500 mr-1">상승</span>
-            <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#4DAD4D' }} title="+0.1~0.5%" />
-            <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#5DBB5D' }} title="+0.5~1%" />
-            <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#32CD32' }} title="+1~2%" />
-            <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#228B22' }} title="+2~3%" />
-            <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#006400' }} title="+3~5%" />
-            <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#003D00' }} title="+5%↑" />
-            <span className="text-xs text-gray-500 ml-1">+5%</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-gray-500 mr-1">하락</span>
+                <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#D04545' }} title="-0.1~0.5%" />
+                <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#E05555' }} title="-0.5~1%" />
+                <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#F08080' }} title="-1~2%" />
+                <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#DC143C' }} title="-2~3%" />
+                <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#B22222' }} title="-3~5%" />
+                <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#8B0000' }} title="-5%↓" />
+                <span className="text-xs text-gray-500 ml-1">-5%</span>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* 데이터 없음 */}
+        {!isLoading && !error && sectors.length === 0 && (
+          <div className="bg-gray-900 rounded-xl overflow-hidden border border-gray-700 p-8 text-center" style={{ height: '700px' }}>
+            <div className="h-full flex items-center justify-center">
+              <div>
+                <div className="text-4xl mb-4">📊</div>
+                <p className="text-gray-400">데이터가 없습니다</p>
+              </div>
+            </div>
           </div>
-
-          {/* 보합 범례 (회색) */}
-          <div className="flex items-center gap-1.5">
-            <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#374151' }} />
-            <span className="text-xs text-gray-500">0%</span>
-          </div>
-
-          {/* 하락 범례 (빨강 계열) - 연한색 → 진한색 */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-500 mr-1">하락</span>
-            <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#D04545' }} title="-0.1~0.5%" />
-            <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#E05555' }} title="-0.5~1%" />
-            <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#F08080' }} title="-1~2%" />
-            <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#DC143C' }} title="-2~3%" />
-            <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#B22222' }} title="-3~5%" />
-            <div className="w-5 h-5 rounded-sm border border-gray-600" style={{ backgroundColor: '#8B0000' }} title="-5%↓" />
-            <span className="text-xs text-gray-500 ml-1">-5%</span>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* 모바일: 리스트 뷰 */}
@@ -1215,11 +876,9 @@ export function HeatmapContent({ country }: HeatmapContentProps) {
           sectors={sectors}
           isKorean={isKorean}
           onStockClick={handleStockClick}
+          isLoading={isLoading}
         />
       </div>
-
-      {/* 커스텀 툴팁 (마우스 추적용 - 필요시 사용) */}
-      <CustomTooltip tooltip={tooltip} isKorean={isKorean} />
     </section>
   );
 }
