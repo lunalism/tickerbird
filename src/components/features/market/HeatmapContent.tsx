@@ -204,6 +204,57 @@ function formatMarketCap(value: number, isKorean: boolean): string {
   }
 }
 
+// ==================== 미국 시장 폴백 데이터 (장 마감 시 사용) ====================
+
+/**
+ * 미국 시장 폴백 데이터
+ *
+ * 장 마감 시간에 API가 빈 데이터를 반환할 경우 사용하는 폴백 데이터입니다.
+ * 시가총액 상위 30개 종목의 대표 데이터를 포함합니다.
+ *
+ * 주의: 이 데이터는 실시간이 아닌 참고용 데이터입니다.
+ * - marketCap: 백만 달러 단위 (근사치)
+ * - price: 마지막 거래가 기준 (근사치)
+ * - changePercent: 0으로 설정 (실시간 데이터 없음)
+ */
+const US_FALLBACK_DATA: StockData[] = [
+  // TECHNOLOGY
+  { symbol: 'AAPL', name: 'Apple', marketCap: 3000000, changePercent: 0, price: 195.50 },
+  { symbol: 'MSFT', name: 'Microsoft', marketCap: 2800000, changePercent: 0, price: 378.20 },
+  { symbol: 'NVDA', name: 'NVIDIA', marketCap: 1200000, changePercent: 0, price: 495.80 },
+  { symbol: 'GOOGL', name: 'Alphabet', marketCap: 1800000, changePercent: 0, price: 142.50 },
+  { symbol: 'META', name: 'Meta', marketCap: 1000000, changePercent: 0, price: 395.20 },
+  { symbol: 'AVGO', name: 'Broadcom', marketCap: 600000, changePercent: 0, price: 1250.30 },
+  { symbol: 'ORCL', name: 'Oracle', marketCap: 350000, changePercent: 0, price: 128.40 },
+  { symbol: 'CRM', name: 'Salesforce', marketCap: 250000, changePercent: 0, price: 265.20 },
+  { symbol: 'ADBE', name: 'Adobe', marketCap: 220000, changePercent: 0, price: 485.20 },
+  { symbol: 'AMD', name: 'AMD', marketCap: 200000, changePercent: 0, price: 125.40 },
+  // CONSUMER
+  { symbol: 'AMZN', name: 'Amazon', marketCap: 1500000, changePercent: 0, price: 145.20 },
+  { symbol: 'TSLA', name: 'Tesla', marketCap: 800000, changePercent: 0, price: 252.80 },
+  { symbol: 'WMT', name: 'Walmart', marketCap: 450000, changePercent: 0, price: 165.20 },
+  { symbol: 'COST', name: 'Costco', marketCap: 350000, changePercent: 0, price: 785.40 },
+  { symbol: 'HD', name: 'Home Depot', marketCap: 350000, changePercent: 0, price: 345.60 },
+  // HEALTHCARE
+  { symbol: 'LLY', name: 'Eli Lilly', marketCap: 700000, changePercent: 0, price: 780.50 },
+  { symbol: 'UNH', name: 'UnitedHealth', marketCap: 500000, changePercent: 0, price: 525.20 },
+  { symbol: 'JNJ', name: 'J&J', marketCap: 400000, changePercent: 0, price: 165.80 },
+  { symbol: 'MRK', name: 'Merck', marketCap: 300000, changePercent: 0, price: 118.20 },
+  { symbol: 'ABBV', name: 'AbbVie', marketCap: 280000, changePercent: 0, price: 158.40 },
+  // FINANCIAL
+  { symbol: 'JPM', name: 'JPMorgan', marketCap: 500000, changePercent: 0, price: 175.20 },
+  { symbol: 'V', name: 'Visa', marketCap: 450000, changePercent: 0, price: 265.40 },
+  { symbol: 'MA', name: 'Mastercard', marketCap: 400000, changePercent: 0, price: 428.60 },
+  { symbol: 'BAC', name: 'Bank of America', marketCap: 280000, changePercent: 0, price: 35.80 },
+  // ENERGY & OTHERS
+  { symbol: 'XOM', name: 'Exxon Mobil', marketCap: 450000, changePercent: 0, price: 108.50 },
+  { symbol: 'CVX', name: 'Chevron', marketCap: 280000, changePercent: 0, price: 148.20 },
+  { symbol: 'KO', name: 'Coca-Cola', marketCap: 280000, changePercent: 0, price: 65.40 },
+  { symbol: 'PG', name: 'P&G', marketCap: 350000, changePercent: 0, price: 148.60 },
+  { symbol: 'PEP', name: 'PepsiCo', marketCap: 250000, changePercent: 0, price: 175.20 },
+  { symbol: 'NFLX', name: 'Netflix', marketCap: 250000, changePercent: 0, price: 575.80 },
+];
+
 // ==================== 데이터 변환 함수 ====================
 
 /**
@@ -239,15 +290,29 @@ function convertKoreanDataToSectors(data: MarketCapRankingData[]): SectorData[] 
  * 미국 시가총액 순위 데이터를 섹터 데이터로 변환
  *
  * NASDAQ + NYSE 데이터를 합쳐서 시가총액 순으로 정렬합니다.
+ * API가 빈 데이터를 반환하면 (장 마감 시) 폴백 데이터를 사용합니다.
+ *
+ * @returns { sectors, isUsingFallback } - 섹터 데이터와 폴백 사용 여부
  */
 function convertUSDataToSectors(
   nasData: OverseasMarketCapRankingData[],
   nysData: OverseasMarketCapRankingData[]
-): SectorData[] {
+): { sectors: SectorData[]; isUsingFallback: boolean } {
   // 두 거래소 데이터 합치기
   const allData = [...nasData, ...nysData];
 
-  if (allData.length === 0) return [];
+  // API가 빈 데이터를 반환하면 폴백 데이터 사용 (장 마감 시)
+  if (allData.length === 0) {
+    return {
+      sectors: [
+        {
+          name: 'MARKET CAP TOP 30',
+          stocks: US_FALLBACK_DATA,
+        },
+      ],
+      isUsingFallback: true,
+    };
+  }
 
   // 시가총액 순으로 정렬
   const sortedData = allData.sort((a, b) => b.marketCap - a.marketCap);
@@ -261,12 +326,15 @@ function convertUSDataToSectors(
     price: stock.currentPrice,
   }));
 
-  return [
-    {
-      name: 'MARKET CAP TOP 30',
-      stocks: topStocks,
-    },
-  ];
+  return {
+    sectors: [
+      {
+        name: 'MARKET CAP TOP 30',
+        stocks: topStocks,
+      },
+    ],
+    isUsingFallback: false,
+  };
 }
 
 /**
@@ -638,9 +706,12 @@ export function HeatmapContent({ country }: HeatmapContentProps) {
   // ========================================
   // 섹터 데이터 변환
   // ========================================
-  const sectors = useMemo(() => {
+  const { sectors, isUsingFallback } = useMemo(() => {
     if (isKorean) {
-      return convertKoreanDataToSectors(krData);
+      return {
+        sectors: convertKoreanDataToSectors(krData),
+        isUsingFallback: false,
+      };
     } else {
       return convertUSDataToSectors(nasData, nysData);
     }
@@ -698,11 +769,18 @@ export function HeatmapContent({ country }: HeatmapContentProps) {
           <span className="ml-2 text-sm font-normal text-gray-500">
             ({totalStocks}개 종목)
           </span>
-          {/* 실시간 표시 배지 */}
-          <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium rounded-full">
-            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-            실시간
-          </span>
+          {/* 실시간/장마감 표시 배지 */}
+          {isUsingFallback ? (
+            <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-medium rounded-full">
+              <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full" />
+              장 마감
+            </span>
+          ) : (
+            <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium rounded-full">
+              <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+              실시간
+            </span>
+          )}
         </h2>
         {/* 색상 범례 */}
         <div className="flex items-center gap-4 text-xs">
@@ -719,7 +797,16 @@ export function HeatmapContent({ country }: HeatmapContentProps) {
 
       {/* 설명 */}
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        박스 크기는 시가총액, 색상 강도는 등락률을 나타냅니다. 클릭하면 상세 페이지로 이동합니다.
+        {isUsingFallback ? (
+          <>
+            <span className="text-yellow-600 dark:text-yellow-400 font-medium">
+              현재 미국 시장이 마감되어 마지막 거래일 기준 데이터를 표시합니다.
+            </span>
+            {' '}박스 크기는 시가총액을 나타냅니다.
+          </>
+        ) : (
+          '박스 크기는 시가총액, 색상 강도는 등락률을 나타냅니다. 클릭하면 상세 페이지로 이동합니다.'
+        )}
       </p>
 
       {/* 데스크톱: Finviz 스타일 Treemap */}
