@@ -708,50 +708,149 @@ export function HeatmapContent({ country }: HeatmapContentProps) {
   const [error, setError] = useState<string | null>(null);
 
   // ========================================
-  // 실시간 데이터 페칭
+  // 히트맵에 포함된 전체 종목 심볼 목록 추출
+  // ========================================
+  const allSymbols = useMemo(() => {
+    const sectors = isKorean ? KOREA_SECTORS : US_SECTORS;
+    return sectors.flatMap((sector) => sector.stocks.map((stock) => stock.symbol));
+  }, [isKorean]);
+
+  // ========================================
+  // 실시간 데이터 페칭 (2단계: 순위 API + 개별 API)
   // ========================================
   const fetchRealTimeData = useCallback(async () => {
     setError(null);
 
     try {
-      if (isKorean) {
-        // 한국 시장: 시가총액 순위 API 사용
-        const response = await fetch('/api/kis/ranking/market-cap?market=all');
-        const result = await response.json();
+      const dataMap: RealTimeDataMap = {};
 
-        if (response.ok && Array.isArray(result)) {
-          const dataMap: RealTimeDataMap = {};
-          result.forEach((stock: { symbol: string; currentPrice: number; changePercent: number }) => {
+      if (isKorean) {
+        // ========================================
+        // 한국 시장: 2단계 데이터 페칭
+        // ========================================
+
+        // 1단계: 시가총액 순위 API로 TOP 30 가져오기
+        const rankingResponse = await fetch('/api/kis/ranking/market-cap?market=all');
+        const rankingResult = await rankingResponse.json();
+
+        if (rankingResponse.ok && Array.isArray(rankingResult)) {
+          rankingResult.forEach((stock: { symbol: string; currentPrice: number; changePercent: number }) => {
             dataMap[stock.symbol] = {
               price: stock.currentPrice,
               changePercent: stock.changePercent,
             };
           });
-          setRealTimeData(dataMap);
+        }
+
+        // 2단계: TOP 30에 없는 종목들 개별 API로 추가 호출
+        const missingSymbols = allSymbols.filter((symbol) => !dataMap[symbol]);
+
+        if (missingSymbols.length > 0) {
+          console.log(`[HeatmapContent] 개별 API 호출 필요: ${missingSymbols.length}개 종목`);
+
+          // 5개씩 청크로 나눠서 병렬 호출 (API 부하 방지)
+          const CHUNK_SIZE = 5;
+          for (let i = 0; i < missingSymbols.length; i += CHUNK_SIZE) {
+            const chunk = missingSymbols.slice(i, i + CHUNK_SIZE);
+
+            // 청크 내 종목들 병렬 호출
+            const chunkPromises = chunk.map(async (symbol) => {
+              try {
+                const res = await fetch(`/api/kis/stock/price?symbol=${symbol}`);
+                const data = await res.json();
+                if (res.ok && data.currentPrice) {
+                  return { symbol, price: data.currentPrice, changePercent: data.changePercent };
+                }
+              } catch (err) {
+                console.warn(`[HeatmapContent] ${symbol} 개별 조회 실패:`, err);
+              }
+              return null;
+            });
+
+            const chunkResults = await Promise.all(chunkPromises);
+            chunkResults.forEach((result) => {
+              if (result) {
+                dataMap[result.symbol] = {
+                  price: result.price,
+                  changePercent: result.changePercent,
+                };
+              }
+            });
+
+            // 청크 간 100ms 딜레이 (API rate limit 방지)
+            if (i + CHUNK_SIZE < missingSymbols.length) {
+              await new Promise((resolve) => setTimeout(resolve, 100));
+            }
+          }
         }
       } else {
-        // 미국 시장: 개별 종목 시세 API 사용
-        const response = await fetch('/api/kis/overseas/stock/prices?sector=all');
-        const result = await response.json();
+        // ========================================
+        // 미국 시장: 2단계 데이터 페칭
+        // ========================================
 
-        if (response.ok && result.data) {
-          const dataMap: RealTimeDataMap = {};
-          result.data.forEach((stock: { symbol: string; currentPrice: number; changePercent: number }) => {
+        // 1단계: 배치 API로 주요 종목 가져오기
+        const batchResponse = await fetch('/api/kis/overseas/stock/prices?sector=all');
+        const batchResult = await batchResponse.json();
+
+        if (batchResponse.ok && batchResult.data) {
+          batchResult.data.forEach((stock: { symbol: string; currentPrice: number; changePercent: number }) => {
             dataMap[stock.symbol] = {
               price: stock.currentPrice,
               changePercent: stock.changePercent,
             };
           });
-          setRealTimeData(dataMap);
+        }
+
+        // 2단계: 배치 API에 없는 종목들 개별 API로 추가 호출
+        const missingSymbols = allSymbols.filter((symbol) => !dataMap[symbol]);
+
+        if (missingSymbols.length > 0) {
+          console.log(`[HeatmapContent] 미국 개별 API 호출 필요: ${missingSymbols.length}개 종목`);
+
+          // 3개씩 청크로 나눠서 병렬 호출 (해외 API는 더 느림)
+          const CHUNK_SIZE = 3;
+          for (let i = 0; i < missingSymbols.length; i += CHUNK_SIZE) {
+            const chunk = missingSymbols.slice(i, i + CHUNK_SIZE);
+
+            const chunkPromises = chunk.map(async (symbol) => {
+              try {
+                const res = await fetch(`/api/kis/overseas/stock/price?symbol=${symbol}`);
+                const data = await res.json();
+                if (res.ok && data.currentPrice) {
+                  return { symbol, price: data.currentPrice, changePercent: data.changePercent };
+                }
+              } catch (err) {
+                console.warn(`[HeatmapContent] ${symbol} 개별 조회 실패:`, err);
+              }
+              return null;
+            });
+
+            const chunkResults = await Promise.all(chunkPromises);
+            chunkResults.forEach((result) => {
+              if (result) {
+                dataMap[result.symbol] = {
+                  price: result.price,
+                  changePercent: result.changePercent,
+                };
+              }
+            });
+
+            // 청크 간 200ms 딜레이 (해외 API는 더 긴 딜레이)
+            if (i + CHUNK_SIZE < missingSymbols.length) {
+              await new Promise((resolve) => setTimeout(resolve, 200));
+            }
+          }
         }
       }
+
+      setRealTimeData(dataMap);
     } catch (err) {
       console.error('[HeatmapContent] 데이터 페칭 에러:', err);
       setError('데이터를 불러오는 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
     }
-  }, [isKorean]);
+  }, [isKorean, allSymbols]);
 
   // 초기 로드 + 60초마다 자동 새로고침
   useEffect(() => {
