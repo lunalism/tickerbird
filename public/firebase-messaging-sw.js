@@ -34,7 +34,8 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-com
  */
 firebase.initializeApp({
   apiKey: 'AIzaSyDZ-uOJfEG8HCQNZBPoo5RXTx_csFw-EHw',
-  authDomain: 'alphaboard-web.firebaseapp.com',
+  // 커스텀 도메인 사용 (Google 로그인 시 tickerbird.me 표시)
+  authDomain: 'tickerbird.me',
   projectId: 'alphaboard-web',
   storageBucket: 'alphaboard-web.firebasestorage.app',
   messagingSenderId: '716830414217',

@@ -96,6 +96,23 @@ const nextConfig: NextConfig = {
   // Turbopack 설정 (Next.js 16+ 호환)
   turbopack: {},
 
+  /**
+   * Firebase 인증 커스텀 도메인 프록시
+   *
+   * Google 로그인 시 "tickerbird.me(으)로 이동" 표시를 위해
+   * /__/auth/* 경로를 Firebase 호스팅으로 프록시합니다.
+   *
+   * 참고: https://firebase.google.com/docs/auth/web/redirect-best-practices
+   */
+  async rewrites() {
+    return [
+      {
+        source: '/__/auth/:path*',
+        destination: 'https://alphaboard-web.firebaseapp.com/__/auth/:path*',
+      },
+    ];
+  },
+
   // 이미지 최적화 - 외부 도메인 허용
   images: {
     remotePatterns: [
