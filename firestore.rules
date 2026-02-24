@@ -1,0 +1,194 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ────────────────────────────────────────────
+    // 공통 함수
+    // ────────────────────────────────────────────
+
+    // 인증된 사용자인지 확인
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // 본인 문서인지 확인
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ────────────────────────────────────────────
+    // users 컬렉션: 사용자 프로필
+    // - 본인 문서는 읽기/쓰기 가능
+    // - 다른 사용자 문서는 읽기만 가능 (닉네임, 아바타 표시용)
+    // ────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false; // 사용자 삭제는 관리자 전용 (Admin SDK)
+    }
+
+    // ────────────────────────────────────────────
+    // adminSettings 컬렉션: 관리자 설정
+    // - 인증된 사용자는 읽기 가능 (관리자 여부 확인용)
+    // - 쓰기는 Admin SDK에서만 (또는 이미 관리자인 경우)
+    // ────────────────────────────────────────────
+    match /adminSettings/{document} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ────────────────────────────────────────────
+    // betaWhitelist 컬렉션: 클로즈드 베타 화이트리스트
+    // - 인증된 사용자는 본인 이메일 문서만 읽기 가능
+    // - 쓰기는 관리자만 (Admin SDK 또는 adminSettings 체크)
+    // ────────────────────────────────────────────
+    match /betaWhitelist/{email} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ────────────────────────────────────────────
+    // watchlist 컬렉션: 관심종목
+    // - 본인 문서만 읽기/쓰기 가능
+    // ────────────────────────────────────────────
+    match /watchlist/{docId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // ────────────────────────────────────────────
+    // posts 컬렉션: 커뮤니티 게시글
+    // - 인증된 사용자는 모든 게시글 읽기 가능
+    // - 본인 게시글만 쓰기/수정/삭제 가능
+    // ────────────────────────────────────────────
+    match /posts/{postId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+
+      // 댓글 서브컬렉션
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      }
+
+      // 좋아요 서브컬렉션
+      match /likes/{likeId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      }
+    }
+
+    // ────────────────────────────────────────────
+    // price_alerts 컬렉션: 가격 알림
+    // - 본인 알림만 읽기/쓰기 가능
+    // ────────────────────────────────────────────
+    match /price_alerts/{alertId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // ────────────────────────────────────────────
+    // company_info 컬렉션: AI 회사 소개 (캐시)
+    // - 인증된 사용자는 읽기 가능
+    // - 쓰기는 서버(API 라우트)에서만
+    // ────────────────────────────────────────────
+    match /company_info/{symbol} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ────────────────────────────────────────────
+    // calendar_events 컬렉션: 경제 캘린더
+    // - 인증된 사용자는 읽기 가능
+    // - 쓰기는 관리자만
+    // ────────────────────────────────────────────
+    match /calendar_events/{eventId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ────────────────────────────────────────────
+    // etf_holdings 컬렉션: ETF 구성종목
+    // - 인증된 사용자는 읽기 가능
+    // - 쓰기는 서버에서만
+    // ────────────────────────────────────────────
+    match /etf_holdings/{symbol} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ────────────────────────────────────────────
+    // rewrittenNews 컬렉션: AI 재작성 뉴스 캐시
+    // - 인증된 사용자는 읽기 가능
+    // - 쓰기는 서버에서만
+    // ────────────────────────────────────────────
+    match /rewrittenNews/{newsId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ────────────────────────────────────────────
+    // feedbacks 컬렉션: 피드백/건의사항
+    // - 인증된 사용자는 읽기 가능 (공개 피드백)
+    // - 본인 피드백만 작성/수정/삭제 가능
+    // ────────────────────────────────────────────
+    match /feedbacks/{feedbackId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+
+      // 피드백 댓글 서브컬렉션
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      }
+    }
+
+    // ────────────────────────────────────────────
+    // announcements 컬렉션: 공지사항
+    // - 인증된 사용자는 읽기 가능
+    // - 쓰기는 관리자만
+    // ────────────────────────────────────────────
+    match /announcements/{announcementId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ────────────────────────────────────────────
+    // faq 컬렉션: FAQ
+    // - 인증된 사용자는 읽기 가능
+    // - 쓰기는 관리자만
+    // ────────────────────────────────────────────
+    match /faq/{faqId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ────────────────────────────────────────────
+    // siteContent 컬렉션: 사이트 콘텐츠 (용어사전 등)
+    // - 인증된 사용자는 읽기 가능
+    // - 쓰기는 관리자만
+    // ────────────────────────────────────────────
+    match /siteContent/{contentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ────────────────────────────────────────────
+    // fcmTokens 컬렉션: FCM 토큰
+    // - 본인 토큰만 읽기/쓰기 가능
+    // ────────────────────────────────────────────
+    match /fcmTokens/{tokenId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+  }
+}

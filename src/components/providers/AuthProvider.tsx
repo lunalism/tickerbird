@@ -209,26 +209,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ① isBanned 체크: Firestore users/{uid} 문서에서 정지 여부 확인
       //    - 정지된 계정은 다른 체크를 수행하지 않고 즉시 차단
       //    - 신규 사용자(문서 없음)는 밴 상태가 아니므로 통과
+      //    - Firestore 권한 에러 시 밴이 아닌 것으로 간주하고 계속 진행
       // ──────────────────────────────────────────────
       const userDocRef = doc(db, 'users', firebaseUser.uid);
-      const userDoc = await getDoc(userDocRef);
+      let userDoc: Awaited<ReturnType<typeof getDoc>> | null = null;
 
-      // 기존 사용자인 경우 밴 상태 우선 확인
-      if (userDoc.exists()) {
-        const userData = userDoc.data() as FirestoreUserData;
+      try {
+        userDoc = await getDoc(userDocRef);
 
-        if (userData.isBanned === true) {
-          debug.log('[AuthProvider] ① 밴 감지 - 접근 차단:', email);
-          setAccessDeniedReason('banned');
-          await firebaseSignOut(auth);
-          return false;
+        // 기존 사용자인 경우 밴 상태 우선 확인
+        if (userDoc.exists()) {
+          const userData = userDoc.data() as FirestoreUserData;
+
+          if (userData.isBanned === true) {
+            debug.log('[AuthProvider] ① 밴 감지 - 접근 차단:', email);
+            setAccessDeniedReason('banned');
+            await firebaseSignOut(auth);
+            return false;
+          }
         }
+      } catch (err) {
+        // Firestore 보안 규칙 권한 에러 → 밴 체크 건너뜀 (다음 단계로 진행)
+        // 권한 에러는 보안 규칙 미설정이 원인일 수 있으므로 밴이 아닌 것으로 간주
+        const firebaseErr = err as { code?: string; message?: string };
+        console.error('[AuthProvider] ① 밴 체크 에러 (건너뜀):', firebaseErr.code || firebaseErr.message);
       }
 
       // ──────────────────────────────────────────────
       // ② 관리자 여부 확인: adminSettings/config 문서에서 관리자 이메일 목록 조회
       //    - 관리자는 화이트리스트에 등록되지 않아도 접근 가능
       //    - 관리자 바이패스 플래그를 설정하여 ③번 체크를 건너뜀
+      //    - Firestore 권한 에러 시 관리자가 아닌 것으로 처리
       // ──────────────────────────────────────────────
       let isAdmin = false;
       try {
@@ -243,7 +254,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (err) {
         // 관리자 설정 조회 실패 시 관리자가 아닌 것으로 처리
-        console.error('[AuthProvider] ② 관리자 설정 조회 에러:', err);
+        const firebaseErr = err as { code?: string; message?: string };
+        console.error('[AuthProvider] ② 관리자 설정 조회 에러:', firebaseErr.code || firebaseErr.message);
       }
 
       // ──────────────────────────────────────────────
@@ -279,8 +291,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ④ 온보딩 체크: 신규 사용자 또는 온보딩 미완료 사용자 처리
       //    - users/{uid} 문서가 없으면 신규 사용자 → 문서 생성 + 온보딩
       //    - onboardingCompleted가 false이거나 nickname이 없으면 온보딩 필요
+      //    - ①에서 Firestore 권한 에러로 userDoc이 null인 경우 다시 조회 시도
       // ──────────────────────────────────────────────
-      if (!userDoc.exists()) {
+
+      // ① 단계에서 권한 에러로 userDoc을 가져오지 못한 경우 재조회
+      if (!userDoc) {
+        try {
+          userDoc = await getDoc(userDocRef);
+        } catch (retryErr) {
+          // 재조회도 실패 → 신규 사용자로 간주하고 프로필 생성 시도
+          const retryFirebaseErr = retryErr as { code?: string; message?: string };
+          console.error('[AuthProvider] ④ 사용자 문서 재조회 실패:', retryFirebaseErr.code || retryFirebaseErr.message);
+        }
+      }
+
+      if (!userDoc || !userDoc.exists()) {
         // 신규 사용자 → Firestore에 기본 프로필 문서 생성
         debug.log('[AuthProvider] ④ 신규 사용자 - Firestore에 프로필 생성');
         const initialData: FirestoreUserData = {
@@ -319,8 +344,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserProfile(createUserProfile(firebaseUser, userData));
       return false;
     } catch (err) {
-      // 예상치 못한 에러 발생 시 보안 우선 차단
-      console.error('[AuthProvider] 프로필 조회 에러:', err);
+      // Firestore 권한 에러와 기타 에러를 구분하여 처리
+      const firebaseErr = err as { code?: string; message?: string };
+      const isPermissionError = firebaseErr.code === 'permission-denied'
+        || firebaseErr.message?.includes('Missing or insufficient permissions');
+
+      if (isPermissionError) {
+        // Firestore 보안 규칙 권한 에러 → 보안 규칙 설정 문제
+        // not-invited가 아니라 시스템 에러이므로 별도 로그 출력
+        console.error(
+          '[AuthProvider] Firestore 보안 규칙 권한 에러 - Firebase Console에서 보안 규칙을 확인하세요:',
+          firebaseErr.code || firebaseErr.message,
+        );
+      } else {
+        console.error('[AuthProvider] 프로필 조회 에러:', err);
+      }
+
+      // 에러 발생 시 보안 우선 차단 (접근 거부 처리)
       setAccessDeniedReason('not-invited');
       await firebaseSignOut(auth);
       return false;
