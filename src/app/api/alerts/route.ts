@@ -1,7 +1,8 @@
 /**
- * 가격 알림 API 라우트 (Firestore)
+ * 가격 알림 API 라우트 (Firestore Admin SDK)
  *
  * 가격 알림 목록 조회 및 새 알림 추가 API
+ * 서버사이드에서 실행되므로 Admin SDK를 사용하여 Firestore에 접근합니다.
  *
  * 엔드포인트:
  * - GET /api/alerts: 내 알림 목록 조회
@@ -25,15 +26,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  alertsCollection,
-  queryCollection,
-  timestampToString,
-  where,
-  addDoc,
-  serverTimestamp,
-  type FirestoreAlert,
-} from '@/lib/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
 import {
   PriceAlert,
   CreateAlertRequest,
@@ -42,21 +35,24 @@ import {
 } from '@/types/priceAlert';
 
 /**
- * Firestore 문서를 PriceAlert로 변환
+ * Firestore Admin 문서를 PriceAlert로 변환
+ *
+ * Admin SDK의 Timestamp는 클라이언트 SDK와 다르므로 별도 변환 필요
  */
-function docToAlert(doc: FirestoreAlert & { id: string }): PriceAlert {
+function docToAlert(id: string, data: FirebaseFirestore.DocumentData): PriceAlert {
   return {
-    id: doc.id,
-    userId: doc.userId,
-    ticker: doc.ticker,
-    market: doc.market as AlertMarket,
-    stockName: doc.stockName,
-    targetPrice: doc.targetPrice,
-    direction: doc.direction as AlertDirection,
-    isActive: doc.isActive,
-    isTriggered: doc.isTriggered,
-    createdAt: timestampToString(doc.createdAt),
-    triggeredAt: doc.triggeredAt ? timestampToString(doc.triggeredAt) : undefined,
+    id,
+    userId: data.userId,
+    ticker: data.ticker,
+    market: data.market as AlertMarket,
+    stockName: data.stockName,
+    targetPrice: data.targetPrice,
+    direction: data.direction as AlertDirection,
+    isActive: data.isActive,
+    isTriggered: data.isTriggered,
+    // Admin SDK Timestamp → ISO 문자열 변환
+    createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+    triggeredAt: data.triggeredAt?.toDate?.()?.toISOString() || undefined,
   };
 }
 
@@ -64,79 +60,46 @@ function docToAlert(doc: FirestoreAlert & { id: string }): PriceAlert {
  * GET /api/alerts
  *
  * 현재 로그인한 사용자의 가격 알림 목록 조회
+ * Admin SDK를 사용하여 보안 규칙을 우회 (서버사이드 권한)
  *
  * @returns 알림 목록 또는 에러
  */
 export async function GET(request: NextRequest) {
-  console.log('[Alerts API] GET /api/alerts 요청 시작');
-
   try {
     // 요청 헤더에서 사용자 ID 가져오기
     const userId = request.headers.get('x-user-id');
-    console.log('[Alerts API] userId:', userId);
 
-    // 인증 에러 체크
+    // 인증 체크
     if (!userId) {
-      console.log('[Alerts API] userId 없음 - 401 반환');
       return NextResponse.json(
         { success: false, error: '로그인이 필요합니다' },
         { status: 401 }
       );
     }
 
-    console.log('[Alerts API] Firestore 쿼리 시작...');
+    // Admin SDK로 Firestore 조회 (보안 규칙 우회)
+    const db = getAdminDb();
+    const snapshot = await db
+      .collection('price_alerts')
+      .where('userId', '==', userId)
+      .get();
 
-    // 알림 목록 조회
-    // 주의: where + orderBy 조합은 Firestore 복합 인덱스 필요
-    // 인덱스 없이 작동하도록 where만 사용 후 JavaScript에서 정렬
-    const alerts = await queryCollection<FirestoreAlert>(
-      alertsCollection(),
-      [
-        where('userId', '==', userId),
-        // orderBy는 인덱스 필요하므로 제거, 아래에서 JavaScript로 정렬
-      ]
+    // 문서를 PriceAlert로 변환
+    const alerts: PriceAlert[] = snapshot.docs.map((doc) =>
+      docToAlert(doc.id, doc.data())
     );
 
-    console.log('[Alerts API] Firestore 쿼리 완료, 결과 수:', alerts.length);
-
-    // JavaScript에서 최신순 정렬 (createdAt 내림차순)
+    // 최신순 정렬 (createdAt 내림차순)
     alerts.sort((a, b) => {
-      // Firestore Timestamp 객체 처리
-      const aTime = a.createdAt?.toDate?.() || new Date(0);
-      const bTime = b.createdAt?.toDate?.() || new Date(0);
-      return bTime.getTime() - aTime.getTime(); // 내림차순 (최신순)
+      const aTime = new Date(a.createdAt).getTime();
+      const bTime = new Date(b.createdAt).getTime();
+      return bTime - aTime;
     });
 
-    // Firestore 문서를 PriceAlert로 변환
-    const priceAlerts = alerts.map((doc, index) => {
-      try {
-        return docToAlert(doc);
-      } catch (convertError) {
-        console.error(`[Alerts API] 문서 변환 에러 (index: ${index}, id: ${doc.id}):`, convertError);
-        console.error('[Alerts API] 문제 문서 데이터:', JSON.stringify(doc, null, 2));
-        throw convertError;
-      }
-    });
-
-    console.log('[Alerts API] 변환 완료, 반환 알림 수:', priceAlerts.length);
-    return NextResponse.json({ success: true, data: priceAlerts });
+    return NextResponse.json({ success: true, data: alerts });
   } catch (error) {
     // 상세 에러 로깅
-    console.error('[Alerts API] ===== 알림 조회 에러 =====');
-    console.error('[Alerts API] 에러 타입:', error instanceof Error ? error.constructor.name : typeof error);
-    console.error('[Alerts API] 에러 메시지:', error instanceof Error ? error.message : String(error));
-    if (error instanceof Error && error.stack) {
-      console.error('[Alerts API] 스택 트레이스:', error.stack);
-    }
-
-    // Firestore 에러인 경우 추가 정보 출력
-    const firestoreError = error as { code?: string; details?: string };
-    if (firestoreError.code) {
-      console.error('[Alerts API] Firestore 에러 코드:', firestoreError.code);
-    }
-    if (firestoreError.details) {
-      console.error('[Alerts API] Firestore 에러 상세:', firestoreError.details);
-    }
+    console.error('[Alerts API] GET 알림 조회 에러:', error);
 
     return NextResponse.json(
       {
@@ -156,6 +119,7 @@ export async function GET(request: NextRequest) {
  * POST /api/alerts
  *
  * 새 가격 알림 추가
+ * Admin SDK를 사용하여 Firestore에 문서 생성
  *
  * @param request 요청 객체 (본문에 알림 정보 포함)
  * @returns 생성된 알림 또는 에러
@@ -165,7 +129,7 @@ export async function POST(request: NextRequest) {
     // 요청 헤더에서 사용자 ID 가져오기
     const userId = request.headers.get('x-user-id');
 
-    // 인증 에러 체크
+    // 인증 체크
     if (!userId) {
       return NextResponse.json(
         { success: false, error: '로그인이 필요합니다' },
@@ -208,7 +172,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Firestore에 알림 추가
+    // Admin SDK로 Firestore에 문서 추가
+    const db = getAdminDb();
     const alertData = {
       userId,
       ticker: body.ticker,
@@ -218,11 +183,11 @@ export async function POST(request: NextRequest) {
       direction: body.direction,
       isActive: true,
       isTriggered: false,
-      createdAt: serverTimestamp(),
+      createdAt: new Date(),
       triggeredAt: null,
     };
 
-    const docRef = await addDoc(alertsCollection(), alertData);
+    const docRef = await db.collection('price_alerts').add(alertData);
 
     // 생성된 알림 반환
     const createdAlert: PriceAlert = {
@@ -241,7 +206,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: createdAlert }, { status: 201 });
   } catch (error) {
-    console.error('[Alerts API] 알림 추가 에러:', error);
+    console.error('[Alerts API] POST 알림 추가 에러:', error);
     return NextResponse.json(
       { success: false, error: '서버 에러가 발생했습니다' },
       { status: 500 }

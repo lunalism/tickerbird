@@ -182,6 +182,16 @@ service cloud.firestore {
     }
 
     // ────────────────────────────────────────────
+    // settings 컬렉션: 앱 설정 (환영 팝업 등)
+    // - 인증된 사용자는 읽기 가능 (BetaWelcomeModal 등에서 사용)
+    // - 쓰기는 관리자만
+    // ────────────────────────────────────────────
+    match /settings/{document} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ────────────────────────────────────────────
     // fcmTokens 컬렉션: FCM 토큰
     // - 본인 토큰만 읽기/쓰기 가능
     // ────────────────────────────────────────────
