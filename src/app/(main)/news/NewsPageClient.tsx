@@ -5,7 +5,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ChevronDown,
   ChevronUp,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
+import { useNewsStore } from "@/stores/newsStore";
 import type { Article } from "@/components/news/NewsCard";
 
 // ──────────────────────────────────────────────
@@ -89,6 +90,9 @@ function getCategoryFromSource(source: string): { label: string; style: string }
 // ──────────────────────────────────────────────
 
 export default function NewsPageClient() {
+  const router = useRouter();
+  const setSelectedArticle = useNewsStore((s) => s.setSelectedArticle);
+
   // 시장 필터 상태 (전체 / 한국 / 미국)
   const [selectedMarket, setSelectedMarket] = useState<"all" | "KR" | "US">("all");
   // 출처 필터 상태
@@ -102,6 +106,12 @@ export default function NewsPageClient() {
 
   // Supabase 세션에서 실제 로그인 상태를 감지합니다
   const { isLoggedIn, isLoading: isAuthLoading } = useAuth();
+
+  // 기사 클릭 핸들러: Zustand에 저장 후 모달 라우트로 이동
+  const handleArticleClick = (article: Article) => {
+    setSelectedArticle(article);
+    router.push(`/news/${article.id}`);
+  };
 
   // 기사 조회
   const fetchArticles = async () => {
@@ -196,10 +206,10 @@ export default function NewsPageClient() {
               : featuredNews.map((news) => {
                   const category = getCategoryFromSource(news.source_name);
                   return (
-                    <Link
+                    <button
                       key={news.id}
-                      href={`/news/${news.id}`}
-                      className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-foreground/20"
+                      onClick={() => handleArticleClick(news)}
+                      className="rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-foreground/20"
                     >
                       {/* 배지 + 시간 */}
                       <div className="mb-2 flex items-center justify-between">
@@ -223,7 +233,7 @@ export default function NewsPageClient() {
                       <h3 className="text-sm font-semibold leading-snug text-foreground">
                         {news.title_ko}
                       </h3>
-                    </Link>
+                    </button>
                   );
                 })}
           </div>
@@ -327,10 +337,10 @@ export default function NewsPageClient() {
             {visibleArticles.map((news) => {
               const category = getCategoryFromSource(news.source_name);
               return (
-                <Link
+                <button
                   key={news.id}
-                  href={`/news/${news.id}`}
-                  className="flex items-center justify-between gap-3 px-2 py-3 transition-colors hover:bg-accent/50"
+                  onClick={() => handleArticleClick(news)}
+                  className="flex w-full items-center justify-between gap-3 px-2 py-3 text-left transition-colors hover:bg-accent/50"
                 >
                   {/* 좌측: 배지들 + 제목 */}
                   <div className="min-w-0 flex-1">
@@ -358,7 +368,7 @@ export default function NewsPageClient() {
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {formatRelativeTime(news.published_at)}
                   </span>
-                </Link>
+                </button>
               );
             })}
 
