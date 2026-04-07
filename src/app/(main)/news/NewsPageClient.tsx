@@ -132,19 +132,14 @@ function interleaveArticles(articles: Article[]): Article[] {
       }
     }
 
-    // 라운드로빈: 각 소스에서 하나씩 번갈아 뽑기
-    const queues = Array.from(bySource.values());
-    let idx = 0;
-    let remaining = bucket.length;
-    while (remaining > 0) {
-      const queue = queues[idx % queues.length];
-      if (queue.length > 0) {
+    // 라운드로빈: 각 소스에서 하나씩 번갈아 뽑고, 빈 큐는 즉시 제거
+    let queues = Array.from(bySource.values());
+    while (queues.length > 0) {
+      for (const queue of queues) {
         result.push(queue.shift()!);
-        remaining--;
       }
-      idx++;
-      // 빈 큐만 남으면 다음으로 넘어감
-      if (idx >= queues.length * bucket.length) break;
+      // 빈 큐 제거하여 남은 소스끼리도 골고루 섞이도록 함
+      queues = queues.filter((q) => q.length > 0);
     }
   }
 
