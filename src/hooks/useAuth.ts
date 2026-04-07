@@ -1,6 +1,6 @@
 // Supabase 인증 상태 감지 커스텀 훅
 // onAuthStateChange를 사용해 실시간으로 로그인 상태를 추적합니다.
-// 로딩 상태를 관리하여 초기 깜빡임을 방지합니다.
+// profiles 테이블에서 최신 display_name을 가져와 닉네임 동기화를 보장합니다.
 
 "use client";
 
@@ -16,6 +16,10 @@ interface AuthState {
   isLoading: boolean;
   // 로그인 여부 (로딩 완료 후에만 신뢰 가능)
   isLoggedIn: boolean;
+  // profiles 테이블 기반 표시 이름 (닉네임 동기화용)
+  displayName: string;
+  // 아바타 URL
+  avatarUrl: string;
 }
 
 export function useAuth(): AuthState {
@@ -23,6 +27,22 @@ export function useAuth(): AuthState {
   const [user, setUser] = useState<User | null>(null);
   // 초기 로딩 상태 (true로 시작하여 깜빡임 방지)
   const [isLoading, setIsLoading] = useState(true);
+  // profiles 테이블에서 가져온 최신 닉네임
+  const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null);
+
+  // profiles 테이블에서 최신 display_name을 가져옵니다
+  const fetchProfileName = async (userId: string) => {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", userId)
+      .single();
+
+    if (data?.display_name) {
+      setProfileDisplayName(data.display_name);
+    }
+  };
 
   useEffect(() => {
     const supabase = createClient();
@@ -30,6 +50,8 @@ export function useAuth(): AuthState {
     // 현재 세션에서 유저 정보를 가져옵니다
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user);
+      // 로그인된 유저가 있으면 profiles 테이블에서 닉네임 조회
+      if (user) fetchProfileName(user.id);
       setIsLoading(false);
     });
 
@@ -37,7 +59,11 @@ export function useAuth(): AuthState {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      // 로그인/닉네임 변경 시 profiles에서 최신 이름 다시 조회
+      if (currentUser) fetchProfileName(currentUser.id);
+      else setProfileDisplayName(null);
       setIsLoading(false);
     });
 
@@ -47,9 +73,25 @@ export function useAuth(): AuthState {
     };
   }, []);
 
+  // 표시 이름: profiles > user_metadata > 이메일 순으로 fallback
+  const displayName =
+    profileDisplayName ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email?.split("@")[0] ||
+    "사용자";
+
+  // 아바타 URL: user_metadata에서 가져옴
+  const avatarUrl =
+    user?.user_metadata?.avatar_url ||
+    user?.user_metadata?.picture ||
+    "";
+
   return {
     user,
     isLoading,
     isLoggedIn: !isLoading && !!user,
+    displayName,
+    avatarUrl,
   };
 }

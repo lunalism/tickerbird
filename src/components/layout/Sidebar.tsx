@@ -11,7 +11,6 @@ import {
   FileText,
   MessageSquare,
   Calendar,
-  User,
   Bell,
   ChevronsLeft,
   ChevronsRight,
@@ -21,13 +20,12 @@ import {
 import { useUIStore } from "@/stores/uiStore";
 import { useAuth } from "@/hooks/useAuth";
 
-// 메뉴 아이템 목록 정의
+// 메뉴 아이템 목록 정의 (내 정보는 하단 프로필 영역에서 접근)
 const menuItems = [
   { label: "뉴스", icon: Globe, href: "/news" },
   { label: "리포트", icon: FileText, href: "/reports" },
   { label: "커뮤니티", icon: MessageSquare, href: "/community" },
   { label: "캘린더", icon: Calendar, href: "/calendar" },
-  { label: "내 정보", icon: User, href: "/profile" },
   { label: "알림", icon: Bell, href: "/notifications" },
 ] as const;
 
@@ -41,20 +39,9 @@ export default function Sidebar() {
   // 전역 상태에서 사이드바 상태를 가져옵니다
   const { isSidebarOpen, toggleSidebar } = useUIStore();
 
-  // Supabase 세션에서 실제 로그인 상태를 감지합니다
-  const { user, isLoading: isAuthLoading, isLoggedIn } = useAuth();
-
-  // 유저 표시 정보 (Supabase user_metadata에서 가져옴)
-  const displayName =
-    user?.user_metadata?.full_name ||
-    user?.user_metadata?.name ||
-    user?.email?.split("@")[0] ||
-    "사용자";
-  // Google 프로필 사진 URL (avatar_url > picture 순으로 fallback)
-  const avatarUrl =
-    user?.user_metadata?.avatar_url ||
-    user?.user_metadata?.picture ||
-    "";
+  // Supabase 세션 + profiles 테이블에서 최신 닉네임을 가져옵니다
+  const { isLoading: isAuthLoading, isLoggedIn, displayName, avatarUrl } =
+    useAuth();
 
   return (
     // 데스크탑(md 이상)에서만 표시, 모바일에서는 숨김
