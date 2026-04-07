@@ -120,29 +120,47 @@ export default function ProfilePageClient() {
   };
 
   // 닉네임 저장
+  // 1) auth user_metadata 업데이트 (사이드바 등 즉시 반영)
+  // 2) profiles 테이블 upsert (DB 영속 저장)
   const handleEditSave = async () => {
     if (!user || !editName.trim()) return;
     setIsSaving(true);
 
+    const trimmedName = editName.trim();
     const supabase = createClient();
-    // profiles 테이블에 닉네임을 업데이트합니다 (upsert)
-    const { error } = await supabase
+
+    // 1단계: Supabase Auth user_metadata에 닉네임 저장
+    // → onAuthStateChange가 트리거되어 사이드바도 즉시 반영됩니다
+    const { error: authError } = await supabase.auth.updateUser({
+      data: { full_name: trimmedName, name: trimmedName },
+    });
+
+    if (authError) {
+      console.error("닉네임 auth 메타데이터 업데이트 실패:", authError);
+      showToast("닉네임 변경에 실패했습니다", "error");
+      setIsSaving(false);
+      setIsEditingName(false);
+      return;
+    }
+
+    // 2단계: profiles 테이블에도 저장 (영속 데이터)
+    const { error: profileError } = await supabase
       .from("profiles")
       .upsert(
-        { id: user.id, display_name: editName.trim() },
+        { id: user.id, display_name: trimmedName },
         { onConflict: "id" }
       );
 
-    if (!error) {
-      // 저장 성공: 로컬 상태 업데이트 + 성공 토스트
-      setProfile((prev) =>
-        prev ? { ...prev, display_name: editName.trim() } : prev
-      );
-      showToast("닉네임이 변경되었습니다", "success");
-    } else {
-      // 저장 실패: 에러 토스트
-      showToast("닉네임 변경에 실패했습니다", "error");
+    if (profileError) {
+      // profiles 테이블 저장 실패는 경고만 (auth 업데이트는 성공했으므로)
+      console.error("닉네임 profiles 테이블 저장 실패:", profileError);
     }
+
+    // 로컬 상태 업데이트 + 성공 토스트
+    setProfile((prev) =>
+      prev ? { ...prev, display_name: trimmedName } : prev
+    );
+    showToast("닉네임이 변경되었습니다", "success");
 
     setIsSaving(false);
     setIsEditingName(false);
