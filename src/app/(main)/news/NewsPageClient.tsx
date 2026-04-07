@@ -5,7 +5,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   ChevronDown,
   ChevronUp,
@@ -90,8 +89,8 @@ function getCategoryFromSource(source: string): { label: string; style: string }
 // ──────────────────────────────────────────────
 
 export default function NewsPageClient() {
-  const router = useRouter();
   const setSelectedArticle = useNewsStore((s) => s.setSelectedArticle);
+  const setAllArticles = useNewsStore((s) => s.setAllArticles);
 
   // 시장 필터 상태 (전체 / 한국 / 미국)
   const [selectedMarket, setSelectedMarket] = useState<"all" | "KR" | "US">("all");
@@ -107,10 +106,9 @@ export default function NewsPageClient() {
   // Supabase 세션에서 실제 로그인 상태를 감지합니다
   const { isLoggedIn, isLoading: isAuthLoading } = useAuth();
 
-  // 기사 클릭 핸들러: Zustand에 저장 후 모달 라우트로 이동
+  // 기사 클릭 핸들러: Zustand에 저장하여 모달 즉시 표시
   const handleArticleClick = (article: Article) => {
     setSelectedArticle(article);
-    router.push(`/news/${article.id}`);
   };
 
   // 기사 조회
@@ -141,8 +139,10 @@ export default function NewsPageClient() {
       if (error) {
         console.error("기사 조회 실패:", error);
         setArticles([]);
+        setAllArticles([]);
       } else {
         setArticles(data ?? []);
+        setAllArticles(data ?? []);
       }
     } catch (error) {
       console.error("기사 조회 예외:", error);

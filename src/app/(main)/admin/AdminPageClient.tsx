@@ -5,7 +5,8 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Users, FileText, BarChart3 } from "lucide-react";
+import Link from "next/link";
+import { Loader2, Users, FileText, BarChart3, Ban } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function AdminPageClient() {
@@ -40,7 +41,7 @@ export default function AdminPageClient() {
       </h1>
 
       {/* 관리 메뉴 카드 그리드 */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {/* 사용자 관리 */}
         <div className="rounded-lg border border-border bg-card p-6">
           <div className="mb-3 flex items-center gap-2">
@@ -71,6 +72,22 @@ export default function AdminPageClient() {
           </div>
           <p className="text-xs text-muted-foreground">준비 중</p>
         </div>
+
+        {/* 차단 언론사 관리 */}
+        <Link
+          href="/admin/blocked-sources"
+          className="rounded-lg border border-border bg-card p-6 transition-colors hover:border-foreground/20"
+        >
+          <div className="mb-3 flex items-center gap-2">
+            <Ban size={20} className="text-red-500" />
+            <h3 className="text-sm font-semibold text-foreground">
+              차단 언론사 관리
+            </h3>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            뉴스 수집 시 제외할 언론사를 관리합니다
+          </p>
+        </Link>
       </div>
     </div>
   );
