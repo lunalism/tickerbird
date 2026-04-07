@@ -17,6 +17,10 @@ const RSS_SOURCES = [
     name: "Investing.com",
     url: "https://www.investing.com/rss/news.rss",
   },
+  {
+    name: "Nasdaq",
+    url: "https://www.nasdaq.com/feed/rssoutbound?category=Original+Articles",
+  },
 ] as const;
 
 // 각 소스당 최대 수집 아이템 수

@@ -18,6 +18,8 @@ function getSourceBadgeStyle(source: string): string {
       return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
     case "Investing.com":
       return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+    case "Nasdaq":
+      return "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400";
     case "네이버":
       return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
     default:

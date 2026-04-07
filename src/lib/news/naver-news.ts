@@ -68,7 +68,7 @@ async function searchByKeyword(
 ): Promise<{ articles: RawArticle[]; blockedCount: number }> {
   const params = new URLSearchParams({
     query: keyword,
-    display: "10",
+    display: "5",
     sort: "date",
   });
 
