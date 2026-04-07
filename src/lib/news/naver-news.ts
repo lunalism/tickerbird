@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { RawArticle } from "./types";
 
 // 검색 키워드 목록
-const KEYWORDS = ["경제", "주식", "코스피", "환율"];
+const KEYWORDS = ["증시", "코스피", "환율", "금리"];
 
 const NAVER_API_URL = "https://openapi.naver.com/v1/search/news.json";
 
@@ -18,6 +18,14 @@ interface NaverNewsItem {
   originallink: string;
   pubDate: string;
 }
+
+// 불필요한 기사 제목 패턴 (인사, 부고, 광고 등)
+const BLOCKED_TITLE_PATTERNS = [
+  "[인사]", "[포토]", "[날씨]", "[부고]",
+  "[공고]", "[안내]", "[모집]", "[채용]",
+  "[광고]", "[협찬]", "[PR]",
+  "부고", "빈소", "별세", "영면",
+];
 
 /** HTML 태그를 제거합니다 (<b>, </b> 등) */
 function stripHtmlTags(text: string): string {
@@ -96,13 +104,21 @@ async function searchByKeyword(
     return true;
   });
 
-  const articles = filteredItems.map((item) => ({
-    title: stripHtmlTags(item.title),
-    url: item.link,
-    publishedAt: item.pubDate,
-    sourceName: "네이버",
-    country: "KR" as const,
-  }));
+  // 제목 패턴 필터링 (인사, 부고, 광고 등 제외)
+  const articles = filteredItems
+    .map((item) => ({
+      title: stripHtmlTags(item.title),
+      url: item.link,
+      publishedAt: item.pubDate,
+      sourceName: "네이버",
+      country: "KR" as const,
+    }))
+    .filter(
+      (article) =>
+        !BLOCKED_TITLE_PATTERNS.some((pattern) =>
+          article.title.includes(pattern)
+        )
+    );
 
   return { articles, blockedCount };
 }
