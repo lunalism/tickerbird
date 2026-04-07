@@ -51,12 +51,9 @@ export async function GET() {
     return Response.json({ sources: [] });
   }
 
-  try {
-    const sources = JSON.parse(data.value) as string[];
-    return Response.json({ sources });
-  } catch {
-    return Response.json({ sources: [] });
-  }
+  // jsonb 컬럼은 Supabase JS가 이미 파싱된 상태로 반환합니다
+  const sources = Array.isArray(data.value) ? data.value : [];
+  return Response.json({ sources });
 }
 
 // PUT: 차단 언론사 목록 업데이트
@@ -77,7 +74,7 @@ export async function PUT(request: Request) {
   const { error } = await supabase
     .from("admin_settings")
     .upsert(
-      { key: SETTINGS_KEY, value: JSON.stringify(sources) },
+      { key: SETTINGS_KEY, value: sources as unknown as string },
       { onConflict: "key" }
     );
 

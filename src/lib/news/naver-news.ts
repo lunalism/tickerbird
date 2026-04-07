@@ -40,7 +40,8 @@ async function getBlockedSources(): Promise<string[]> {
 
     if (error || !data) return [];
 
-    return JSON.parse(data.value) as string[];
+    // jsonb 컬럼은 Supabase JS가 이미 파싱된 상태로 반환합니다
+    return Array.isArray(data.value) ? data.value : [];
   } catch {
     console.error("[뉴스수집] 차단 언론사 목록 조회 실패");
     return [];
