@@ -33,7 +33,9 @@ export default function LoginPageClient() {
 
   return (
     // 메인 영역 전체를 채우면서 중앙 정렬
-    <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-background px-4 md:min-h-screen">
+    // 모바일: 상단 헤더(3.5rem) + 하단 탭바(4rem) 제외한 영역에서 중앙 정렬
+    // 데스크탑: 전체 화면 높이에서 중앙 정렬
+    <div className="flex min-h-[calc(100vh-7.5rem)] items-center justify-center bg-background px-4 md:min-h-screen">
       {/* 로그인 카드 */}
       <div className="w-full max-w-sm space-y-8 rounded-xl border border-border bg-card p-8 shadow-sm">
         {/* 상단: 로고 및 서비스 소개 */}
