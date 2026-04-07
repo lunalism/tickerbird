@@ -33,9 +33,8 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // 인증이 필요한 경로: (main) 그룹 하위 모든 페이지
+  // 인증이 필요한 경로: /news는 비로그인도 접근 가능
   const isProtectedRoute =
-    pathname.startsWith("/news") ||
     pathname.startsWith("/reports") ||
     pathname.startsWith("/community") ||
     pathname.startsWith("/calendar") ||
