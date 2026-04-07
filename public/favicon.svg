@@ -1,0 +1,25 @@
+<!-- Tickerbird 로고 (아이콘 전용) -->
+<!-- 새가 위로 날아오르는 형태 + 꼬리에 주식 상승선 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- 주식 차트 상승선 (꼬리 부분) -->
+  <path
+    d="M8 48 L20 40 L30 44 L40 28"
+    stroke="#0ea5e9"
+    stroke-width="3.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+  <!-- 새 몸통 (위로 날아오르는 형태) -->
+  <path
+    d="M40 28 C42 24, 46 18, 50 14 C48 20, 50 24, 56 26 C52 26, 48 28, 46 32 C44 30, 42 29, 40 28Z"
+    fill="#0ea5e9"
+  />
+  <!-- 새 날개 (펼친 형태) -->
+  <path
+    d="M44 26 C40 20, 34 16, 26 14 C32 18, 36 22, 40 28"
+    fill="#10b981"
+  />
+  <!-- 상승 화살표 끝 강조점 -->
+  <circle cx="50" cy="14" r="2.5" fill="#0ea5e9" />
+</svg>

@@ -19,6 +19,12 @@ export const metadata: Metadata = {
     default: "Tickerbird",
   },
   description: "AI 기반 한국·미국 주식 금융 뉴스 분석 플랫폼",
+  // 파비콘 설정 (SVG 로고 사용)
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

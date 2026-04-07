@@ -67,8 +67,8 @@ export default function Sidebar() {
           <Image
             src="/images/logo-full.svg"
             alt="Tickerbird 로고"
-            width={140}
-            height={32}
+            width={160}
+            height={36}
             className="shrink-0"
             priority
           />
@@ -76,8 +76,8 @@ export default function Sidebar() {
           <Image
             src="/images/logo.svg"
             alt="Tickerbird 로고"
-            width={28}
-            height={28}
+            width={36}
+            height={36}
             className="shrink-0"
             priority
           />
