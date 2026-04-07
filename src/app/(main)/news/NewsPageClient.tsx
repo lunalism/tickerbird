@@ -100,7 +100,7 @@ function getCategoryFromSource(source: string): { label: string; style: string }
 }
 
 // ──────────────────────────────────────────────
-// 인터리빙 함수
+// 유틸 함수 (피드 아이템)
 // ──────────────────────────────────────────────
 
 // FeedItem에서 정렬용 시간 필드 추출
@@ -111,58 +111,6 @@ function getFeedItemTime(item: FeedItem): string {
 // FeedItem에서 출처명 추출
 function getFeedItemSource(item: FeedItem): string {
   return item.itemType === "trump" ? "Truth Social" : item.source_name;
-}
-
-// 1시간 단위 버킷으로 나눈 뒤, 각 버킷 안에서 소스별 라운드로빈으로 섞습니다.
-function interleaveFeedItems(items: FeedItem[]): FeedItem[] {
-  if (items.length <= 1) return items;
-
-  // 1시간(ms) 단위로 버킷 키 생성
-  const BUCKET_MS = 60 * 60 * 1000;
-  const bucketMap = new Map<number, FeedItem[]>();
-
-  for (const item of items) {
-    const key = Math.floor(new Date(getFeedItemTime(item)).getTime() / BUCKET_MS);
-    const bucket = bucketMap.get(key);
-    if (bucket) {
-      bucket.push(item);
-    } else {
-      bucketMap.set(key, [item]);
-    }
-  }
-
-  // 버킷을 최신순으로 정렬
-  const sortedKeys = Array.from(bucketMap.keys()).sort((a, b) => b - a);
-
-  const result: FeedItem[] = [];
-
-  for (const key of sortedKeys) {
-    const bucket = bucketMap.get(key)!;
-
-    // 소스별로 그룹화
-    const bySource = new Map<string, FeedItem[]>();
-    for (const item of bucket) {
-      const source = getFeedItemSource(item);
-      const group = bySource.get(source);
-      if (group) {
-        group.push(item);
-      } else {
-        bySource.set(source, [item]);
-      }
-    }
-
-    // 라운드로빈: 각 소스에서 하나씩 번갈아 뽑고, 빈 큐는 즉시 제거
-    let queues = Array.from(bySource.values());
-    while (queues.length > 0) {
-      for (const queue of queues) {
-        result.push(queue.shift()!);
-      }
-      // 빈 큐 제거하여 남은 소스끼리도 골고루 섞이도록 함
-      queues = queues.filter((q) => q.length > 0);
-    }
-  }
-
-  return result;
 }
 
 // FeedItem에서 표시용 제목 추출 (트럼프 게시물은 content_ko 첫 줄, 50자 제한)
@@ -263,15 +211,14 @@ export default function NewsPageClient() {
         allItems = allItems.filter((item) => item.itemType === "article");
       }
 
-      // 시간순 정렬 후 인터리빙 적용
+      // 발행시간 기준 정렬 (최신순)
       allItems.sort(
         (a, b) =>
           new Date(getFeedItemTime(b)).getTime() -
           new Date(getFeedItemTime(a)).getTime()
       );
-      const interleaved = interleaveFeedItems(allItems);
-      setFeedItems(interleaved);
-      setAllItems(interleaved);
+      setFeedItems(allItems);
+      setAllItems(allItems);
     } catch (error) {
       console.error("피드 조회 예외:", error);
       setFeedItems([]);
