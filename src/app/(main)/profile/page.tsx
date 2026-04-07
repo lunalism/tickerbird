@@ -1,6 +1,8 @@
-// 내 정보 페이지 (준비 중)
+// 내 정보 페이지 (서버 컴포넌트 래퍼)
+// metadata를 export하기 위해 서버 컴포넌트로 유지합니다.
 
 import type { Metadata } from "next";
+import ProfilePageClient from "./ProfilePageClient";
 
 // 내 정보 페이지 탭 제목
 export const metadata: Metadata = {
@@ -8,9 +10,5 @@ export const metadata: Metadata = {
 };
 
 export default function ProfilePage() {
-  return (
-    <div className="flex h-full items-center justify-center p-8">
-      <p className="text-lg text-muted-foreground">내 정보 페이지 - 준비 중</p>
-    </div>
-  );
+  return <ProfilePageClient />;
 }
