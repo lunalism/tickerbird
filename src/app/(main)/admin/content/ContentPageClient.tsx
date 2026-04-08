@@ -107,11 +107,8 @@ export default function ContentPageClient() {
     setIsCollecting(true);
     setCollectResult("");
     try {
-      const res = await fetch("/api/news/collect", {
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET ?? ""}`,
-        },
-      });
+      // 관리자 프록시 API를 통해 수집 (세션 쿠키로 인증, CRON_SECRET 미노출)
+      const res = await fetch("/api/admin/collect", { method: "POST" });
 
       const data = await res.json();
       if (data.success) {
