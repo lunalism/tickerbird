@@ -34,11 +34,15 @@ type PostJoinRow = Post & {
 };
 
 // GET /api/posts/[id] - 게시글 상세 조회
+// 쿼리 파라미터 no_view=true를 전달하면 조회수 증가를 건너뜁니다.
+// (수정 페이지처럼 단순 조회 목적일 때 view_count 오염 방지용)
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const skipViewCount =
+    new URL(request.url).searchParams.get("no_view") === "true";
   const supabase = await createClient();
 
   // 게시글 조회 (작성자 정보 포함, 삭제되지 않은 것만)
@@ -58,15 +62,18 @@ export async function GET(
 
   const row = data as unknown as PostJoinRow;
 
-  // 조회수 증가 (실패해도 응답에는 영향 없음)
-  const nextViewCount = row.view_count + 1;
-  const { error: updateError } = await supabase
-    .from("posts")
-    .update({ view_count: nextViewCount })
-    .eq("id", id);
+  // 조회수 증가 (no_view=true 인 경우 건너뜀, 실패해도 응답에는 영향 없음)
+  let nextViewCount = row.view_count;
+  if (!skipViewCount) {
+    nextViewCount = row.view_count + 1;
+    const { error: updateError } = await supabase
+      .from("posts")
+      .update({ view_count: nextViewCount })
+      .eq("id", id);
 
-  if (updateError) {
-    console.error("조회수 증가 실패:", updateError);
+    if (updateError) {
+      console.error("조회수 증가 실패:", updateError);
+    }
   }
 
   const { author, ...rest } = row;

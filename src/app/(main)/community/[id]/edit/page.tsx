@@ -30,7 +30,10 @@ export default function CommunityEditPage() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const res = await fetch(`/api/posts/${postId}`, { cache: "no-store" });
+      // 수정 페이지 진입 시 조회수가 증가하지 않도록 no_view=true 전달
+      const res = await fetch(`/api/posts/${postId}?no_view=true`, {
+        cache: "no-store",
+      });
       if (res.status === 404) {
         throw new Error("게시글을 찾을 수 없습니다");
       }
