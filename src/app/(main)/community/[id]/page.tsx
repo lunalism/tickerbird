@@ -54,7 +54,22 @@ export default function CommunityPostDetailPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/posts/${postId}`, { cache: "no-store" });
+      // sessionStorage 기반 중복 조회수 방지
+      // 같은 세션 내 동일 게시글 새로고침 시 view_count가 중복 증가하지 않도록 처리
+      // (SSR 환경 또는 sessionStorage 접근 차단 시 안전하게 false 처리)
+      const storageKey = `viewed_post_${postId}`;
+      let alreadyViewed = false;
+      try {
+        alreadyViewed = sessionStorage.getItem(storageKey) === "true";
+      } catch {
+        // 접근 불가 시 무시 (조회수는 증가하는 쪽으로 동작)
+      }
+
+      const url = alreadyViewed
+        ? `/api/posts/${postId}?no_view=true`
+        : `/api/posts/${postId}`;
+
+      const res = await fetch(url, { cache: "no-store" });
       if (res.status === 404) {
         throw new Error("게시글을 찾을 수 없습니다");
       }
@@ -63,6 +78,15 @@ export default function CommunityPostDetailPage() {
       }
       const data: { post: PostWithAuthor } = await res.json();
       setPost(data.post);
+
+      // 첫 조회 성공 시에만 마킹 (이후 새로고침은 no_view=true 분기)
+      if (!alreadyViewed) {
+        try {
+          sessionStorage.setItem(storageKey, "true");
+        } catch {
+          // 접근 불가 시 무시
+        }
+      }
     } catch (err) {
       console.error("게시글 조회 실패:", err);
       setError(
