@@ -5,6 +5,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -180,10 +181,13 @@ export default function UsersPageClient() {
                 {/* 아바타 */}
                 <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-muted">
                   {user.avatar_url ? (
-                    <img
+                    <Image
                       src={user.avatar_url}
-                      alt=""
+                      alt={`${user.display_name || "사용자"} 프로필 사진`}
+                      width={36}
+                      height={36}
                       className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-xs font-medium text-muted-foreground">
