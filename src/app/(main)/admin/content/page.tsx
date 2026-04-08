@@ -5,6 +5,7 @@ import ContentPageClient from "./ContentPageClient";
 
 export const metadata: Metadata = {
   title: "콘텐츠 관리 - 관리자",
+  robots: { index: false, follow: false },
 };
 
 export default function ContentPage() {

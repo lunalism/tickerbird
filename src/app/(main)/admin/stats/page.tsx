@@ -5,6 +5,7 @@ import StatsPageClient from "./StatsPageClient";
 
 export const metadata: Metadata = {
   title: "통계 - 관리자",
+  robots: { index: false, follow: false },
 };
 
 export default function StatsPage() {

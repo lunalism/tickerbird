@@ -11,6 +11,8 @@ import NewsModal from "@/components/news/NewsModal";
 
 export const metadata: Metadata = {
   title: "뉴스",
+  description:
+    "오늘의 주요 금융 뉴스. AI가 분석한 한국·미국 주식 시장 핵심 뉴스를 한눈에.",
 };
 
 // 캐싱용 Supabase 클라이언트 (쿠키 미사용, anon key로 공개 데이터 조회)

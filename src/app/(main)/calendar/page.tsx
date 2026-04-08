@@ -2,9 +2,10 @@
 
 import type { Metadata } from "next";
 
-// 캘린더 페이지 탭 제목
 export const metadata: Metadata = {
   title: "캘린더",
+  description:
+    "주요 경제지표 발표, 실적 발표, 중앙은행 회의 일정을 한눈에.",
 };
 
 export default function CalendarPage() {

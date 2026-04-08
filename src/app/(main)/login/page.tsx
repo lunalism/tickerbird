@@ -4,9 +4,12 @@
 import type { Metadata } from "next";
 import LoginPageClient from "./LoginPageClient";
 
-// 로그인 페이지 탭 제목
+// 로그인 페이지 메타데이터 (검색엔진 인덱싱 불필요)
 export const metadata: Metadata = {
   title: "로그인",
+  description:
+    "Tickerbird에 로그인하고 AI 금융 뉴스 분석 서비스를 이용하세요.",
+  robots: { index: false },
 };
 
 export default function LoginPage() {

@@ -5,6 +5,7 @@ import UsersPageClient from "./UsersPageClient";
 
 export const metadata: Metadata = {
   title: "사용자 관리 - 관리자",
+  robots: { index: false, follow: false },
 };
 
 export default function UsersPage() {

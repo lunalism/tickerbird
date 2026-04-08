@@ -18,6 +18,7 @@ import { createClient } from "@supabase/supabase-js";
 
 export const metadata: Metadata = {
   title: "관리자 패널",
+  robots: { index: false, follow: false },
 };
 
 // 캐싱 없음 (실시간 데이터 필요)
