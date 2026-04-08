@@ -18,7 +18,7 @@ export default function MobileHeader() {
     // 모바일(md 미만)에서만 표시
     <header className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background px-4 md:hidden">
       {/* 왼쪽: 로고 */}
-      <Link href="/news">
+      <Link href="/news" prefetch={false}>
         <Image
           src="/images/logo-full.svg"
           alt="Tickerbird 로고"
@@ -43,6 +43,7 @@ export default function MobileHeader() {
         {/* 알림 벨 아이콘 */}
         <Link
           href="/notifications"
+          prefetch={false}
           className="relative rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           aria-label="알림"
         >

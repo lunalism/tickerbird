@@ -97,6 +97,7 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               className={`
                 flex items-center gap-3 rounded-md px-3 py-2
                 transition-colors duration-150
@@ -122,6 +123,7 @@ export default function Sidebar() {
         <div className="border-t border-border px-2 py-2">
           <Link
             href="/admin"
+            prefetch={false}
             className={`
               flex items-center gap-3 rounded-md px-3 py-2
               transition-colors duration-150
@@ -146,6 +148,7 @@ export default function Sidebar() {
         {/* 설정 버튼 */}
         <Link
           href="/settings"
+          prefetch={false}
           className={bottomButtonStyle}
           title={!isSidebarOpen ? "설정" : undefined}
         >
@@ -157,6 +160,7 @@ export default function Sidebar() {
         {isAuthLoading ? null : isLoggedIn ? (
           <Link
             href="/profile"
+            prefetch={false}
             className={bottomButtonStyle}
             title={!isSidebarOpen ? displayName : undefined}
           >
@@ -180,6 +184,7 @@ export default function Sidebar() {
         ) : (
           <Link
             href="/login"
+            prefetch={false}
             className={bottomButtonStyle}
             title={!isSidebarOpen ? "로그인" : undefined}
           >
