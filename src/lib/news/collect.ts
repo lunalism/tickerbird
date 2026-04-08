@@ -7,7 +7,7 @@ import { fetchRssFeeds } from "@/lib/news/rss-parser";
 import { fetchNaverNews } from "@/lib/news/naver-news";
 import { fetchTrumpPosts } from "@/lib/news/trump-posts";
 import { translateArticles, translateTrumpPosts } from "@/lib/news/claude-translator";
-import type { RawArticle } from "@/lib/news/types";
+import type { RawArticle, TranslatedArticle } from "@/lib/news/types";
 
 // 수집 결과 타입
 export interface CollectResult {
@@ -53,9 +53,25 @@ export async function collectNews(): Promise<CollectResult> {
     return { success: true, collected: 0, saved: 0, trump_saved: 0 };
   }
 
-  // 4. Claude 번역/요약
-  const translated = await translateArticles(uniqueArticles);
-  console.log(`번역 완료: ${translated.length}건`);
+  // 4. Claude 번역/요약 (실패 시 원문으로 저장)
+  let translated: TranslatedArticle[];
+  try {
+    translated = await translateArticles(uniqueArticles);
+    console.log(`번역 완료: ${translated.length}건`);
+  } catch (error) {
+    console.error("번역 실패, 원문으로 저장:", error);
+    // 번역 실패 시 원문 데이터를 TranslatedArticle 형식으로 변환
+    translated = uniqueArticles.map((a) => ({
+      title_ko: a.title,
+      summary_ko: "(번역 실패)",
+      title_en: a.title,
+      summary_en: "(translation failed)",
+      source_url: a.url,
+      source_name: a.sourceName,
+      country: a.country,
+      published_at: a.publishedAt,
+    }));
+  }
 
   // 5. Supabase upsert (service_role 사용)
   const supabase = createClient(
