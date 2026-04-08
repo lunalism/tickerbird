@@ -18,6 +18,7 @@ import {
   LogIn,
   Shield,
 } from "lucide-react";
+import NProgress from "nprogress";
 import { useUIStore } from "@/stores/uiStore";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -98,6 +99,7 @@ export default function Sidebar() {
               key={item.href}
               href={item.href}
               prefetch={false}
+              onClick={() => NProgress.start()}
               className={`
                 flex items-center gap-3 rounded-md px-3 py-2
                 transition-colors duration-150
@@ -124,6 +126,7 @@ export default function Sidebar() {
           <Link
             href="/admin"
             prefetch={false}
+            onClick={() => NProgress.start()}
             className={`
               flex items-center gap-3 rounded-md px-3 py-2
               transition-colors duration-150
@@ -149,6 +152,7 @@ export default function Sidebar() {
         <Link
           href="/settings"
           prefetch={false}
+          onClick={() => NProgress.start()}
           className={bottomButtonStyle}
           title={!isSidebarOpen ? "설정" : undefined}
         >
@@ -161,6 +165,7 @@ export default function Sidebar() {
           <Link
             href="/profile"
             prefetch={false}
+            onClick={() => NProgress.start()}
             className={bottomButtonStyle}
             title={!isSidebarOpen ? displayName : undefined}
           >
@@ -185,6 +190,7 @@ export default function Sidebar() {
           <Link
             href="/login"
             prefetch={false}
+            onClick={() => NProgress.start()}
             className={bottomButtonStyle}
             title={!isSidebarOpen ? "로그인" : undefined}
           >

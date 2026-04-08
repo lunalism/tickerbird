@@ -6,6 +6,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Globe, MessageSquare, Calendar, User, LogIn } from "lucide-react";
+import NProgress from "nprogress";
 import { useAuth } from "@/hooks/useAuth";
 
 // 고정 탭 아이템 (처음 3개)
@@ -38,6 +39,7 @@ export default function MobileTabBar() {
             key={tab.href}
             href={tab.href}
             prefetch={false}
+            onClick={() => NProgress.start()}
             className={`
               flex flex-1 flex-col items-center gap-0.5 py-2
               transition-colors duration-150

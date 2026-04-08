@@ -143,6 +143,7 @@ export default async function AdminPage() {
         {/* 통계 */}
         <Link
           href="/admin/stats"
+          prefetch={false}
           className="rounded-lg border border-border bg-card p-6 transition-colors hover:border-foreground/20"
         >
           <div className="mb-3 flex items-center gap-2">
@@ -157,6 +158,7 @@ export default async function AdminPage() {
         {/* 사용자 관리 */}
         <Link
           href="/admin/users"
+          prefetch={false}
           className="rounded-lg border border-border bg-card p-6 transition-colors hover:border-foreground/20"
         >
           <div className="mb-3 flex items-center gap-2">
@@ -173,6 +175,7 @@ export default async function AdminPage() {
         {/* 콘텐츠 관리 */}
         <Link
           href="/admin/content"
+          prefetch={false}
           className="rounded-lg border border-border bg-card p-6 transition-colors hover:border-foreground/20"
         >
           <div className="mb-3 flex items-center gap-2">
@@ -189,6 +192,7 @@ export default async function AdminPage() {
         {/* 차단 언론사 관리 */}
         <Link
           href="/admin/blocked-sources"
+          prefetch={false}
           className="rounded-lg border border-border bg-card p-6 transition-colors hover:border-foreground/20"
         >
           <div className="mb-3 flex items-center gap-2">
