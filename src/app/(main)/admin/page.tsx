@@ -20,6 +20,9 @@ export const metadata: Metadata = {
   title: "관리자 패널",
 };
 
+// 캐싱 없음 (실시간 데이터 필요)
+export const dynamic = "force-dynamic";
+
 // 상대 시간 포맷 (서버에서 렌더링 시점 기준)
 function formatTime(dateStr: string): string {
   if (!dateStr) return "-";
