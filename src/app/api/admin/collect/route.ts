@@ -2,26 +2,8 @@
 // 관리자 인증 후 뉴스 수집을 실행합니다.
 // CRON_SECRET을 클라이언트에 노출하지 않고 안전하게 수집을 트리거합니다.
 
-import { createClient as createServerClient } from "@/lib/supabase/server";
+import { verifyAdmin } from "@/lib/auth";
 import { collectNews } from "@/lib/news/collect";
-
-// 관리자 인증 확인
-async function verifyAdmin(): Promise<boolean> {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return false;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", user.id)
-    .single();
-
-  return profile?.is_admin === true;
-}
 
 // POST: 관리자가 수동으로 뉴스 수집 실행
 export async function POST() {

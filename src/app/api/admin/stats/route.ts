@@ -1,26 +1,8 @@
 // 관리자 통계 API Route
 // 유저, 기사, 트럼프 게시물 등 전체 통계를 반환합니다.
 
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
-
-// 관리자 인증 확인
-async function verifyAdmin(): Promise<boolean> {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return false;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", user.id)
-    .single();
-
-  return profile?.is_admin === true;
-}
+import { verifyAdmin } from "@/lib/auth";
 
 // service_role 클라이언트 생성
 function getAdminClient() {

@@ -2,26 +2,8 @@
 // profiles + auth.users를 조인하여 유저 목록을 반환합니다.
 // service_role 키를 사용하여 auth.users에 접근합니다.
 
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
-
-// 관리자 인증 확인
-async function verifyAdmin(): Promise<boolean> {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return false;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", user.id)
-    .single();
-
-  return profile?.is_admin === true;
-}
+import { verifyAdmin } from "@/lib/auth";
 
 // service_role 클라이언트 생성
 function getAdminClient() {

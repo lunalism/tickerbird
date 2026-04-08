@@ -2,28 +2,10 @@
 // admin_settings 테이블에서 blocked_news_sources를 조회/수정합니다.
 // service_role 키를 사용하여 RLS를 우회합니다.
 
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
+import { verifyAdmin } from "@/lib/auth";
 
 const SETTINGS_KEY = "blocked_news_sources";
-
-// 관리자 인증 확인
-async function verifyAdmin(): Promise<boolean> {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return false;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", user.id)
-    .single();
-
-  return profile?.is_admin === true;
-}
 
 // service_role 클라이언트 생성
 function getAdminClient() {
