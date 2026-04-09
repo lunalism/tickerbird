@@ -93,8 +93,8 @@ export interface CommunityAuthor {
   id: string;
   /** 표시 이름 */
   display_name: string | null;
-  /** 프로필 이미지 URL */
-  avatar_url: string | null;
+  /** 프로필 이미지 URL (profiles 테이블의 avatar 컬럼) */
+  avatar: string | null;
 }
 
 /** 작성자 정보가 포함된 게시글 (목록/상세 응답용) */

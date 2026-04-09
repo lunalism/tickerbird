@@ -15,7 +15,7 @@ const POST_SELECT_WITH_AUTHOR = `
   id, user_id, category, title, content, related_ticker,
   view_count, like_count, comment_count, is_pinned, is_deleted,
   created_at, updated_at,
-  author:profiles!user_id(id, display_name, avatar_url)
+  author:profiles!user_id(id, display_name, avatar)
 `;
 
 /** Supabase 조인 결과의 author 필드 정규화 (배열/단일/null 대응) */
@@ -23,9 +23,9 @@ function normalizeAuthor(
   author: CommunityAuthor | CommunityAuthor[] | null
 ): CommunityAuthor {
   if (Array.isArray(author)) {
-    return author[0] ?? { id: "", display_name: null, avatar_url: null };
+    return author[0] ?? { id: "", display_name: null, avatar: null };
   }
-  return author ?? { id: "", display_name: null, avatar_url: null };
+  return author ?? { id: "", display_name: null, avatar: null };
 }
 
 /** 조인 결과 행을 PostWithAuthor 형태로 변환 */
