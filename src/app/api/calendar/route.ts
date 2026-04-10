@@ -4,7 +4,7 @@
 //
 // - API 키는 절대 클라이언트로 노출되지 않도록 이 서버 라우트에서만 사용합니다.
 // - year/month 쿼리 파라미터로 특정 월만 필터링하여 응답 페이로드를 줄입니다.
-// - 6개 release_id를 Promise.all로 병렬 호출합니다.
+// - 18개 release_id를 Promise.all로 병렬 호출합니다.
 
 import type { CalendarEvent } from "@/types/calendar";
 
@@ -13,17 +13,33 @@ const FRED_RELEASE_DATES_URL =
   "https://api.stlouisfed.org/fred/release/dates";
 
 /** FRED release_id → 한글 명칭/중요도 메타 정보 매핑 */
-// 사용자 요구사항에 정의된 6개 미국 주요 지표만 다룹니다.
+// 미국 주요 거시 지표 18종 (물가/고용/성장/금리/부동산/심리/무역).
+// 중요도 high: 시장 변동성을 크게 유발하는 핵심 지표
+// 중요도 medium: 보조 지표 / 선행 지표
 const RELEASE_META: Record<
   number,
   { title: string; importance: CalendarEvent["importance"] }
 > = {
+  // ── 기존 6개 (변경 금지) ──
   10: { title: "CPI 소비자물가지수", importance: "high" },
   50: { title: "고용/실업률", importance: "high" },
   53: { title: "GDP", importance: "high" },
   392: { title: "FOMC 금리결정", importance: "high" },
   56: { title: "소매판매", importance: "medium" },
   46: { title: "무역수지", importance: "medium" },
+  // ── 신규 추가 12개 ──
+  54: { title: "PCE 물가지수", importance: "high" },
+  82: { title: "PPI 생산자물가지수", importance: "high" },
+  112: { title: "신규실업수당청구", importance: "high" },
+  17: { title: "주택착공", importance: "medium" },
+  13: { title: "산업생산", importance: "medium" },
+  184: { title: "ISM 제조업지수", importance: "medium" },
+  57: { title: "내구재주문", importance: "medium" },
+  245: { title: "소비자신뢰지수", importance: "medium" },
+  398: { title: "신규주택판매", importance: "medium" },
+  23: { title: "경상수지", importance: "medium" },
+  19: { title: "기존주택판매", importance: "medium" },
+  111: { title: "미시간대 소비자심리지수", importance: "medium" },
 };
 
 /** FRED API 응답 중 우리가 사용하는 필드만 발췌한 타입 */
