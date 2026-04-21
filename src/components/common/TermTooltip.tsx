@@ -1,10 +1,12 @@
 // 캘린더 이벤트(또는 기타 위치)에서 사용하는 경제 용어 툴팁
 //
-// 구현 방식: 순수 CSS group-hover 기반 (base-ui Tooltip 대신)
-// - base-ui Tooltip은 내부 restMs(600ms)/move:false 정책 등으로 일반 호버에서
-//   잘 열리지 않는 이슈가 있어 CSS hover 방식으로 전환했습니다.
-// - 트리거를 상대 위치(span.relative.group)로 감싸고, 절대 위치 팝업이 그 위에
-//   group-hover로 표시됩니다. 포털 없이 동작해 z-index만 충분하면 안정적입니다.
+// 구현 방식: React state(onMouseEnter/onMouseLeave) + fixed 포지셔닝
+// - 이전 CSS group-hover + absolute 방식은 부모 컨테이너의 overflow:hidden
+//   또는 stacking context에 막혀 팝업이 가려지는 이슈가 있었습니다.
+// - 본 구현은 isVisible state로 표시 여부를 제어하고, position:fixed + 높은
+//   z-index(9999)로 뷰포트 기준 배치 → 부모 overflow를 완전히 우회합니다.
+// - 마우스 진입 좌표(e.clientX/clientY)를 저장하여 그 위치 기준으로 툴팁을
+//   배치합니다 (위쪽·가로 중앙 정렬, transform으로 보정).
 //
 // - props.releaseId(FRED release_id)를 받아 releaseIdToTerm 매핑으로 용어 ID를 변환합니다.
 // - 로컬 GLOSSARY 배열(src/data/glossary.ts)에서 동기적으로 조회합니다.
@@ -13,7 +15,7 @@
 
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode, type MouseEvent } from "react";
 
 import { GLOSSARY, releaseIdToTerm } from "@/data/glossary";
 import type { TermItem } from "@/data/glossary";
@@ -71,63 +73,90 @@ export default function TermTooltip({
   const termId = releaseIdToTerm[releaseId];
   const term = termId ? glossaryMap.get(termId) ?? null : null;
 
+  // 툴팁 표시 여부 + 마우스 좌표(뷰포트 기준, position:fixed에서 사용)
+  const [isVisible, setIsVisible] = useState(false);
+  const [coords, setCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
   // 매칭되는 용어가 없으면 툴팁 없이 children만 렌더링
   if (!term) {
     return <>{children}</>;
   }
 
+  // 호버 진입: 현재 마우스 좌표를 저장하고 툴팁을 표시
+  const handleMouseEnter = (e: MouseEvent<HTMLSpanElement>) => {
+    setCoords({ x: e.clientX, y: e.clientY });
+    setIsVisible(true);
+  };
+
+  // 호버 중 이동: 마우스를 따라다니도록 좌표 갱신
+  const handleMouseMove = (e: MouseEvent<HTMLSpanElement>) => {
+    setCoords({ x: e.clientX, y: e.clientY });
+  };
+
+  // 호버 이탈: 툴팁 숨김
+  const handleMouseLeave = () => {
+    setIsVisible(false);
+  };
+
   return (
-    // 상대 위치 컨테이너 + group — 자식의 group-hover:로 호버 상태 전파
-    // inline-block을 써서 컨테이너 크기가 children(트리거)에만 맞춰지도록 합니다.
-    // (절대 위치 팝업은 컨테이너 size 계산에 포함되지 않음 → 호버 영역 = 트리거 영역)
-    <span className="group relative inline-block">
+    // 트리거 컨테이너 — inline-block으로 children 크기에만 맞춤
+    <span
+      className="relative inline-block cursor-help"
+      onMouseEnter={handleMouseEnter}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    >
       {children}
 
-      {/* 툴팁 팝업 — group-hover 시 표시 */}
-      <span
-        role="tooltip"
-        className={cn(
-          // 기본 상태: 숨김 (보이지도 않고 포인터 이벤트도 안 받음)
-          "pointer-events-none invisible absolute z-50 opacity-0",
-          // 위치: 트리거 바로 위, 가로 중앙 정렬, 8px 간격
-          "bottom-full left-1/2 mb-2 -translate-x-1/2",
-          // 크기: 컨텐츠 길이만큼, 단 최대 300px
-          "w-max max-w-[300px] whitespace-normal break-words text-left",
-          // 카드 스타일 (popover 토큰으로 라이트/다크 자동 대응)
-          "rounded-md border border-border bg-popover px-3 py-2 shadow-lg",
-          // 호버 시 표시 (group-hover로 부모 hover 상태에 반응)
-          "group-hover:visible group-hover:opacity-100",
-          // 부드러운 페이드 인
-          "transition-opacity duration-150"
-        )}
-      >
-        {/* 상단: 카테고리 배지 + 한국어명 */}
-        <div className="mb-1 flex flex-wrap items-center gap-2">
-          <span
-            className={cn(
-              "inline-flex h-5 items-center rounded-full px-2 text-[10px] font-semibold",
-              categoryBadgeClass(term.category)
-            )}
-          >
-            {term.category}
+      {/* 툴팁 팝업 — fixed + z-[9999]로 부모 overflow:hidden을 완전히 우회 */}
+      {isVisible && (
+        <span
+          role="tooltip"
+          // 인라인 스타일로 뷰포트 기준 위치 지정
+          // top:  마우스 y - 10px (커서보다 약간 위)
+          // left: 마우스 x (transform으로 가로 중앙 정렬 + 위쪽으로 올림)
+          style={{
+            top: coords.y - 10,
+            left: coords.x,
+            transform: "translate(-50%, -100%)",
+          }}
+          className={cn(
+            // 포지셔닝: fixed로 뷰포트 기준, 최상단 z-index
+            "pointer-events-none fixed z-[9999]",
+            // 크기: 컨텐츠 길이만큼, 단 최대 300px
+            "w-max max-w-[300px] whitespace-normal break-words text-left",
+            // 카드 스타일 (popover 토큰으로 라이트/다크 자동 대응)
+            "rounded-md border border-border bg-popover px-3 py-2 shadow-lg",
+          )}
+        >
+          {/* 상단: 카테고리 배지 + 한국어명 */}
+          <span className="mb-1 flex flex-wrap items-center gap-2">
+            <span
+              className={cn(
+                "inline-flex h-5 items-center rounded-full px-2 text-[10px] font-semibold",
+                categoryBadgeClass(term.category)
+              )}
+            >
+              {term.category}
+            </span>
+            <span className="text-sm font-semibold text-popover-foreground">
+              {term.term}
+            </span>
           </span>
-          <span className="text-sm font-semibold text-popover-foreground">
-            {term.term}
+
+          {/* 중간: 영문명 (있을 경우만) */}
+          {term.term_en && (
+            <span className="mt-1 block text-[11px] italic text-muted-foreground">
+              {term.term_en}
+            </span>
+          )}
+
+          {/* 하단: 설명 */}
+          <span className="mt-1 block text-xs leading-relaxed text-popover-foreground/90">
+            {term.definition}
           </span>
-        </div>
-
-        {/* 중간: 영문명 (있을 경우만) */}
-        {term.term_en && (
-          <div className="mb-1 text-[11px] italic text-muted-foreground">
-            {term.term_en}
-          </div>
-        )}
-
-        {/* 하단: 설명 */}
-        <p className="text-xs leading-relaxed text-popover-foreground/90">
-          {term.definition}
-        </p>
-      </span>
+        </span>
+      )}
     </span>
   );
 }
