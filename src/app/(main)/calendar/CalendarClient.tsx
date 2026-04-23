@@ -14,7 +14,16 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { CalendarEvent } from "@/types/calendar";
+import type { CalendarDBTerm, CalendarEvent } from "@/types/calendar";
+
+/**
+ * CalendarClient 가 서버 컴포넌트로부터 받는 props.
+ * termsByReleaseId: release_id 를 key 로 하는 용어 맵.
+ * 3c 커밋에서 지표 클릭 시 모달 표시에 활용 예정.
+ */
+interface CalendarClientProps {
+  termsByReleaseId: Record<number, CalendarDBTerm>;
+}
 
 /** 주간 헤더 라벨 (일요일 시작) */
 const WEEK_DAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
@@ -78,7 +87,12 @@ function importanceLabel(importance: CalendarEvent["importance"]): string {
   }
 }
 
-export default function CalendarClient() {
+export default function CalendarClient({
+  termsByReleaseId,
+}: CalendarClientProps) {
+  // 다음 커밋(3c) 에서 지표 클릭 핸들러 구현 시 사용 예정.
+  void termsByReleaseId;
+
   // 현재 표시 중인 연/월 (오늘 날짜로 초기화)
   const today = useMemo(() => new Date(), []);
   const [year, setYear] = useState<number>(today.getFullYear());
