@@ -1,9 +1,9 @@
 // 뉴스 페이지 (서버 컴포넌트)
-// unstable_cache로 articles/trump_posts를 60초간 캐싱하여
-// 페이지 로딩 속도를 개선합니다.
+// 매 요청마다 Supabase 에서 최신 데이터를 조회합니다.
+// 이전에 unstable_cache 로 60초 캐싱했으나 edge 환경에서 간헐적으로
+// 오래된 데이터를 반환하는 버그가 있어 제거했습니다.
 
 import type { Metadata } from "next";
-import { unstable_cache } from "next/cache";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import NewsPageClient from "./NewsPageClient";
@@ -23,48 +23,43 @@ function getPublicClient() {
   );
 }
 
-// articles 캐시 (60초마다 재검증, 뉴스는 30분마다 수집되므로 충분)
-const getCachedArticles = unstable_cache(
-  async () => {
-    const supabase = getPublicClient();
-    const { data } = await supabase
-      .from("articles")
-      .select("*")
-      .order("published_at", { ascending: false })
-      .limit(50);
-    return data ?? [];
-  },
-  ["articles"],
-  { revalidate: 60 }
-);
+// 최신 기사 50개 조회 (published_at 내림차순)
+// 캐시를 제거하여 항상 최신 데이터를 반환한다.
+// 뉴스는 최신성이 핵심이고, 인덱스 기반 단순 조회라 성능 영향 미미.
+async function getArticles() {
+  const supabase = getPublicClient();
+  const { data } = await supabase
+    .from("articles")
+    .select("*")
+    .order("published_at", { ascending: false })
+    .limit(50);
+  return data ?? [];
+}
 
-// trump_posts 캐시 (60초마다 재검증)
-const getCachedTrumpPosts = unstable_cache(
-  async () => {
-    const supabase = getPublicClient();
-    const { data } = await supabase
-      .from("trump_posts")
-      .select("*")
-      .order("posted_at", { ascending: false })
-      .limit(10);
-    return data ?? [];
-  },
-  ["trump_posts"],
-  { revalidate: 60 }
-);
+// 최신 트럼프 게시물 10개 조회 (posted_at 내림차순)
+// 캐시 제거 이유는 getArticles 와 동일.
+async function getTrumpPosts() {
+  const supabase = getPublicClient();
+  const { data } = await supabase
+    .from("trump_posts")
+    .select("*")
+    .order("posted_at", { ascending: false })
+    .limit(10);
+  return data ?? [];
+}
 
 export default async function NewsPage() {
-  // 로그인 여부 확인 (캐싱 불가 — 쿠키 의존)
+  // 로그인 여부 확인 (쿠키 의존)
   const supabase = await createServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   const isLoggedIn = !!user;
 
-  // 캐시된 데이터 병렬 조회 (60초 캐시, 사용자 무관)
+  // 기사/트럼프 게시물 병렬 조회 (매 요청마다 최신 데이터)
   const [articles, trumpPosts] = await Promise.all([
-    getCachedArticles(),
-    getCachedTrumpPosts(),
+    getArticles(),
+    getTrumpPosts(),
   ]);
 
   // 비로그인 시 기사 10개로 제한
