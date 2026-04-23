@@ -68,9 +68,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    // Dark Reader 등 브라우저 확장이 <html> 태그에 style 속성을 주입하여
+    // 발생하는 hydration mismatch 경고를 억제한다.
+    // 이 속성은 <html> 자신과 직계 자식 텍스트에만 적용되며,
+    // <body> 내부의 실제 hydration 버그는 여전히 감지된다.
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
