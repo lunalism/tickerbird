@@ -13,7 +13,6 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { CalendarDBTerm, CalendarEvent } from "@/types/calendar";
 
@@ -114,8 +113,8 @@ export default function CalendarClient({
   const [fetched, setFetched] = useState<FetchResult | null>(null);
   const [errorState, setErrorState] = useState<FetchError | null>(null);
 
-  // 클릭된 지표의 용어 정보. null 이면 모달 닫힘 상태.
-  // 3c 커밋에서 추가 — 캘린더 이벤트 클릭 → 용어 모달 표시에 사용.
+  // 우측 용어 설명 패널에 표시할 용어 정보. null 이면 안내 문구 표시.
+  // selectedDate 변경 시 첫 이벤트의 용어로 자동 선택, 사용자 클릭 시 덮어씀.
   const [selectedTerm, setSelectedTerm] = useState<CalendarDBTerm | null>(null);
 
   // 현재 표시 중인 키 (year-month) — 파생 상태 비교용
@@ -168,6 +167,20 @@ export default function CalendarClient({
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetched, currentKey]);
+
+  // 날짜 변경 시 첫 지표를 자동으로 우측 패널에 표시.
+  // user 가 다른 지표를 클릭하면 onClick 으로 selectedTerm 이 직접 갱신되지만
+  // selectedDate 는 그대로이므로 이 effect 가 재실행되지 않아 덮어쓰지 않음.
+  useEffect(() => {
+    const eventsForDate = eventsByDate.get(selectedDate) ?? [];
+    if (eventsForDate.length > 0) {
+      const firstTerm = termsByReleaseId[eventsForDate[0].releaseId];
+      setSelectedTerm(firstTerm ?? null);
+    } else {
+      // 이벤트 없는 날짜로 이동 → 우측 패널 안내 문구로 초기화
+      setSelectedTerm(null);
+    }
+  }, [selectedDate, eventsByDate, termsByReleaseId]);
 
   // 6주 × 7일 그리드 셀
   const cells = useMemo(() => buildMonthGrid(year, month), [year, month]);
@@ -303,123 +316,121 @@ export default function CalendarClient({
         })}
       </div>
 
-      {/* 하단 이벤트 목록 */}
-      <div className="mt-6">
-        <h2 className="mb-3 text-sm font-semibold text-foreground">
-          {selectedDate} 일정
-        </h2>
+      {/* 하단: 2열 grid (좌측 일정 / 우측 용어 설명). 모바일은 1열 stack. */}
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
+        {/* 좌측: 선택된 날짜의 일정 리스트 */}
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+          <h2 className="mb-3 text-sm font-semibold text-foreground">
+            {selectedDate} 일정
+          </h2>
 
-        {/* 로딩 스켈레톤 */}
-        {isLoading && (
-          <div className="space-y-2">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-14 w-full animate-pulse rounded-lg border border-border bg-muted/40"
-              />
-            ))}
-          </div>
-        )}
+          {/* 로딩 스켈레톤 */}
+          {isLoading && (
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-14 w-full animate-pulse rounded-lg border border-border bg-muted/40"
+                />
+              ))}
+            </div>
+          )}
 
-        {/* 에러 표시 */}
-        {!isLoading && error && (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-            {error}
-          </div>
-        )}
+          {/* 에러 표시 */}
+          {!isLoading && error && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+              {error}
+            </div>
+          )}
 
-        {/* 이벤트 카드 목록 (혹은 빈 상태) */}
-        {!isLoading && !error && (
-          <>
-            {selectedEvents.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                이벤트가 없습니다
-              </div>
-            ) : (
-              <ul className="space-y-2">
-                {selectedEvents.map((ev) => {
-                  // 해당 release_id 에 매칭되는 용어를 DB 맵에서 조회
-                  const term = termsByReleaseId[ev.releaseId];
-                  const baseClass =
-                    "flex w-full items-center gap-3 rounded-lg border border-border bg-card p-3 text-left shadow-sm";
+          {/* 이벤트 카드 목록 (혹은 빈 상태) */}
+          {!isLoading && !error && (
+            <>
+              {selectedEvents.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                  이벤트가 없습니다
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {selectedEvents.map((ev) => {
+                    // 해당 release_id 에 매칭되는 용어를 DB 맵에서 조회
+                    const term = termsByReleaseId[ev.releaseId];
+                    const baseClass =
+                      "flex w-full items-center gap-3 rounded-lg border border-border bg-card p-3 text-left shadow-sm";
 
-                  // 중요도 배지 / 국기 / 지표명 — button/div 양쪽에서 공통 사용
-                  const inner = (
-                    <>
-                      {/* 중요도 배지 */}
-                      <span
-                        className={cn(
-                          "inline-flex h-6 shrink-0 items-center rounded-full px-2 text-[11px] font-semibold",
-                          ev.importance === "high"
-                            ? "bg-red-500/15 text-red-600 dark:text-red-400"
-                            : ev.importance === "medium"
-                              ? "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400"
-                              : "bg-gray-500/15 text-gray-600 dark:text-gray-400"
-                        )}
-                      >
-                        {importanceLabel(ev.importance)}
-                      </span>
-
-                      {/* 국기 + 지표명 (현재는 미국만) */}
-                      <span className="text-base" aria-label="미국">
-                        🇺🇸
-                      </span>
-                      <span className="text-sm font-medium text-foreground">
-                        {ev.title}
-                      </span>
-                    </>
-                  );
-
-                  return (
-                    <li key={`${ev.releaseId}-${ev.date}`}>
-                      {term ? (
-                        // 용어 정보가 있으면 클릭 가능한 버튼으로 렌더
-                        <button
-                          type="button"
-                          onClick={() => setSelectedTerm(term)}
+                    // 중요도 배지 / 국기 / 지표명 — button/div 양쪽에서 공통 사용
+                    const inner = (
+                      <>
+                        {/* 중요도 배지 */}
+                        <span
                           className={cn(
-                            baseClass,
-                            "cursor-pointer transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            "inline-flex h-6 shrink-0 items-center rounded-full px-2 text-[11px] font-semibold",
+                            ev.importance === "high"
+                              ? "bg-red-500/15 text-red-600 dark:text-red-400"
+                              : ev.importance === "medium"
+                                ? "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400"
+                                : "bg-gray-500/15 text-gray-600 dark:text-gray-400"
                           )}
-                          aria-label={`${ev.title} 용어 정보 보기`}
                         >
-                          {inner}
-                        </button>
-                      ) : (
-                        // 용어 정보가 없으면 기존처럼 non-interactive 로 렌더
-                        <div className={baseClass}>{inner}</div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </>
-        )}
-      </div>
+                          {importanceLabel(ev.importance)}
+                        </span>
 
-      {/* 지표 클릭 시 열리는 용어 정보 모달 */}
-      <Dialog
-        open={selectedTerm !== null}
-        onOpenChange={(open) => {
-          // ESC, 오버레이 클릭, X 버튼 모두 여기로 들어옴
-          if (!open) setSelectedTerm(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          {selectedTerm && (
+                        {/* 국기 + 지표명 (현재는 미국만) */}
+                        <span className="text-base" aria-label="미국">
+                          🇺🇸
+                        </span>
+                        <span className="text-sm font-medium text-foreground">
+                          {ev.title}
+                        </span>
+                      </>
+                    );
+
+                    return (
+                      <li key={`${ev.releaseId}-${ev.date}`}>
+                        {term ? (
+                          // 용어 정보가 있으면 클릭 가능한 버튼으로 렌더
+                          // 우측 패널에 표시 중인 지표는 ring 으로 강조
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTerm(term)}
+                            className={cn(
+                              baseClass,
+                              "cursor-pointer transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                              selectedTerm?.release_id === ev.releaseId &&
+                                "ring-2 ring-primary ring-offset-1"
+                            )}
+                            aria-label={`${ev.title} 용어 정보 보기`}
+                          >
+                            {inner}
+                          </button>
+                        ) : (
+                          // 용어 정보가 없으면 기존처럼 non-interactive 로 렌더
+                          <div className={baseClass}>{inner}</div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* 우측: 선택된 지표의 용어 설명 패널 */}
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+          {selectedTerm ? (
             <div className="flex flex-col gap-3">
               {/* 카테고리 배지 */}
-              <div className="flex items-center gap-2">
+              <div>
                 <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
                   {selectedTerm.category}
                 </span>
               </div>
 
-              {/* 한글 제목 (DialogTitle) */}
-              <DialogTitle className="text-lg font-semibold">
+              {/* 한글 제목 */}
+              <h3 className="text-lg font-semibold text-foreground">
                 {selectedTerm.term}
-              </DialogTitle>
+              </h3>
 
               {/* 영문명 */}
               <p className="text-sm text-muted-foreground">
@@ -427,13 +438,20 @@ export default function CalendarClient({
               </p>
 
               {/* 설명 */}
-              <p className="mt-2 text-sm leading-relaxed text-foreground">
+              <p className="mt-1 text-sm leading-relaxed text-foreground">
                 {selectedTerm.definition}
               </p>
             </div>
+          ) : (
+            // 빈 상태: 처음 접속 시 또는 이벤트 없는 날짜 선택 시
+            <div className="flex h-full min-h-[120px] flex-col items-center justify-center text-center">
+              <p className="text-sm text-muted-foreground">
+                지표를 클릭하면 용어 설명이 표시됩니다
+              </p>
+            </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </div>
+      </div>
     </div>
   );
 }
