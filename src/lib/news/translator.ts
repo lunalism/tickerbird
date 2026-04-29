@@ -1,9 +1,9 @@
-// Gemini 2.5 Flash 를 사용한 한/영 뉴스 번역 및 요약 모듈
+// Gemini 2.5 Flash-Lite 를 사용한 한/영 뉴스 번역 및 요약 모듈
 // REST API 직접 호출로 외부 SDK 의존성을 최소화합니다.
 
 import type { RawArticle, TranslatedArticle, RawTrumpPost } from "./types";
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-2.5-flash-lite";
 const BATCH_SIZE = 5;
 
 // 영어 기사용 프롬프트
@@ -32,9 +32,9 @@ const TRUMP_PROMPT = `다음 트럼프 Truth Social 게시물을 처리해줘.
 JSON 배열만 반환하고 다른 텍스트는 포함하지 마.`;
 
 /**
- * Gemini 2.5 Flash 호출 헬퍼.
+ * Gemini 2.5 Flash-Lite 호출 헬퍼.
  * 무료 티어: 15 RPM / 1000 RPD / 250K TPM
- * Tickerbird 사용량 (일 48 회) 은 무료 한도의 5% 수준.
+ * Tickerbird 사용량 (일 ~576 회) 은 무료 한도의 57% 수준.
  * REST API 직접 호출로 의존성을 최소화합니다.
  */
 async function callGemini(prompt: string): Promise<string> {
@@ -92,7 +92,7 @@ async function translateBatch(
     .map((a, i) => `${i + 1}. ${a.title}`)
     .join("\n");
 
-  // Gemini 2.5 Flash 로 번역 호출
+  // Gemini 2.5 Flash-Lite 로 번역 호출
   const rawText = await callGemini(`${prompt}\n\n${titlesText}`);
 
   // JSON 배열 파싱 (responseMimeType=application/json 이지만 안전망으로 마크다운 코드블록 제거 유지)
@@ -125,7 +125,7 @@ async function translateTrumpBatch(
     .map((p, i) => `${i + 1}. ${p.content}`)
     .join("\n");
 
-  // Gemini 2.5 Flash 로 번역 호출
+  // Gemini 2.5 Flash-Lite 로 번역 호출
   const rawText = await callGemini(`${TRUMP_PROMPT}\n\n${contentsText}`);
 
   const jsonStr = rawText.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
