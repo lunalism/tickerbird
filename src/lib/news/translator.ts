@@ -6,6 +6,15 @@ import type { RawArticle, TranslatedArticle, RawTrumpPost } from "./types";
 const GEMINI_MODEL = "gemini-2.5-flash-lite";
 const BATCH_SIZE = 5;
 
+// 지정된 시간(ms)만큼 대기하는 유틸. RPM 한도 회피용.
+// Gemini Flash-Lite 무료 티어는 15 RPM 이므로 batch 사이
+// 최소 4초 간격이 안전선. 여기서는 1초 마진 더해 5초 사용.
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+// batch 사이 대기 시간(ms). 변경 시 RPM 한도 재검토 필요.
+const BATCH_INTERVAL_MS = 5000;
+
 // 영어 기사용 프롬프트
 const EN_PROMPT = `다음 영어 뉴스 기사 제목들을 처리해줘.
 각 기사에 대해 JSON 배열로 응답해줘.
@@ -45,7 +54,7 @@ async function callGemini(prompt: string): Promise<string> {
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
-  const response = await fetch(url, {
+  const requestInit: RequestInit = {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -56,19 +65,42 @@ async function callGemini(prompt: string): Promise<string> {
         responseMimeType: "application/json", // 순수 JSON 만 반환하도록 강제
       },
     }),
-  });
+  };
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Gemini API 오류: ${response.status} ${errorText}`);
+  // 429 응답 시 Retry-After 헤더 기반 1회 재시도.
+  // Gemini Flash-Lite 의 일시적 RPM 초과 시 자동 회복 목적.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await fetch(url, requestInit);
+
+    if (response.status === 429 && attempt === 0) {
+      // Retry-After 헤더는 보통 초 단위 정수.
+      // 없으면 보수적으로 10초 대기 (RPM 윈도우 60초의 1/6).
+      const retryAfter = parseInt(
+        response.headers.get("retry-after") ?? "10",
+        10
+      );
+      const waitMs = Math.min(retryAfter * 1000, 30000); // 최대 30초
+      console.warn(
+        `Gemini 429 응답, ${waitMs}ms 후 재시도 (attempt ${attempt + 1})`
+      );
+      await sleep(waitMs);
+      continue;
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gemini API 오류: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text || typeof text !== "string") {
+      throw new Error("Gemini 응답에서 텍스트를 추출하지 못했습니다");
+    }
+    return text;
   }
 
-  const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text || typeof text !== "string") {
-    throw new Error("Gemini 응답에서 텍스트를 추출하지 못했습니다");
-  }
-  return text;
+  throw new Error("Gemini API 재시도 후에도 실패");
 }
 
 /** 기사 배열을 BATCH_SIZE씩 나눕니다 */
@@ -146,12 +178,19 @@ export async function translateTrumpPosts(
   const batches = chunk(posts, BATCH_SIZE);
   const results: Array<{ post_id: string; content_ko: string; summary_ko: string }> = [];
 
-  for (const batch of batches) {
+  // RPM 한도 회피를 위해 batch 사이 sleep 삽입.
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i];
     try {
       const translated = await translateTrumpBatch(batch);
       results.push(...translated);
     } catch (error) {
+      // (재처리 마커는 trump_posts 스키마 미검증으로 보류)
       console.error("트럼프 게시물 번역 배치 처리 실패:", error);
+    }
+    // 마지막 batch 가 아니면 RPM 한도 회피용 대기.
+    if (i < batches.length - 1) {
+      await sleep(BATCH_INTERVAL_MS);
     }
   }
 
@@ -168,21 +207,36 @@ export async function translateArticles(
 
   const results: TranslatedArticle[] = [];
 
-  // 각 국가별로 배치 처리
-  for (const [country, countryArticles] of [
+  // 각 국가별로 배치 처리.
+  // RPM 한도 회피를 위해 batch 사이 / 국가 사이 sleep 삽입.
+  const countries = [
     ["KR", krArticles],
     ["US", usArticles],
-  ] as const) {
+  ] as const;
+
+  for (let c = 0; c < countries.length; c++) {
+    const [country, countryArticles] = countries[c];
     const batches = chunk(countryArticles, BATCH_SIZE);
 
-    for (const batch of batches) {
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
       try {
         const translated = await translateBatch(batch, country);
         results.push(...translated);
       } catch (error) {
-        // JSON 파싱 실패 시 해당 배치 스킵
+        // JSON 파싱 실패 또는 Gemini 호출 실패 시 해당 배치 스킵.
+        // (재처리 마커는 articles 테이블 스키마 미지원으로 보류)
         console.error(`번역 배치 처리 실패 (${country}):`, error);
       }
+      // 마지막 batch 가 아니면 RPM 한도 회피용 대기.
+      if (i < batches.length - 1) {
+        await sleep(BATCH_INTERVAL_MS);
+      }
+    }
+
+    // KR 종료 후 US 시작 전 RPM 윈도우 분리.
+    if (c < countries.length - 1) {
+      await sleep(BATCH_INTERVAL_MS);
     }
   }
 

@@ -9,6 +9,10 @@ import { fetchTrumpPosts } from "@/lib/news/trump-posts";
 import { translateArticles, translateTrumpPosts } from "@/lib/news/translator";
 import type { RawArticle, TranslatedArticle } from "@/lib/news/types";
 
+// 지정된 시간(ms)만큼 대기하는 유틸. Gemini RPM 한도 회피용.
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
 // 수집 결과 타입
 export interface CollectResult {
   success: boolean;
@@ -105,6 +109,9 @@ export async function collectNews(): Promise<CollectResult> {
     console.log(`트럼프 게시물 수집 완료: ${rawTrumpPosts.length}건`);
 
     if (rawTrumpPosts.length > 0) {
+      // translateArticles 직후 곧바로 트럼프 번역 시작하면 RPM 누적.
+      // 윈도우 분리를 위해 5초 대기.
+      await sleep(5000);
       const translatedTrump = await translateTrumpPosts(rawTrumpPosts);
       console.log(`트럼프 게시물 번역 완료: ${translatedTrump.length}건`);
 

@@ -4,6 +4,12 @@
 
 import { collectNews } from "@/lib/news/collect";
 
+// Fluid Compute 환경에서 함수 최대 실행 시간 (초).
+// 번역 batch 사이 sleep 으로 인해 한 사이클이 약 2 분 소요되므로
+// Hobby Fluid Compute 한도(300초)의 절반 수준인 180으로 설정.
+// RSS/네이버 수집 실패 시 retry 까지 감안한 안전 마진.
+export const maxDuration = 180;
+
 export async function GET(request: Request) {
   // 인증: Vercel Cron 요청이거나 CRON_SECRET이 맞으면 허용
   const isVercelCron = request.headers.get("x-vercel-cron") === "1";
