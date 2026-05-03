@@ -20,7 +20,6 @@ export interface CalendarEvent {
 /**
  * DB 의 glossary 테이블 row 를 표현하는 타입.
  * 캘린더 지표 클릭 시 용어 모달에 표시할 정보를 담는다.
- * 정적 파일의 TermItem 과 별개로 관리하여 점진적 마이그레이션.
  */
 export interface CalendarDBTerm {
   /** uuid primary key (TypeScript 에서는 string) */
